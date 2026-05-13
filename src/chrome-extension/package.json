@@ -1,0 +1,19 @@
+{
+  "name": "passel-chrome-extension",
+  "version": "1.0.0",
+  "homepage": "https://passel.link",
+  "private": true,
+  "scripts": {
+    "dev": "node build.mjs --dev",
+    "dev:watch": "node build.mjs --dev --watch",
+    "build": "node build.mjs",
+    "typecheck": "tsc --noEmit",
+    "clean": "powershell -Command \"Remove-Item dist,out -Recurse -Force -ErrorAction SilentlyContinue; exit 0\"",
+    "publish": "npm run clean && npm run build && powershell -Command \"New-Item -ItemType Directory -Path out -Force | Out-Null; Compress-Archive -Path manifest.json,popup.html,popup.css,icons,dist -DestinationPath out/passel.zip -Force\""
+  },
+  "devDependencies": {
+    "@types/chrome": "^0.0.304",
+    "esbuild": "^0.28.0",
+    "typescript": "^5.8.3"
+  }
+}

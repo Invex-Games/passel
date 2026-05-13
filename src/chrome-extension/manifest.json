@@ -1,0 +1,34 @@
+{
+  "manifest_version": 3,
+  "name": "Passel",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAvbOIa434FmG1JVGYMlkIhX6MgRueOzJQU43tBP1lT7yv3ZEF/+e5rum46bV0oucDyNBW5PtCo/BNGWNmC1dsc07/wtNynZQigRVRy6ct+U8dqmcfeCTAHioaU20uH0dgkYV+4A86WTon98tVPgf5L+eBCyknRMX/+UiiUurE2HU5DGJY0t7TozL33GxYRn7dqdcXyoyhvLWsMxC+PK56WIbO1Kd3c60OI4LgqEXIVXgK/UiKG5XIY4x28B1tKavrYdgLGcNZNg6SzETueErYj1xW5v6nNYdtSQPje0BfBJizwIKDcyvbRP7AIUhfpIZvlFqBFgH943Op3t/XJhZ74QIDAQAB",
+  "description": "Send links and text between your devices.",
+  "homepage_url": "https://passel.link",
+  "version": "1.0.0",
+  "permissions": [
+    "contextMenus",
+    "activeTab",
+    "identity",
+    "storage"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/icon-16.png",
+      "48": "icons/icon-48.png",
+      "128": "icons/icon-128.png"
+    }
+  },
+  "icons": {
+    "16": "icons/icon-16.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
+  },
+  "background": {
+    "service_worker": "dist/background.js",
+    "type": "module"
+  }
+}

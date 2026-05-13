@@ -1,0 +1,6 @@
+#include "Release.xcconfig"
+FLUTTER_FLAVOR=prod
+PRODUCT_BUNDLE_IDENTIFIER=com.invex.passel.mobileapp
+PRODUCT_NAME=Passel
+DART_DEFINES=FLAVOR=prod
+

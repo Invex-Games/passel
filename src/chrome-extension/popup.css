@@ -1,0 +1,478 @@
+/* ── MD3 Design Tokens ──────────────────────────────────── */
+:root {
+    --md-sys-color-primary: rgb(44 99 139);
+    --md-sys-color-surface-tint: rgb(44 99 139);
+    --md-sys-color-on-primary: rgb(255 255 255);
+    --md-sys-color-primary-container: rgb(204 229 255);
+    --md-sys-color-on-primary-container: rgb(8 75 114);
+    --md-sys-color-secondary: rgb(81 96 111);
+    --md-sys-color-on-secondary: rgb(255 255 255);
+    --md-sys-color-secondary-container: rgb(212 228 246);
+    --md-sys-color-on-secondary-container: rgb(57 72 87);
+    --md-sys-color-tertiary: rgb(103 88 122);
+    --md-sys-color-on-tertiary: rgb(255 255 255);
+    --md-sys-color-tertiary-container: rgb(237 220 255);
+    --md-sys-color-on-tertiary-container: rgb(78 65 97);
+    --md-sys-color-error: rgb(186 26 26);
+    --md-sys-color-on-error: rgb(255 255 255);
+    --md-sys-color-error-container: rgb(255 218 214);
+    --md-sys-color-on-error-container: rgb(147 0 10);
+    --md-sys-color-background: rgb(247 249 255);
+    --md-sys-color-on-background: rgb(24 28 32);
+    --md-sys-color-surface: rgb(247 249 255);
+    --md-sys-color-on-surface: rgb(24 28 32);
+    --md-sys-color-surface-variant: rgb(222 227 235);
+    --md-sys-color-on-surface-variant: rgb(66 71 78);
+    --md-sys-color-outline: rgb(114 120 126);
+    --md-sys-color-outline-variant: rgb(194 199 206);
+    --md-sys-color-shadow: rgb(0 0 0);
+    --md-sys-color-scrim: rgb(0 0 0);
+    --md-sys-color-inverse-surface: rgb(45 49 53);
+    --md-sys-color-inverse-on-surface: rgb(238 241 246);
+    --md-sys-color-inverse-primary: rgb(153 204 250);
+    --md-sys-color-primary-fixed: rgb(204 229 255);
+    --md-sys-color-on-primary-fixed: rgb(0 29 49);
+    --md-sys-color-primary-fixed-dim: rgb(153 204 250);
+    --md-sys-color-on-primary-fixed-variant: rgb(8 75 114);
+    --md-sys-color-secondary-fixed: rgb(212 228 246);
+    --md-sys-color-on-secondary-fixed: rgb(13 29 42);
+    --md-sys-color-secondary-fixed-dim: rgb(184 200 218);
+    --md-sys-color-on-secondary-fixed-variant: rgb(57 72 87);
+    --md-sys-color-tertiary-fixed: rgb(237 220 255);
+    --md-sys-color-on-tertiary-fixed: rgb(34 21 51);
+    --md-sys-color-tertiary-fixed-dim: rgb(210 191 231);
+    --md-sys-color-on-tertiary-fixed-variant: rgb(78 65 97);
+    --md-sys-color-surface-dim: rgb(215 218 223);
+    --md-sys-color-surface-bright: rgb(247 249 255);
+    --md-sys-color-surface-container-lowest: rgb(255 255 255);
+    --md-sys-color-surface-container-low: rgb(241 244 249);
+    --md-sys-color-surface-container: rgb(235 238 243);
+    --md-sys-color-surface-container-high: rgb(230 232 238);
+    --md-sys-color-surface-container-highest: rgb(224 226 232);
+    --md-sys-shape-corner-full: 9999px;
+    --md-sys-shape-corner-large: 16px;
+    --md-sys-shape-corner-medium: 12px;
+    --md-sys-shape-corner-small: 8px;
+    --md-sys-shape-corner-extra-small: 4px;
+}
+
+@media (prefers-color-scheme: dark) {
+    :root {
+        --md-sys-color-primary: rgb(153 204 250);
+        --md-sys-color-surface-tint: rgb(153 204 250);
+        --md-sys-color-on-primary: rgb(0 51 81);
+        --md-sys-color-primary-container: rgb(8 75 114);
+        --md-sys-color-on-primary-container: rgb(204 229 255);
+        --md-sys-color-secondary: rgb(184 200 218);
+        --md-sys-color-on-secondary: rgb(35 50 63);
+        --md-sys-color-secondary-container: rgb(57 72 87);
+        --md-sys-color-on-secondary-container: rgb(212 228 246);
+        --md-sys-color-tertiary: rgb(210 191 231);
+        --md-sys-color-on-tertiary: rgb(55 42 74);
+        --md-sys-color-tertiary-container: rgb(78 65 97);
+        --md-sys-color-on-tertiary-container: rgb(237 220 255);
+        --md-sys-color-error: rgb(255 180 171);
+        --md-sys-color-on-error: rgb(105 0 5);
+        --md-sys-color-error-container: rgb(147 0 10);
+        --md-sys-color-on-error-container: rgb(255 218 214);
+        --md-sys-color-background: rgb(16 20 24);
+        --md-sys-color-on-background: rgb(224 226 232);
+        --md-sys-color-surface: rgb(16 20 24);
+        --md-sys-color-on-surface: rgb(224 226 232);
+        --md-sys-color-surface-variant: rgb(66 71 78);
+        --md-sys-color-on-surface-variant: rgb(194 199 206);
+        --md-sys-color-outline: rgb(140 145 152);
+        --md-sys-color-outline-variant: rgb(66 71 78);
+        --md-sys-color-shadow: rgb(0 0 0);
+        --md-sys-color-scrim: rgb(0 0 0);
+        --md-sys-color-inverse-surface: rgb(224 226 232);
+        --md-sys-color-inverse-on-surface: rgb(45 49 53);
+        --md-sys-color-inverse-primary: rgb(44 99 139);
+        --md-sys-color-primary-fixed: rgb(204 229 255);
+        --md-sys-color-on-primary-fixed: rgb(0 29 49);
+        --md-sys-color-primary-fixed-dim: rgb(153 204 250);
+        --md-sys-color-on-primary-fixed-variant: rgb(8 75 114);
+        --md-sys-color-secondary-fixed: rgb(212 228 246);
+        --md-sys-color-on-secondary-fixed: rgb(13 29 42);
+        --md-sys-color-secondary-fixed-dim: rgb(184 200 218);
+        --md-sys-color-on-secondary-fixed-variant: rgb(57 72 87);
+        --md-sys-color-tertiary-fixed: rgb(237 220 255);
+        --md-sys-color-on-tertiary-fixed: rgb(34 21 51);
+        --md-sys-color-tertiary-fixed-dim: rgb(210 191 231);
+        --md-sys-color-on-tertiary-fixed-variant: rgb(78 65 97);
+        --md-sys-color-surface-dim: rgb(16 20 24);
+        --md-sys-color-surface-bright: rgb(54 57 62);
+        --md-sys-color-surface-container-lowest: rgb(11 15 18);
+        --md-sys-color-surface-container-low: rgb(24 28 32);
+        --md-sys-color-surface-container: rgb(28 32 36);
+        --md-sys-color-surface-container-high: rgb(39 42 46);
+        --md-sys-color-surface-container-highest: rgb(49 53 57);
+        --md-sys-shape-corner-full: 9999px;
+        --md-sys-shape-corner-large: 16px;
+        --md-sys-shape-corner-medium: 12px;
+        --md-sys-shape-corner-small: 8px;
+        --md-sys-shape-corner-extra-small: 4px;
+    }
+}
+
+/* ── Reset ─────────────────────────────────────────────── */
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+/* ── Body ──────────────────────────────────────────────── */
+body {
+    font-family: "Roboto", system-ui, sans-serif;
+    width: 360px;
+    background: var(--md-sys-color-surface);
+    color: var(--md-sys-color-on-surface);
+}
+
+/* ── Header ────────────────────────────────────────────── */
+header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px 20px;
+    background: var(--md-sys-color-surface-container);
+}
+
+.header-icon {
+    width: 24px;
+    height: 24px;
+}
+
+.header-title {
+    font-size: 18px;
+    font-weight: 500;
+    letter-spacing: 0.01em;
+    color: var(--md-sys-color-on-surface);
+}
+
+.header-auth {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-left: auto;
+}
+
+.header-email {
+    font-size: 12px;
+    color: var(--md-sys-color-on-surface-variant);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 160px;
+}
+
+/* ── Main ──────────────────────────────────────────────── */
+main {
+    padding: 16px 20px 20px;
+}
+
+.section {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.divider {
+    height: 1px;
+    background: var(--md-sys-color-outline-variant);
+    margin: 16px 0;
+}
+
+/* ── MD3 Buttons ───────────────────────────────────────── */
+.md-btn {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+    height: 40px;
+    padding: 0 24px;
+    border: none;
+    border-radius: var(--md-sys-shape-corner-full);
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+    cursor: pointer;
+    transition: box-shadow 0.2s, background-color 0.2s;
+    overflow: hidden;
+}
+
+.md-btn::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    opacity: 0;
+    transition: opacity 0.2s;
+}
+
+.md-btn:hover::after {
+    opacity: 0.08;
+}
+
+.md-btn:active::after {
+    opacity: 0.12;
+}
+
+.md-btn:disabled {
+    opacity: 0.38;
+    cursor: default;
+    box-shadow: none;
+}
+
+.md-btn:disabled::after {
+    display: none;
+}
+
+/* Filled button */
+.md-btn-filled {
+    background: var(--md-sys-color-primary);
+    color: var(--md-sys-color-on-primary);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
+}
+
+.md-btn-filled::after {
+    background: var(--md-sys-color-on-primary);
+}
+
+.md-btn-filled:hover:not(:disabled) {
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2), 0 2px 6px rgba(0, 0, 0, 0.1);
+}
+
+/* Tonal button */
+.md-btn-tonal {
+    background: var(--md-sys-color-secondary-container);
+    color: var(--md-sys-color-on-secondary-container);
+}
+
+.md-btn-tonal::after {
+    background: var(--md-sys-color-on-secondary-container);
+}
+
+.btn-icon {
+    font-size: 18px;
+}
+
+/* ── MD3 Outlined Text Field ───────────────────────────── */
+.text-field {
+    position: relative;
+}
+
+.text-field textarea {
+    display: block;
+    width: 100%;
+    padding: 16px;
+    border: 1px solid var(--md-sys-color-outline);
+    border-radius: var(--md-sys-shape-corner-extra-small);
+    background: transparent;
+    font-family: inherit;
+    font-size: 14px;
+    line-height: 1.4;
+    color: var(--md-sys-color-on-surface);
+    resize: vertical;
+    outline: none;
+    transition: border-color 0.15s;
+}
+
+.text-field textarea:hover {
+    border-color: var(--md-sys-color-on-surface);
+}
+
+.text-field textarea:focus {
+    border-color: var(--md-sys-color-primary);
+    border-width: 2px;
+    padding: 15px;
+    /* compensate for 2px border */
+}
+
+.text-field label {
+    position: absolute;
+    left: 12px;
+    top: 16px;
+    font-size: 14px;
+    color: var(--md-sys-color-on-surface-variant);
+    background: var(--md-sys-color-surface);
+    padding: 0 4px;
+    pointer-events: none;
+    transition: all 0.15s ease;
+}
+
+.text-field textarea:focus+label,
+.text-field textarea:not(:placeholder-shown)+label {
+    top: -8px;
+    font-size: 12px;
+    color: var(--md-sys-color-primary);
+}
+
+.text-field textarea:not(:focus):not(:placeholder-shown)+label {
+    color: var(--md-sys-color-on-surface-variant);
+}
+
+/* ── Status Bar (snackbar-style) ───────────────────────── */
+.status-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 20px;
+    font-size: 14px;
+    letter-spacing: 0.02em;
+    animation: slideIn 0.2s ease-out;
+}
+
+.status-bar.success {
+    background: var(--md-sys-color-tertiary-container);
+    color: var(--md-sys-color-on-tertiary-container);
+}
+
+.status-bar.error {
+    background: var(--md-sys-color-error-container);
+    color: var(--md-sys-color-on-error-container);
+}
+
+.hidden {
+    display: none !important;
+}
+
+/* ── Auth / User Info ──────────────────────────────────── */
+.user-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 0;
+}
+
+.user-icon {
+    font-size: 24px;
+    color: var(--md-sys-color-primary);
+}
+
+.user-email {
+    flex: 1;
+    font-size: 13px;
+    color: var(--md-sys-color-on-surface-variant);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.md-btn-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border: none;
+    border-radius: 50%;
+    background: transparent;
+    color: var(--md-sys-color-on-surface-variant);
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.md-btn-icon:hover {
+    background: var(--md-sys-color-surface-container-high);
+}
+
+.disabled-section {
+    opacity: 0.38;
+    pointer-events: none;
+}
+
+/* ── Drop Zone ─────────────────────────────────────────── */
+.drop-zone {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 24px 16px;
+    border: 2px dashed var(--md-sys-color-outline);
+    border-radius: var(--md-sys-shape-corner-medium);
+    cursor: pointer;
+    transition: border-color 0.2s, background-color 0.2s;
+}
+
+.drop-zone:hover {
+    border-color: var(--md-sys-color-primary);
+    background: color-mix(in srgb, var(--md-sys-color-primary) 5%, transparent);
+}
+
+.drop-zone-active {
+    border-color: var(--md-sys-color-primary);
+    background: color-mix(in srgb, var(--md-sys-color-primary) 10%, transparent);
+}
+
+.drop-zone-icon {
+    font-size: 32px;
+    color: var(--md-sys-color-on-surface-variant);
+}
+
+.drop-zone-text {
+    font-size: 13px;
+    color: var(--md-sys-color-on-surface-variant);
+}
+
+/* ── Image Preview ─────────────────────────────────────── */
+.image-preview-container {
+    position: relative;
+    border-radius: var(--md-sys-shape-corner-medium);
+    overflow: hidden;
+    background: var(--md-sys-color-surface-container);
+}
+
+.image-preview {
+    display: block;
+    width: 100%;
+    max-height: 200px;
+    object-fit: contain;
+    border-radius: var(--md-sys-shape-corner-medium);
+}
+
+.clear-image-btn {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    background: var(--md-sys-color-surface);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+/* ── Spinner ───────────────────────────────────────────── */
+.spinner {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    border: 2px solid currentColor;
+    border-right-color: transparent;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    vertical-align: middle;
+    flex-shrink: 0;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-4px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}

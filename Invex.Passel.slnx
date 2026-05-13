@@ -1,0 +1,8 @@
+<Solution>
+  <Project Path="_atom/_atom.csproj" />
+  <Folder Name="/Aspire/">
+    <Project Path="src/webapi/Invex.Passel.AppHost/Invex.Passel.AppHost.csproj" />
+    <Project Path="src/webapi/Invex.Passel.ServiceDefaults/Invex.Passel.ServiceDefaults.csproj" />
+  </Folder>
+  <Project Path="src/webapi/Invex.Passel.WebApi/Invex.Passel.WebApi.csproj" />
+</Solution>
