@@ -1,0 +1,34 @@
+-   name: Getting Started
+    href: getting-started/prerequisites.md
+    items:
+        -   name: Prerequisites
+            href: getting-started/prerequisites.md
+        -   name: Google OAuth Clients
+            href: getting-started/google-oauth.md
+        -   name: Running Locally
+            href: getting-started/running-locally.md
+-   name: Components
+    href: components/web-api.md
+    items:
+        -   name: Web API
+            href: components/web-api.md
+        -   name: Chrome Extension
+            href: components/chrome-extension.md
+        -   name: Mobile App
+            href: components/mobile-app.md
+-   name: Guides
+    href: guides/testing.md
+    items:
+        -   name: Testing
+            href: guides/testing.md
+        -   name: Writing Docs
+            href: guides/writing-docs.md
+-   name: Reference
+    href: reference/build-targets.md
+    items:
+        -   name: Build Targets
+            href: reference/build-targets.md
+        -   name: Configuration
+            href: reference/configuration.md
+        -   name: HTTP API
+            href: reference/http-api.md

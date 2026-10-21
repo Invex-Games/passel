@@ -1,0 +1,42 @@
+{
+  "$schema": "https://raw.githubusercontent.com/dotnet/docfx/main/schemas/docfx.schema.json",
+  "build": {
+    "content": [
+      {
+        "files": [
+          "toc.yml",
+          "index.md"
+        ]
+      },
+      {
+        "files": [
+          "docs/toc.yml",
+          "docs/**/*.md"
+        ]
+      }
+    ],
+    "resource": [
+      {
+        "files": [
+          "resources/*.png"
+        ]
+      }
+    ],
+    "output": "_site",
+    "globalMetadata": {
+      "_appTitle": "Passel",
+      "_appName": "Passel",
+      "_appLogoPath": "resources/icon-128.png",
+      "_appFaviconPath": "resources/icon-48.png",
+      "_appFooter": "Passel · Invex Games",
+      "_enableSearch": true
+    },
+    "template": [
+      "default",
+      "modern"
+    ],
+    "theme": [
+      "docfx-theme"
+    ]
+  }
+}

@@ -9,6 +9,7 @@
         <PackageReference Include="Invex.Atom.Build" Version="3.7.0" />
         <PackageReference Include="Invex.Atom.Module.AzureKeyVault" Version="3.7.0" />
         <PackageReference Include="Invex.Atom.Module.GitVersion" Version="3.7.0" />
+        <PackageReference Include="Invex.RepoUtils.Atom.Module" Version="1.9.0" />
         <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.13" />
     </ItemGroup>
 </Project>

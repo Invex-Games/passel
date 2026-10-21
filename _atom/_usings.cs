@@ -17,3 +17,5 @@ global using Invex.Atom.Module.AzureKeyVault.Options;
 global using Invex.Atom.Module.Dotnet.Helpers;
 global using Invex.SemanticVersion;
 global using JetBrains.Annotations;
+global using Invex.RepoUtils.Atom.Module.Helpers;
+global using Environment = System.Environment;
