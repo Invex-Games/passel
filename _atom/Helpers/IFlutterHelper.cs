@@ -29,10 +29,8 @@ internal interface IFlutterHelper : IProcessHelper
         Dictionary<string, string?>? environmentVariables = null,
         CancellationToken cancellationToken = default)
     {
+        // Kept between builds, so packages are only downloaded when they change
         var pubCache = RootedFileSystem.AtomRootDirectory / ".pub-cache";
-
-        if (pubCache.DirectoryExists)
-            RootedFileSystem.Directory.Delete(pubCache, true);
 
         RootedFileSystem.Directory.CreateDirectory(pubCache);
 

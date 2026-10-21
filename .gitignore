@@ -3,6 +3,8 @@
 # Atom
 atom-publish
 .gitversioncache
+# Flutter SDK the build clones when none is on PATH
+.flutter/
 
 # DocFX
 _site/
