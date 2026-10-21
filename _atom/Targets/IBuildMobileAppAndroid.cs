@@ -127,8 +127,8 @@ internal interface IBuildMobileAppAndroid : IFlutterHelper,
             });
 
     /// <summary>
-    ///     Compile-time configuration for the app. These take precedence over the app's bundled <c>.env</c>; any
-    ///     value not passed here falls back to <c>.env</c>.
+    ///     Compile-time configuration for the app. A local <c>src/mobile_app/.env</c>, if present, supplies defaults;
+    ///     the explicit defines below take precedence over it.
     /// </summary>
     private List<string> GetDartDefines()
     {
@@ -136,7 +136,12 @@ internal interface IBuildMobileAppAndroid : IFlutterHelper,
             ? ApiBaseUrlProduction
             : ApiBaseUrlDevelopment;
 
-        List<string> defines = [$"--dart-define=API_BASE_URL={apiBaseUrl}"];
+        List<string> defines = [];
+
+        if ((MobileAppDirectory / ".env").FileExists)
+            defines.Add("--dart-define-from-file=.env");
+
+        defines.Add($"--dart-define=API_BASE_URL={apiBaseUrl}");
 
         AddClientId("SERVER_CLIENT_ID", nameof(ServerClientId), ServerClientId);
         AddClientId("APP_CLIENT_ID", nameof(MobileAppClientId), MobileAppClientId);
@@ -154,7 +159,7 @@ internal interface IBuildMobileAppAndroid : IFlutterHelper,
 
             // Guard against passing a placeholder that would silently break Google sign-in
             Logger.LogWarning(
-                "{Param} is not a Google OAuth client id ('{Value}'); the app will use {Define} from its .env file",
+                "{Param} is not a Google OAuth client id ('{Value}'); {Define} must come from src/mobile_app/.env",
                 paramName,
                 value,
                 defineName);
