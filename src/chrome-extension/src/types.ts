@@ -1,5 +1,6 @@
 ﻿// Request bodies for POST /api/packets. `$type` must be the first property, and
 // nullable fields must still be sent (as null) because the server requires them.
+// File packets aren't supported by the server yet, so the extension only sends text and links.
 
 export interface TextPacketData {
     $type: "Text";
@@ -13,14 +14,18 @@ export interface LinkPacketData {
     url: string;
 }
 
-export interface FilePacketData {
-    $type: "File";
-    fileName: string | null;
-    contentType: string;
-    payload: string;
+export type PacketData = TextPacketData | LinkPacketData;
+
+// Error body returned by the API for failed requests (RFC 9457 problem details).
+export interface ProblemDetails {
+    title?: string;
+    detail?: string;
+    status?: number;
+    errors?: Record<string, string[]>;
 }
 
-export type PacketData = TextPacketData | LinkPacketData | FilePacketData;
+// Messages sent from the popup to the service worker. All API calls and sign-in
+// run in the worker so they survive the popup closing (e.g. when a sign-in window opens).
 
 export interface SignInMessage {
     action: "signIn"
@@ -34,14 +39,30 @@ export interface GetAuthStateMessage {
     action: "getAuthState"
 }
 
-export type ExtensionMessage = SignInMessage | SignOutMessage | GetAuthStateMessage;
+export interface SendPacketMessage {
+    action: "sendPacket";
+    data: PacketData
+}
+
+export type ExtensionMessage = SignInMessage | SignOutMessage | GetAuthStateMessage | SendPacketMessage;
+
+export interface AuthStateResponse {
+    signedIn: boolean;
+    email?: string
+}
 
 export interface SignInResponse {
     success: boolean;
-    token?: string;
+    email?: string;
     error?: string
 }
 
-export interface AuthStateResponse {
-    token?: string
+export interface SignOutResponse {
+    success: boolean
+}
+
+export interface SendPacketResponse {
+    success: boolean;
+    error?: string;
+    signedOut?: boolean
 }

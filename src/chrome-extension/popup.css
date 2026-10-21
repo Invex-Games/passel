@@ -126,7 +126,7 @@
 
 /* ── Body ──────────────────────────────────────────────── */
 body {
-    font-family: "Roboto", system-ui, sans-serif;
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
     width: 360px;
     background: var(--md-sys-color-surface);
     color: var(--md-sys-color-on-surface);
@@ -259,8 +259,37 @@ main {
     background: var(--md-sys-color-on-secondary-container);
 }
 
+/* ── Icons (inline SVG) ────────────────────────────────── */
+.icon {
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
 .btn-icon {
-    font-size: 18px;
+    width: 18px;
+    height: 18px;
+}
+
+/* ── Button loading state ──────────────────────────────── */
+.md-btn .spinner,
+.md-btn .btn-loading-label,
+.md-btn.loading .btn-icon,
+.md-btn.loading .btn-label {
+    display: none;
+}
+
+.md-btn.loading .spinner {
+    display: inline-block;
+}
+
+.md-btn.loading .btn-loading-label {
+    display: inline;
 }
 
 /* ── MD3 Outlined Text Field ───────────────────────────── */
@@ -386,64 +415,6 @@ main {
 .disabled-section {
     opacity: 0.38;
     pointer-events: none;
-}
-
-/* ── Drop Zone ─────────────────────────────────────────── */
-.drop-zone {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    padding: 24px 16px;
-    border: 2px dashed var(--md-sys-color-outline);
-    border-radius: var(--md-sys-shape-corner-medium);
-    cursor: pointer;
-    transition: border-color 0.2s, background-color 0.2s;
-}
-
-.drop-zone:hover {
-    border-color: var(--md-sys-color-primary);
-    background: color-mix(in srgb, var(--md-sys-color-primary) 5%, transparent);
-}
-
-.drop-zone-active {
-    border-color: var(--md-sys-color-primary);
-    background: color-mix(in srgb, var(--md-sys-color-primary) 10%, transparent);
-}
-
-.drop-zone-icon {
-    font-size: 32px;
-    color: var(--md-sys-color-on-surface-variant);
-}
-
-.drop-zone-text {
-    font-size: 13px;
-    color: var(--md-sys-color-on-surface-variant);
-}
-
-/* ── Image Preview ─────────────────────────────────────── */
-.image-preview-container {
-    position: relative;
-    border-radius: var(--md-sys-shape-corner-medium);
-    overflow: hidden;
-    background: var(--md-sys-color-surface-container);
-}
-
-.image-preview {
-    display: block;
-    width: 100%;
-    max-height: 200px;
-    object-fit: contain;
-    border-radius: var(--md-sys-shape-corner-medium);
-}
-
-.clear-image-btn {
-    position: absolute;
-    top: 4px;
-    right: 4px;
-    background: var(--md-sys-color-surface);
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
 }
 
 /* ── Spinner ───────────────────────────────────────────── */

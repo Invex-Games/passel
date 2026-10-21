@@ -11,9 +11,6 @@
     "identity",
     "storage"
   ],
-  "host_permissions": [
-    "<all_urls>"
-  ],
   "action": {
     "default_popup": "popup.html",
     "default_icon": {
@@ -28,7 +25,7 @@
     "128": "icons/icon-128.png"
   },
   "background": {
-    "service_worker": "dist/background.js",
+    "service_worker": "background.js",
     "type": "module"
   }
 }
