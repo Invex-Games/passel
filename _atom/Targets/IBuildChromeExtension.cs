@@ -21,10 +21,11 @@ internal interface IBuildChromeExtension : IProcessHelper, IConfigurationHelper
 
                 RootedFileSystem.CleanOrCreateDirectory(chromeExtensionPublishDirectory);
 
-                // build.mjs prefers these over any local .env file; without a client id param it falls back to .env
+                // build.mjs prefers these over any local .env file; without a client id param it falls back to .env.
+                // The extension's API_URL is the packets endpoint itself, not the API root.
                 Dictionary<string, string?> buildVariables = new()
                 {
-                    ["API_URL"] = ApiBaseUrlProduction,
+                    ["API_URL"] = $"{ApiBaseUrlProduction!.TrimEnd('/')}/api/packets",
                 };
 
                 if (ChromeExtensionClientId is { Length: > 0 })
