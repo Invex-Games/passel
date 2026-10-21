@@ -1,6 +1,15 @@
 ﻿import {getAccountName, getToken, signIn, signOut} from "./auth.js";
-import {sendPacket} from "./api.js";
-import type {AuthStateResponse, ExtensionMessage, PacketData, SendPacketResponse} from "./types.js";
+import {deletePacket, getPackets, sendPacket} from "./api.js";
+import {addFeedPort} from "./live.js";
+import {FEED_PORT_NAME} from "./types.js";
+import type {
+    AuthStateResponse,
+    CancelDeleteResponse,
+    DeletePacketResponse,
+    ExtensionMessage,
+    PacketData,
+    SendPacketResponse,
+} from "./types.js";
 
 // ── Context menus ─────────────────────────────────────────
 
@@ -98,8 +107,60 @@ chrome.runtime.onMessage.addListener((message: ExtensionMessage, sender, sendRes
             // Sending from the popup is user-initiated, so a sign-in window may be shown if needed.
             sendAndReport(message.data, true).then(sendResponse);
             return true;
+
+        case "getPackets":
+            getPackets(message.cursor).then(sendResponse);
+            return true;
+
+        case "deletePacket":
+            scheduleDelete(message.id, message.delayMs).then(sendResponse);
+            return true;
+
+        case "cancelDelete":
+            sendResponse({cancelled: cancelDelete(message.id)} satisfies CancelDeleteResponse);
+            return false;
     }
 });
+
+// ── Live updates (to the popup's feed) ────────────────────
+
+chrome.runtime.onConnect.addListener(port => {
+    if (port.sender?.id !== chrome.runtime.id || port.name !== FEED_PORT_NAME) return;
+    addFeedPort(port);
+});
+
+// ── Deleting with undo ────────────────────────────────────
+
+// Deletions wait out the popup's undo window here rather than in the popup, so one still goes
+// through if the popup closes before the window ends.
+const pendingDeletes = new Map<string, {
+    timer: ReturnType<typeof setTimeout>;
+    resolve: (response: DeletePacketResponse) => void
+}>();
+
+function scheduleDelete(id: string, delayMs: number): Promise<DeletePacketResponse> {
+    cancelDelete(id);
+
+    return new Promise(resolve => {
+        const timer = setTimeout(() => {
+            pendingDeletes.delete(id);
+            // Deleting is user-initiated, so a sign-in window may be shown if needed.
+            deletePacket(id, true).then(resolve);
+        }, delayMs);
+        pendingDeletes.set(id, {timer, resolve});
+    });
+}
+
+/** Returns false if the deletion was already sent (or never scheduled). */
+function cancelDelete(id: string): boolean {
+    const pending = pendingDeletes.get(id);
+    if (!pending) return false;
+
+    clearTimeout(pending.timer);
+    pendingDeletes.delete(id);
+    pending.resolve({success: false, cancelled: true});
+    return true;
+}
 
 async function getAuthState(): Promise<AuthStateResponse> {
     // Not user-initiated: refresh silently if possible, but never show a sign-in window.

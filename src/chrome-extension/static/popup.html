@@ -9,22 +9,33 @@
 <body>
     <header>
         <img src="icons/icon-48.png" alt="Passel" class="header-icon" />
-        <span class="header-title">Passel</span>
-        <div id="auth-signed-in" class="header-auth hidden">
-            <span id="user-email" class="header-email"></span>
-            <button id="sign-out-btn" class="md-btn-icon" type="button" title="Sign out">
+        <div class="header-text">
+            <span class="header-title">Passel</span>
+            <span id="sync-label" class="header-subtitle hidden"></span>
+        </div>
+        <div class="header-actions">
+            <button id="refresh-btn" class="md-btn-icon hidden" type="button" title="Refresh">
                 <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
-                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-                    <polyline points="16 17 21 12 16 7" />
-                    <line x1="21" y1="12" x2="9" y2="12" />
+                    <path d="M21 12a9 9 0 1 1-2.64-6.36" />
+                    <polyline points="21 3 21 9 15 9" />
                 </svg>
             </button>
+            <div id="auth-signed-in" class="header-auth hidden">
+                <span id="user-email" class="header-email"></span>
+                <button id="sign-out-btn" class="md-btn-icon" type="button" title="Sign out">
+                    <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                        <polyline points="16 17 21 12 16 7" />
+                        <line x1="21" y1="12" x2="9" y2="12" />
+                    </svg>
+                </button>
+            </div>
         </div>
     </header>
 
     <div id="status" class="status-bar hidden" role="alert"></div>
 
-    <main>
+    <main id="main">
         <section id="auth-signed-out" class="section">
             <button id="sign-in-btn" class="md-btn md-btn-filled" type="button">
                 <svg class="icon btn-icon" viewBox="0 0 24 24" aria-hidden="true">
@@ -38,9 +49,7 @@
             </button>
         </section>
 
-        <div id="auth-divider" class="divider"></div>
-
-        <section id="content-section" class="section auth-required disabled-section">
+        <section id="composer" class="section composer auth-required disabled-section">
             <button id="send-page" class="md-btn md-btn-filled" type="button" disabled>
                 <svg class="icon btn-icon" viewBox="0 0 24 24" aria-hidden="true">
                     <circle cx="12" cy="12" r="10" />
@@ -51,25 +60,32 @@
                 <span class="btn-label">Send Current Page</span>
                 <span class="btn-loading-label">Sending…</span>
             </button>
+
+            <div class="composer-row">
+                <div class="text-field">
+                    <textarea id="freetext" rows="2" placeholder=" " disabled></textarea>
+                    <label for="freetext">Text or link to send</label>
+                </div>
+                <button id="send-text" class="md-btn md-btn-tonal composer-send" type="button" title="Send" disabled>
+                    <svg class="icon btn-icon" viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="m22 2-7 20-4-9-9-4Z" />
+                        <path d="M22 2 11 13" />
+                    </svg>
+                    <span class="spinner"></span>
+                </button>
+            </div>
         </section>
 
-        <div class="divider"></div>
-
-        <section id="text-section" class="section auth-required disabled-section">
-            <div class="text-field" id="text-field-container">
-                <textarea id="freetext" rows="3" placeholder=" " disabled></textarea>
-                <label for="freetext">Text to send</label>
-            </div>
-            <button id="send-text" class="md-btn md-btn-tonal" type="button" disabled>
-                <svg class="icon btn-icon" viewBox="0 0 24 24" aria-hidden="true">
-                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-                </svg>
-                <span class="spinner"></span>
-                <span class="btn-label">Send Text</span>
-                <span class="btn-loading-label">Sending…</span>
-            </button>
+        <section class="feed" aria-label="Your packets">
+            <div id="feed-list" class="feed-list"></div>
+            <div id="feed-end" class="feed-end"></div>
         </section>
     </main>
+
+    <div id="toast" class="toast hidden" role="status">
+        <span id="toast-message" class="toast-message"></span>
+        <button id="toast-action" class="toast-action hidden" type="button"></button>
+    </div>
 
     <script type="module" src="popup.js"></script>
 </body>

@@ -1,4 +1,5 @@
 ﻿import {GOOGLE_CLIENT_ID} from "./config.js";
+import {clearFeedCache} from "./cache.js";
 
 // Only the service worker uses this module. The ID token lives in session storage (memory only,
 // cleared when the browser closes); the login hint lives in local storage so a signed-in user can
@@ -68,9 +69,11 @@ export async function signIn(): Promise<string> {
     return authorize("selectAccount");
 }
 
+/** Signs out and clears the signed-in user's cached packets. */
 export async function signOut(): Promise<void> {
     await chrome.storage.session.remove(TOKEN_KEY);
     await chrome.storage.local.remove(LOGIN_HINT_KEY);
+    await clearFeedCache();
 }
 
 async function getLoginHint(): Promise<string | null> {
@@ -128,8 +131,12 @@ async function runAuthFlow(mode: AuthMode): Promise<string> {
     if (!audienceMatches(claims.aud)) throw new Error("ID token audience mismatch");
     if (isExpired(idToken)) throw new Error("ID token is expired");
 
+    const newLoginHint = claims.email || claims.sub || "";
+    // Cached packets must not be shown to a different account signing in on the same browser.
+    if (loginHint && loginHint !== newLoginHint) await clearFeedCache();
+
     await chrome.storage.session.set({[TOKEN_KEY]: idToken});
-    await chrome.storage.local.set({[LOGIN_HINT_KEY]: claims.email || claims.sub || ""});
+    await chrome.storage.local.set({[LOGIN_HINT_KEY]: newLoginHint});
     return idToken;
 }
 
