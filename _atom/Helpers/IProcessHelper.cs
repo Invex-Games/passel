@@ -20,10 +20,10 @@ internal interface IProcessHelper : IBuildAccessor
               paths.FirstOrDefault(p => p.EndsWith("cmd")) ?? paths.FirstOrDefault(p => p.EndsWith("bat")) ?? paths[0]
             : paths.FirstOrDefault(p => p.EndsWith("sh")) ?? paths[0];
 
-        if (!AtomFileSystem.Path.IsPathRooted(path))
+        if (!RootedFileSystem.Path.IsPathRooted(path))
             throw new StepFailedException($"'{name}' path is not rooted");
 
-        return new(AtomFileSystem, path);
+        return new(RootedFileSystem, path);
     }
 
     async Task<RootedPath?> TryFindEnvironmentPath(string name, CancellationToken cancellationToken = default)
@@ -47,10 +47,10 @@ internal interface IProcessHelper : IBuildAccessor
                   paths.FirstOrDefault(p => p.EndsWith("bat")) ?? paths[0]
                 : paths.FirstOrDefault(p => p.EndsWith("sh")) ?? paths[0];
 
-            if (!AtomFileSystem.Path.IsPathRooted(path))
-                return AtomFileSystem.CreateRootedPath(path);
+            if (!RootedFileSystem.Path.IsPathRooted(path))
+                return RootedFileSystem.CreateRootedPath(path);
 
-            return new(AtomFileSystem, path);
+            return new(RootedFileSystem, path);
         }
         catch (Exception ex)
         {

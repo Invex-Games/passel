@@ -63,10 +63,10 @@ internal interface IBuildMobileAppAndroid : IFlutterHelper,
                     .ToString()
                     .ToLowerInvariant();
 
-                AtomFileSystem.CleanOrCreateDirectories([
+                RootedFileSystem.CleanOrCreateDirectories([
                     outputsDir,
-                    AtomFileSystem.AtomPublishDirectory / AndroidAppArtifactName,
-                    AtomFileSystem.AtomPublishDirectory / AndroidAppArtifactName / AndroidDartSymbolsName,
+                    RootedFileSystem.AtomPublishDirectory / AndroidAppArtifactName,
+                    RootedFileSystem.AtomPublishDirectory / AndroidAppArtifactName / AndroidDartSymbolsName,
                     debugSymbolsPath,
                 ]);
 
@@ -106,23 +106,23 @@ internal interface IBuildMobileAppAndroid : IFlutterHelper,
                         buildVariables,
                         cancellationToken);
 
-                    var packagePublishFile = AtomFileSystem.AtomPublishDirectory /
+                    var packagePublishFile = RootedFileSystem.AtomPublishDirectory /
                                              AndroidAppArtifactName /
                                              $"com.invex.passel-{flavorName}.{appExtension}";
 
-                    AtomFileSystem.File.Move(outputFilePath, packagePublishFile);
+                    RootedFileSystem.File.Move(outputFilePath, packagePublishFile);
 
                     if (MobileAppFlavor is MobileAppFlavor.Production)
                         AddSymbolsToPublishFolder(
-                            AtomFileSystem.AtomPublishDirectory / AndroidAppArtifactName / AndroidDartSymbolsName,
+                            RootedFileSystem.AtomPublishDirectory / AndroidAppArtifactName / AndroidDartSymbolsName,
                             debugSymbolsPath,
-                            AtomFileSystem.AtomPublishDirectory / AndroidAppArtifactName,
+                            RootedFileSystem.AtomPublishDirectory / AndroidAppArtifactName,
                             outputsDir / "mapping" / outputDirectoryName);
                 }
                 finally
                 {
                     if (keystorePath != null)
-                        AtomFileSystem.File.Delete(keystorePath);
+                        RootedFileSystem.File.Delete(keystorePath);
                 }
             });
 

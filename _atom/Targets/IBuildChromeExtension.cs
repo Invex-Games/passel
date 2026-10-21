@@ -15,11 +15,11 @@ internal interface IBuildChromeExtension : IProcessHelper, IConfigurationHelper
             .ProducesArtifact(ChromeExtensionArtifactName)
             .Executes(async cancellationToken =>
             {
-                var chromeExtensionDirectory = AtomFileSystem.AtomRootDirectory / "src" / "chrome-extension";
+                var chromeExtensionDirectory = RootedFileSystem.AtomRootDirectory / "src" / "chrome-extension";
                 var chromeExtensionBuildDirectory = chromeExtensionDirectory / "dist";
-                var chromeExtensionPublishDirectory = AtomFileSystem.AtomPublishDirectory / ChromeExtensionArtifactName;
+                var chromeExtensionPublishDirectory = RootedFileSystem.AtomPublishDirectory / ChromeExtensionArtifactName;
 
-                AtomFileSystem.CleanOrCreateDirectory(chromeExtensionPublishDirectory);
+                RootedFileSystem.CleanOrCreateDirectory(chromeExtensionPublishDirectory);
 
                 // build.mjs prefers these over any local .env file; without a client id param it falls back to .env
                 Dictionary<string, string?> buildVariables = new()

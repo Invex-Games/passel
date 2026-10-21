@@ -16,13 +16,13 @@ internal interface IAndroidKeystoreHelper : IProcessHelper
         RootedPath? customPath = null,
         CancellationToken cancellationToken = default)
     {
-        customPath ??= AtomFileSystem.AtomTempDirectory;
+        customPath ??= RootedFileSystem.AtomTempDirectory;
         var keystorePath = customPath / "invex.keystore";
 
         if (!customPath.DirectoryExists)
-            AtomFileSystem.Directory.CreateDirectory(customPath);
+            RootedFileSystem.Directory.CreateDirectory(customPath);
 
-        await AtomFileSystem.File.WriteAllBytesAsync(keystorePath,
+        await RootedFileSystem.File.WriteAllBytesAsync(keystorePath,
             Convert.FromBase64String(androidKeystoreContents),
             cancellationToken);
 

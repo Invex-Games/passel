@@ -9,29 +9,29 @@ internal interface IAndroidSymbolsHelper : IBuildAccessor
         RootedPath reTraceMappingPath)
     {
         // Mobile App Debug symbols ".symbols"
-        var files = AtomFileSystem.Directory.GetFiles(debugSymbolsPath, "*", SearchOption.AllDirectories);
+        var files = RootedFileSystem.Directory.GetFiles(debugSymbolsPath, "*", SearchOption.AllDirectories);
 
         foreach (var file in files)
         {
-            var fileInfo = AtomFileSystem.FileInfo.New(file);
+            var fileInfo = RootedFileSystem.FileInfo.New(file);
 
-            AtomFileSystem.File.Copy(fileInfo.FullName, dartSymbolsPublishDirectory / $"{fileInfo.Name}");
+            RootedFileSystem.File.Copy(fileInfo.FullName, dartSymbolsPublishDirectory / $"{fileInfo.Name}");
         }
 
         // Zip Dart Symbols
         ZipFile.CreateFromDirectory(dartSymbolsPublishDirectory, dartSymbolsPublishDirectory + ".zip");
 
-        AtomFileSystem.Directory.Delete(dartSymbolsPublishDirectory, true);
+        RootedFileSystem.Directory.Delete(dartSymbolsPublishDirectory, true);
 
         // Retrace mapping.txt
         var reTraceFiles =
-            AtomFileSystem.Directory.GetFiles(reTraceMappingPath, "mapping.txt", SearchOption.AllDirectories);
+            RootedFileSystem.Directory.GetFiles(reTraceMappingPath, "mapping.txt", SearchOption.AllDirectories);
 
         foreach (var reTraceFile in reTraceFiles)
         {
-            var fileInfo = AtomFileSystem.FileInfo.New(reTraceFile);
+            var fileInfo = RootedFileSystem.FileInfo.New(reTraceFile);
 
-            AtomFileSystem.File.Copy(fileInfo.FullName, reTraceMappingPublishDirectory / $"{fileInfo.Name}");
+            RootedFileSystem.File.Copy(fileInfo.FullName, reTraceMappingPublishDirectory / $"{fileInfo.Name}");
         }
     }
 }

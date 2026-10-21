@@ -14,7 +14,7 @@ internal interface IFlutterHelper : IProcessHelper
                 ? v
                 : throw new StepFailedException($"Invalid Flutter version '{FlutterVersion}'");
 
-    private RootedPath ManualInstallPath => AtomFileSystem.AtomRootDirectory / ".flutter";
+    private RootedPath ManualInstallPath => RootedFileSystem.AtomRootDirectory / ".flutter";
 
     private RootedPath ManualCommandPath =>
         ManualInstallPath /
@@ -29,12 +29,12 @@ internal interface IFlutterHelper : IProcessHelper
         Dictionary<string, string?>? environmentVariables = null,
         CancellationToken cancellationToken = default)
     {
-        var pubCache = AtomFileSystem.AtomRootDirectory / ".pub-cache";
+        var pubCache = RootedFileSystem.AtomRootDirectory / ".pub-cache";
 
         if (pubCache.DirectoryExists)
-            AtomFileSystem.Directory.Delete(pubCache, true);
+            RootedFileSystem.Directory.Delete(pubCache, true);
 
-        AtomFileSystem.Directory.CreateDirectory(pubCache);
+        RootedFileSystem.Directory.CreateDirectory(pubCache);
 
         Environment.SetEnvironmentVariable("PUB_CACHE", pubCache);
 
@@ -45,7 +45,7 @@ internal interface IFlutterHelper : IProcessHelper
 
         await ProcessRunner.RunAsync(new(commandPath, "pub get")
             {
-                WorkingDirectory = workingDirectory ?? AtomFileSystem.AtomRootDirectory,
+                WorkingDirectory = workingDirectory ?? RootedFileSystem.AtomRootDirectory,
                 OutputLogLevel = LogLevel.Debug,
                 ErrorLogLevel = LogLevel.Debug,
             },
@@ -55,7 +55,7 @@ internal interface IFlutterHelper : IProcessHelper
 
         await ProcessRunner.RunAsync(new(commandPath, args)
             {
-                WorkingDirectory = workingDirectory ?? AtomFileSystem.AtomRootDirectory,
+                WorkingDirectory = workingDirectory ?? RootedFileSystem.AtomRootDirectory,
                 OutputLogLevel = LogLevel.Information,
                 EnvironmentVariables = environmentVariables ?? [],
             },
@@ -101,9 +101,9 @@ internal interface IFlutterHelper : IProcessHelper
                                  flutterPathString.EndsWith("bin/") ||
                                  flutterPathString.EndsWith("bin\\") => FlutterCommandCache.Set(this,
                 Environment.OSVersion.Platform is PlatformID.Win32NT
-                    ? AtomFileSystem.CreateRootedPath(flutterPathString) / "flutter.bat"
-                    : AtomFileSystem.CreateRootedPath(flutterPathString) / "flutter"),
-            { Length: > 0 } => FlutterCommandCache.Set(this, AtomFileSystem.CreateRootedPath(flutterPathString)),
+                    ? RootedFileSystem.CreateRootedPath(flutterPathString) / "flutter.bat"
+                    : RootedFileSystem.CreateRootedPath(flutterPathString) / "flutter"),
+            { Length: > 0 } => FlutterCommandCache.Set(this, RootedFileSystem.CreateRootedPath(flutterPathString)),
             _ => null,
         };
     }
@@ -111,7 +111,7 @@ internal interface IFlutterHelper : IProcessHelper
     async ValueTask<string?> TryGetDartCommand(CancellationToken cancellationToken = default)
     {
         var flutterCommandPathString = await GetFlutterCommand(cancellationToken);
-        var flutterCommandPath = AtomFileSystem.CreateRootedPath(flutterCommandPathString);
+        var flutterCommandPath = RootedFileSystem.CreateRootedPath(flutterCommandPathString);
         var flutterDir = flutterCommandPath.Parent!;
 
         var dartPath = Environment.OSVersion.Platform is PlatformID.Win32NT
@@ -171,7 +171,7 @@ internal interface IFlutterHelper : IProcessHelper
         var path = await TryGetFlutterCommand(cancellationToken);
 
         if (path is not null)
-            return (AtomFileSystem.CreateRootedPath(path), false);
+            return (RootedFileSystem.CreateRootedPath(path), false);
 
         Logger.LogInformation("Flutter not found in PATH, installing manually");
         await InstallManualFlutter(ParseFlutterVersion, cancellationToken);
@@ -190,7 +190,7 @@ internal interface IFlutterHelper : IProcessHelper
         await ProcessRunner.RunAsync(
             new("git", $"clone https://github.com/flutter/flutter.git{branch} --depth 1 .flutter")
             {
-                WorkingDirectory = AtomFileSystem.AtomRootDirectory,
+                WorkingDirectory = RootedFileSystem.AtomRootDirectory,
                 OutputLogLevel = LogLevel.Debug,
                 ErrorLogLevel = LogLevel.Debug,
             },

@@ -2,7 +2,7 @@
 
 internal interface IMobileAppHelper : IBuildAccessor
 {
-    RootedPath MobileAppDirectory => AtomFileSystem.AtomRootDirectory / "src" / "mobile_app";
+    RootedPath MobileAppDirectory => RootedFileSystem.AtomRootDirectory / "src" / "mobile_app";
 
     [ParamDefinition("mobile-app-flavor", "The android configuration")]
     MobileAppFlavor MobileAppFlavor =>
