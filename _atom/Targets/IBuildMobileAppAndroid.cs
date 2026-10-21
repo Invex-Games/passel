@@ -16,8 +16,8 @@ internal interface IBuildMobileAppAndroid : IFlutterHelper,
             .RequiresParam(nameof(MobileAppFlavor))
             .RequiresParam(nameof(AndroidKeystoreAlias))
             .RequiresParam(nameof(AndroidKeystorePassword))
-            .RequiresParam(nameof(ServerClientId))
-            .RequiresParam(nameof(MobileAppClientId))
+            .UsesParam(nameof(ServerClientId))
+            .UsesParam(nameof(MobileAppClientId))
             .UsesParam(nameof(ApiBaseUrlProduction))
             .UsesParam(nameof(ApiBaseUrlDevelopment))
             .ConsumesVariable(nameof(SetupBuildInfo), nameof(BuildTimestamp))
@@ -92,6 +92,7 @@ internal interface IBuildMobileAppAndroid : IFlutterHelper,
                                 : $"build appbundle  --obfuscate --split-debug-info={debugSymbolsPath}",
                             $"--flavor {flavorName}",
                             "--target lib/main.dart",
+                            .. GetDartDefines(),
                             $"--build-name {BuildVersion.Major}.{BuildVersion.Minor}.{BuildVersion.Patch}",
                             $"--build-number {mobileBuildId}",
                             MobileAppFlavor is MobileAppFlavor.Development
@@ -124,4 +125,39 @@ internal interface IBuildMobileAppAndroid : IFlutterHelper,
                         AtomFileSystem.File.Delete(keystorePath);
                 }
             });
+
+    /// <summary>
+    ///     Compile-time configuration for the app. These take precedence over the app's bundled <c>.env</c>; any
+    ///     value not passed here falls back to <c>.env</c>.
+    /// </summary>
+    private List<string> GetDartDefines()
+    {
+        var apiBaseUrl = MobileAppFlavor is MobileAppFlavor.Production
+            ? ApiBaseUrlProduction
+            : ApiBaseUrlDevelopment;
+
+        List<string> defines = [$"--dart-define=API_BASE_URL={apiBaseUrl}"];
+
+        AddClientId("SERVER_CLIENT_ID", nameof(ServerClientId), ServerClientId);
+        AddClientId("APP_CLIENT_ID", nameof(MobileAppClientId), MobileAppClientId);
+
+        return defines;
+
+        void AddClientId(string defineName, string paramName, string? value)
+        {
+            if (value?.EndsWith(".apps.googleusercontent.com", StringComparison.Ordinal) is true)
+            {
+                defines.Add($"--dart-define={defineName}={value}");
+
+                return;
+            }
+
+            // Guard against passing a placeholder that would silently break Google sign-in
+            Logger.LogWarning(
+                "{Param} is not a Google OAuth client id ('{Value}'); the app will use {Define} from its .env file",
+                paramName,
+                value,
+                defineName);
+        }
+    }
 }

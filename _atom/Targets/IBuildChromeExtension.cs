@@ -1,28 +1,56 @@
 ﻿namespace Atom.Targets;
 
-internal interface IBuildChromeExtension : IBuildAccessor
+internal interface IBuildChromeExtension : IProcessHelper, IConfigurationHelper
 {
     const string ChromeExtensionArtifactName = "ChromeExtension";
 
+    [ParamDefinition("chrome-extension-client-id", "The Google OAuth client id used by the Chrome Extension")]
+    string? ChromeExtensionClientId => GetParam(() => ChromeExtensionClientId);
+
     Target BuildChromeExtension =>
         t => t
-            .DescribedAs("Packages the Chrome Extension")
+            .DescribedAs("Builds and packages the Chrome Extension")
+            .RequiresParam(nameof(ApiBaseUrlProduction))
+            .UsesParam(nameof(ChromeExtensionClientId))
             .ProducesArtifact(ChromeExtensionArtifactName)
-            .Executes(async () =>
+            .Executes(async cancellationToken =>
             {
                 var chromeExtensionDirectory = AtomFileSystem.AtomRootDirectory / "src" / "chrome-extension";
+                var chromeExtensionBuildDirectory = chromeExtensionDirectory / "dist";
                 var chromeExtensionPublishDirectory = AtomFileSystem.AtomPublishDirectory / ChromeExtensionArtifactName;
 
-                if (AtomFileSystem.Directory.Exists(chromeExtensionPublishDirectory))
-                    AtomFileSystem.Directory.Delete(chromeExtensionPublishDirectory, true);
+                AtomFileSystem.CleanOrCreateDirectory(chromeExtensionPublishDirectory);
 
-                AtomFileSystem.Directory.CreateDirectory(chromeExtensionPublishDirectory);
+                // build.mjs prefers these over any local .env file; without a client id param it falls back to .env
+                Dictionary<string, string?> buildVariables = new()
+                {
+                    ["API_URL"] = ApiBaseUrlProduction,
+                };
 
-                var chromeExtensionZipPath = chromeExtensionPublishDirectory / "chrome-extension.zip";
+                if (ChromeExtensionClientId is { Length: > 0 })
+                    buildVariables["GOOGLE_CLIENT_ID"] = ChromeExtensionClientId;
 
-                await ZipFile.CreateFromDirectoryAsync(chromeExtensionDirectory,
-                    chromeExtensionZipPath,
+                var npmPath = await FindEnvironmentPath("npm", cancellationToken);
+
+                await ProcessRunner.RunAsync(new(npmPath, "ci")
+                    {
+                        WorkingDirectory = chromeExtensionDirectory,
+                        OutputLogLevel = LogLevel.Debug,
+                    },
+                    cancellationToken);
+
+                await ProcessRunner.RunAsync(new(npmPath, "run build")
+                    {
+                        WorkingDirectory = chromeExtensionDirectory,
+                        EnvironmentVariables = buildVariables,
+                    },
+                    cancellationToken);
+
+                // Only the self-contained build output is packaged, never sources, node_modules or .env files
+                await ZipFile.CreateFromDirectoryAsync(chromeExtensionBuildDirectory,
+                    chromeExtensionPublishDirectory / "chrome-extension.zip",
                     CompressionLevel.Optimal,
-                    false);
+                    false,
+                    cancellationToken);
             });
 }
