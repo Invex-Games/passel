@@ -1,9 +1,16 @@
 namespace Invex.Passel.WebApi.Services;
 
+[JsonConverter(typeof(JsonStringEnumConverter<PacketChange>))]
+internal enum PacketChange
+{
+    Created,
+    Deleted,
+}
+
 /// <summary>
-///     The payload of a Postgres <c>NOTIFY</c> on <see cref="Channel" />, sent once a created packet is committed.
+///     The payload of a Postgres <c>NOTIFY</c> on <see cref="Channel" />, sent once a packet change is committed.
 /// </summary>
-internal sealed record PacketNotification(string UserId, Guid PacketId)
+internal sealed record PacketNotification(string UserId, Guid PacketId, PacketChange Change = PacketChange.Created)
 {
     public const string Channel = "passel_packet_events";
 

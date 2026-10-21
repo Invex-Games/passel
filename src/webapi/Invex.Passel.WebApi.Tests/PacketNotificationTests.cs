@@ -13,6 +13,26 @@ public sealed class PacketNotificationTests
         Assert.Equal(notification, parsed);
     }
 
+    [Fact]
+    public void Deletions_round_trip()
+    {
+        var notification = new PacketNotification("user", Guid.CreateVersion7(), PacketChange.Deleted);
+
+        Assert.Contains("\"Deleted\"", notification.ToPayload());
+        Assert.True(PacketNotification.TryParse(notification.ToPayload(), out var parsed));
+        Assert.Equal(PacketChange.Deleted, parsed.Change);
+    }
+
+    [Fact]
+    public void A_payload_without_a_change_is_a_creation()
+    {
+        // As sent before deletions existed
+        const string payload = """{"UserId":"user","PacketId":"0198f1c2-0000-7000-8000-000000000000"}""";
+
+        Assert.True(PacketNotification.TryParse(payload, out var parsed));
+        Assert.Equal(PacketChange.Created, parsed.Change);
+    }
+
     [Theory]
     [InlineData(null)]
     [InlineData("")]

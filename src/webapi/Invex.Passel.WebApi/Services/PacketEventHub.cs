@@ -7,6 +7,8 @@ internal partial record PacketEvent
 {
     partial record Created(PacketAggregate Packet);
 
+    partial record Deleted(Guid PacketId);
+
     /// <summary>
     ///     Packets may have been missed (e.g. the database listener reconnected), so the client should re-fetch.
     /// </summary>

@@ -20,6 +20,17 @@ public static partial class PacketEndpoints
     internal const string PacketCreatedEventType = "packet-created";
 
     /// <summary>
+    ///     A packet was deleted; the data is a <see cref="PacketDeletedEventData" />.
+    /// </summary>
+    internal const string PacketDeletedEventType = "packet-deleted";
+
+    [PublicAPI]
+    public sealed record PacketDeletedEventData
+    {
+        public required string Id { get; init; }
+    }
+
+    /// <summary>
     ///     Keeps idle connections open through proxies and lets clients detect a dead connection.
     /// </summary>
     internal const string HeartbeatEventType = "ping";
@@ -33,6 +44,7 @@ public static partial class PacketEndpoints
     internal static async IAsyncEnumerable<SseItem<string>> StreamPacketEvents(
         ChannelReader<PacketEvent> reader,
         Func<PacketAggregate, string> serializePacket,
+        Func<Guid, string> serializeDeleted,
         TimeSpan heartbeatInterval,
         [EnumeratorCancellation] CancellationToken cancellationToken)
     {
@@ -65,6 +77,7 @@ public static partial class PacketEndpoints
                 yield return packetEvent switch
                 {
                     PacketEvent.Created created => new(serializePacket(created.Packet), PacketCreatedEventType),
+                    PacketEvent.Deleted deleted => new(serializeDeleted(deleted.PacketId), PacketDeletedEventType),
                     PacketEvent.Resync => new(string.Empty, ResyncEventType),
                     _ => throw new UnreachableException(),
                 };
@@ -124,9 +137,16 @@ public static partial class PacketEndpoints
                     // Subscribed before the first (resync) event is sent, so nothing can fall between the two
                     using var subscription = eventHub.Subscribe(userId);
 
+                    var serializerOptions = jsonOptions.Value.SerializerOptions;
+
                     await foreach (var item in StreamPacketEvents(subscription.Reader,
                                        packet => JsonSerializer.Serialize(ToResponsePacket(packet, encodingService),
-                                           jsonOptions.Value.SerializerOptions),
+                                           serializerOptions),
+                                       packetId => JsonSerializer.Serialize(new PacketDeletedEventData
+                                           {
+                                               Id = encodingService.Encode(packetId),
+                                           },
+                                           serializerOptions),
                                        HeartbeatInterval,
                                        stopping.Token))
                         yield return item;

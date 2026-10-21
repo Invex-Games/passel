@@ -88,6 +88,14 @@ internal sealed partial class PacketNotificationListener(
         if (!hub.HasSubscribers(notification.UserId))
             return;
 
+        // The packet no longer exists to load; its id is all clients need
+        if (notification.Change == PacketChange.Deleted)
+        {
+            hub.Publish(notification.UserId, new PacketEvent.Deleted(notification.PacketId));
+
+            return;
+        }
+
         try
         {
             await using var session = store.QuerySession();

@@ -27,6 +27,9 @@ public sealed class GetPacketEventsTests
     private static string Serialize(PacketAggregate packet) =>
         ((Packet.Text)packet.Packet).Body;
 
+    private static string SerializeDeleted(Guid packetId) =>
+        $"deleted {packetId}";
+
     private static async Task<List<SseItem<string>>> Collect(
         Channel<PacketEvent> channel,
         TimeSpan heartbeatInterval,
@@ -36,6 +39,7 @@ public sealed class GetPacketEventsTests
 
         await foreach (var item in PacketEndpoints.StreamPacketEvents(channel.Reader,
                            Serialize,
+                           SerializeDeleted,
                            heartbeatInterval,
                            TestContext.Current.CancellationToken))
         {
@@ -68,6 +72,19 @@ public sealed class GetPacketEventsTests
     }
 
     [Fact]
+    public async Task Streams_deleted_packets()
+    {
+        var channel = Channel.CreateUnbounded<PacketEvent>();
+        var packetId = Guid.CreateVersion7();
+        channel.Writer.TryWrite(new PacketEvent.Deleted(packetId));
+
+        var items = await Collect(channel, LongHeartbeat, 2);
+
+        Assert.Equal((PacketEndpoints.PacketDeletedEventType, $"deleted {packetId}"),
+            (items[1].EventType, items[1].Data));
+    }
+
+    [Fact]
     public async Task Sends_heartbeats_while_idle()
     {
         var channel = Channel.CreateUnbounded<PacketEvent>();
@@ -90,6 +107,7 @@ public sealed class GetPacketEventsTests
 
         await foreach (var item in PacketEndpoints.StreamPacketEvents(channel.Reader,
                            Serialize,
+                           SerializeDeleted,
                            TimeSpan.FromMilliseconds(20),
                            TestContext.Current.CancellationToken))
         {
@@ -140,6 +158,7 @@ public sealed class GetPacketEventsTests
         await TypedResults
             .ServerSentEvents(PacketEndpoints.StreamPacketEvents(channel.Reader,
                 Serialize,
+                SerializeDeleted,
                 LongHeartbeat,
                 TestContext.Current.CancellationToken))
             .ExecuteAsync(httpContext);
@@ -160,6 +179,7 @@ public sealed class GetPacketEventsTests
 
         await foreach (var item in PacketEndpoints.StreamPacketEvents(channel.Reader,
                            Serialize,
+                           SerializeDeleted,
                            LongHeartbeat,
                            aborted.Token))
         {
