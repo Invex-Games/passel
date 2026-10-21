@@ -7,10 +7,16 @@ import 'tile_header.dart';
 
 /// Tile for text and link packets.
 class StandardTile extends StatelessWidget {
-  const StandardTile({super.key, required this.packet, required this.index});
+  const StandardTile({
+    super.key,
+    required this.packet,
+    required this.index,
+    this.onDelete,
+  });
 
   final Packet packet;
   final int index;
+  final VoidCallback? onDelete;
 
   @override
   Widget build(BuildContext context) {
@@ -21,7 +27,7 @@ class StandardTile extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        TileHeader(packet: packet, index: index),
+        TileHeader(packet: packet, index: index, onDelete: onDelete),
         const SizedBox(height: 16),
         Padding(
           padding: const EdgeInsets.only(left: 18.0),

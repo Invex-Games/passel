@@ -5,17 +5,21 @@ import 'packet_helpers.dart';
 
 /// Shared header row used by both [StandardTile] and [FileTile].
 ///
-/// Shows the packet type icon, title, and (for text and link packets)
-/// share/copy action buttons.  File packets are display-only.
+/// Shows the packet type icon, title, (for text and link packets)
+/// share/copy action buttons, and a delete button when [onDelete] is set.
 class TileHeader extends StatelessWidget {
   const TileHeader({
     super.key,
     required this.packet,
     required this.index,
+    this.onDelete,
   });
 
   final Packet packet;
   final int index;
+
+  /// Deletes the packet; `null` hides the button (e.g. while signed out).
+  final VoidCallback? onDelete;
 
   @override
   Widget build(BuildContext context) {
@@ -47,10 +51,10 @@ class TileHeader extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
               ),
             ),
-            if (isFile)
+            if (isFile && onDelete == null)
               // Keep the header height consistent with action-button rows.
-              const SizedBox(height: 48)
-            else ...[
+              const SizedBox(height: 48),
+            if (!isFile) ...[
               IconButton(
                 icon: const Icon(Icons.share),
                 tooltip: 'Share',
@@ -62,6 +66,12 @@ class TileHeader extends StatelessWidget {
                 onPressed: () => copyPacket(context, packet),
               ),
             ],
+            if (onDelete != null)
+              IconButton(
+                icon: const Icon(Icons.delete_outline),
+                tooltip: 'Delete',
+                onPressed: onDelete,
+              ),
           ],
         ),
       ),

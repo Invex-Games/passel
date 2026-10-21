@@ -75,6 +75,20 @@ void main() {
     expect(repo.fetchCursors, [null, null]);
   });
 
+  test('removes packets deleted elsewhere', () async {
+    repo.onFetch = (_) async => page(['a', 'b']);
+    final c = start();
+    addTearDown(c.dispose);
+    await pumpEventQueue();
+    repo.connections.single.add(const PacketsResyncEvent());
+    await pumpEventQueue();
+
+    repo.connections.single.add(const PacketDeletedEvent('a'));
+    await pumpEventQueue();
+
+    expect(idsOf(c), ['b']);
+  });
+
   test('does not connect when signed out', () async {
     repo.cache.state = page(['a']);
     final c = start(signedIn: false);

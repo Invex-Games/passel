@@ -37,6 +37,37 @@ void main() {
       http.StreamedResponse(body.map(utf8.encode), 200,
           headers: eventStreamHeaders);
 
+  group('PacketRepository.deletePacket', () {
+    test('sends an authenticated DELETE for the packet', () async {
+      late http.BaseRequest sent;
+      final repo = buildRepo((request, _) async {
+        sent = request;
+        return http.StreamedResponse(const Stream.empty(), 204);
+      });
+
+      await repo.deletePacket('abc/1');
+
+      expect(sent.method, 'DELETE');
+      expect(sent.url.toString(),
+          'https://test.example.com/api/packets/abc%2F1?api-version=1');
+      expect(sent.headers['Authorization'], 'Bearer token');
+    });
+
+    test('treats a packet that no longer exists as deleted', () async {
+      final repo = buildRepo(
+          (_, __) async => http.StreamedResponse(const Stream.empty(), 404));
+
+      await repo.deletePacket('gone');
+    });
+
+    test('throws when the server fails', () async {
+      final repo = buildRepo(
+          (_, __) async => http.StreamedResponse(const Stream.empty(), 500));
+
+      await expectLater(repo.deletePacket('a'), throwsA(isA<Exception>()));
+    });
+  });
+
   group('PacketRepository.watchEvents', () {
     test('requests the event stream and maps its events', () async {
       late http.BaseRequest sent;
@@ -48,8 +79,10 @@ void main() {
           'event: packet-created\n'
               'data: {"\$type":"Link","id":"p1","name":null,'
               '"url":"https://example.com"}\n\n',
+          'event: packet-deleted\ndata: {"id":"p0"}\n\n',
           // Skipped: unknown event, unsupported packet, malformed JSON.
-          'event: packet-deleted\ndata: {"id":"p1"}\n\n',
+          'event: packet-moved\ndata: {"id":"p1"}\n\n',
+          'event: packet-deleted\ndata: {"id":3}\n\n',
           'event: packet-created\ndata: {"\$type":"Video","id":"p2"}\n\n',
           'event: packet-created\ndata: {not json\n\n',
         ]));
@@ -61,12 +94,13 @@ void main() {
           'https://test.example.com/api/packets/events?api-version=1');
       expect(sent.headers['Authorization'], 'Bearer token');
       expect(sent.headers['Accept'], 'text/event-stream');
-      expect(events, hasLength(2));
+      expect(events, hasLength(3));
       expect(events[0], isA<PacketsResyncEvent>());
       final created = events[1] as PacketCreatedEvent;
       expect(created.packet.id, 'p1');
       expect(created.packet.type, PacketType.link);
       expect(created.packet.payload, 'https://example.com');
+      expect((events[2] as PacketDeletedEvent).id, 'p0');
     });
 
     test('retries once with a refreshed token after HTTP 401', () async {

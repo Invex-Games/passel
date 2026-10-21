@@ -8,10 +8,16 @@ import 'tile_header.dart';
 /// File packets aren't supported by the server yet, so nothing is fetched —
 /// the tile just shows the file name and a hint, and has no actions.
 class FileTile extends StatelessWidget {
-  const FileTile({super.key, required this.packet, required this.index});
+  const FileTile({
+    super.key,
+    required this.packet,
+    required this.index,
+    this.onDelete,
+  });
 
   final Packet packet;
   final int index;
+  final VoidCallback? onDelete;
 
   @override
   Widget build(BuildContext context) {
@@ -19,7 +25,7 @@ class FileTile extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        TileHeader(packet: packet, index: index),
+        TileHeader(packet: packet, index: index, onDelete: onDelete),
         Padding(
           padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
           child: Text(

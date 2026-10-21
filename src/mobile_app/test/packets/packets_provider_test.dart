@@ -487,6 +487,127 @@ void main() {
     });
   });
 
+  group('PacketsNotifier deletion', () {
+    test('hide removes the packet until unhide puts it back in place',
+        () async {
+      repo.onFetch = (_) async => page(['a', 'b', 'c']);
+      final c = await start();
+      final notifier = c.read(packetsProvider.notifier);
+
+      expect(notifier.hide('b'), isTrue);
+      expect(idsOf(c), ['a', 'c']);
+      expect(repo.cache.state?.packets.map((p) => p.id), ['a', 'c']);
+
+      notifier.unhide('b');
+
+      expect(idsOf(c), ['a', 'b', 'c']);
+      expect(repo.deletedIds, isEmpty);
+    });
+
+    test('hide returns false for a packet that is not listed', () async {
+      repo.onFetch = (_) async => page(['a']);
+      final c = await start();
+
+      expect(c.read(packetsProvider.notifier).hide('x'), isFalse);
+    });
+
+    test('delete removes the packet on the server', () async {
+      repo.onFetch = (_) async => page(['a', 'b']);
+      final c = await start();
+      final notifier = c.read(packetsProvider.notifier);
+      notifier.hide('a');
+
+      final authed = await notifier.delete('a');
+
+      expect(authed, isTrue);
+      expect(repo.deletedIds, ['a']);
+      expect(idsOf(c), ['b']);
+
+      // Committed: undo no longer applies.
+      notifier.unhide('a');
+      expect(idsOf(c), ['b']);
+    });
+
+    test('delete puts the packet back and rethrows when it fails', () async {
+      repo.onFetch = (_) async => page(['a', 'b']);
+      repo.onDelete = (_) async => throw Exception('offline');
+      final c = await start();
+      final notifier = c.read(packetsProvider.notifier);
+      notifier.hide('a');
+
+      await expectLater(notifier.delete('a'), throwsA(isA<Exception>()));
+
+      expect(idsOf(c), ['a', 'b']);
+    });
+
+    test('delete returns false and keeps the packet when signed out',
+        () async {
+      repo.cache.state = page(['a']);
+      final c = await start(signedIn: false);
+
+      final authed = await c.read(packetsProvider.notifier).delete('a');
+
+      expect(authed, isFalse);
+      expect(idsOf(c), ['a']);
+      expect(repo.deletedIds, isEmpty);
+    });
+
+    test('a hidden packet stays hidden when a refresh brings it back',
+        () async {
+      var calls = 0;
+      repo.onFetch = (_) async =>
+          ++calls == 1 ? page(['a', 'b']) : page(['new', 'a', 'b']);
+      final c = await start();
+      final notifier = c.read(packetsProvider.notifier);
+      notifier.hide('a');
+
+      await notifier.refresh();
+
+      expect(idsOf(c), ['new', 'b']);
+
+      notifier.unhide('a');
+      expect(idsOf(c), ['new', 'a', 'b']);
+    });
+
+    test('a page loaded after a deletion does not bring it back', () async {
+      repo.onFetch = (cursor) async =>
+          cursor == null ? page(['a'], next: 'c1') : page(['b', 'c']);
+      final c = await start();
+      final notifier = c.read(packetsProvider.notifier);
+      await notifier.applyDeleted('b');
+
+      await notifier.loadMore();
+
+      expect(idsOf(c), ['a', 'c']);
+    });
+
+    test('applyDeleted removes a packet deleted elsewhere for good',
+        () async {
+      repo.onFetch = (_) async => page(['a', 'b']);
+      final c = await start();
+      final notifier = c.read(packetsProvider.notifier);
+      notifier.hide('a');
+
+      await notifier.applyDeleted('a');
+      await notifier.applyDeleted('b');
+      notifier.unhide('a');
+
+      expect(idsOf(c), isEmpty);
+      expect(repo.cache.state?.packets, isEmpty);
+    });
+
+    test('applyCreated ignores a packet that was already deleted', () async {
+      repo.onFetch = (_) async => page(['a']);
+      final c = await start();
+      final notifier = c.read(packetsProvider.notifier);
+      await notifier.applyDeleted('late');
+
+      await notifier.applyCreated(textPacket('late'));
+
+      expect(idsOf(c), ['a']);
+    });
+  });
+
   group('hasCachedPacketsProvider', () {
     test('is re-evaluated after packets are saved', () async {
       repo.onFetch = (_) async => page(['a']);

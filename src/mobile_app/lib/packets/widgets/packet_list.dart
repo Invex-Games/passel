@@ -8,6 +8,7 @@ import '../../auth/login_page.dart';
 import '../data/packet.dart';
 import '../packets_provider.dart';
 import 'animated_tile_wrapper.dart';
+import 'delete_packet.dart';
 import 'packet_tile.dart';
 import 'refresh_overlay.dart';
 
@@ -229,17 +230,47 @@ class _PacketListState extends ConsumerState<PacketList>
                   }
                   final packet = packets[index];
                   final shouldAnimate = _animatedIds.add(packet.id);
+                  final tile = PacketTile(
+                    packet: packet,
+                    index: index,
+                    onDelete: isSignedIn
+                        ? () => deletePacketWithUndo(context, ref, packet)
+                        : null,
+                  );
                   return AnimatedTileWrapper(
                     key: ValueKey(packet.id),
                     animate: shouldAnimate,
                     staggerIndex: index,
-                    child: PacketTile(
-                      packet: packet,
-                      index: index,
-                    ),
+                    child: isSignedIn
+                        ? Dismissible(
+                            key: ValueKey('dismiss-${packet.id}'),
+                            direction: DismissDirection.endToStart,
+                            background: _buildDismissBackground(context),
+                            onDismissed: (_) =>
+                                deletePacketWithUndo(context, ref, packet),
+                            child: tile,
+                          )
+                        : tile,
                   );
                 },
               ),
+      ),
+    );
+  }
+
+  /// Revealed behind a tile while it's swiped away to delete it.
+  Widget _buildDismissBackground(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Container(
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: 24),
+        decoration: BoxDecoration(
+          color: cs.errorContainer,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Icon(Icons.delete_outline, color: cs.onErrorContainer),
       ),
     );
   }

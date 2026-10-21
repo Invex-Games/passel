@@ -216,6 +216,18 @@ class FakePacketRepository extends PacketRepository {
   }) =>
       onPush(type, payload);
 
+  /// Handles [deletePacket].
+  Future<void> Function(String id) onDelete = (_) async {};
+
+  /// Ids passed to [deletePacket], in call order.
+  final deletedIds = <String>[];
+
+  @override
+  Future<void> deletePacket(String id) {
+    deletedIds.add(id);
+    return onDelete(id);
+  }
+
   /// Live connections opened via [watchEvents], oldest first.  The test
   /// drives each one by adding events / errors or closing it.
   final connections = <StreamController<PacketEvent>>[];

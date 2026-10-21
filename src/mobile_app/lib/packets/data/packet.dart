@@ -163,6 +163,13 @@ class PacketCreatedEvent extends PacketEvent {
   final Packet packet;
 }
 
+/// A packet was deleted (by this or another device).
+class PacketDeletedEvent extends PacketEvent {
+  const PacketDeletedEvent(this.id);
+
+  final String id;
+}
+
 // ─── Packets state ────────────────────────────────────────────────────────────
 
 /// Holds the current list of packets plus the cursor for the next page.

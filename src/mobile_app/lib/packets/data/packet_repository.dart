@@ -199,6 +199,16 @@ class PacketRepository {
           // Unparseable or unsupported packet — skip it like the feed does.
         }
         return null;
+      case 'packet-deleted':
+        try {
+          final decoded = jsonDecode(event.data);
+          if (decoded is Map<String, dynamic> && decoded['id'] is String) {
+            return PacketDeletedEvent(decoded['id'] as String);
+          }
+        } on FormatException {
+          // Unparseable — skip it.
+        }
+        return null;
       default:
         return null;
     }
@@ -244,6 +254,24 @@ class PacketRepository {
       // Fall through — unparseable body.
     }
     return null;
+  }
+
+  /// Deletes the packet with [id].
+  ///
+  /// A packet that no longer exists (e.g. deleted on another device) counts
+  /// as deleted.  Throws if the request fails.
+  Future<void> deletePacket(String id) async {
+    final uri =
+        AppConfig.apiUri('$_packetsEndpoint/${Uri.encodeComponent(id)}');
+
+    final response = await sendWithAuthRetry(
+      _tokenProvider,
+      (token) =>
+          _client.delete(uri, headers: {'Authorization': 'Bearer $token'}),
+    );
+
+    if (response.statusCode == 404) return;
+    validateResponse(response, context: 'Delete packet');
   }
 
   // ── Cache management ───────────────────────────────────────────────────────
