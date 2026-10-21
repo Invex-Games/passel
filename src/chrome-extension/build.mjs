@@ -67,18 +67,20 @@ const define = {
 
 // ── Static files ─────────────────────────────────────────────
 
+// Static files (manifest, popup HTML/CSS, icons) live in STATIC_DIR rather than the project root, so the
+// source folder can't be loaded unpacked by mistake: only OUT_DIR contains a manifest next to the compiled scripts.
+const STATIC_DIR = "static";
+
 // Host permissions are derived from API_URL so the extension can only reach its own API.
 function writeManifest() {
-    const manifest = JSON.parse(readFileSync("manifest.json", "utf-8"));
+    const manifest = JSON.parse(readFileSync(`${STATIC_DIR}/manifest.json`, "utf-8"));
     manifest.host_permissions = [`${apiOrigin}/*`];
     writeFileSync(`${OUT_DIR}/manifest.json`, JSON.stringify(manifest, null, 2));
 }
 
 function copyStatic() {
+    cpSync(STATIC_DIR, OUT_DIR, {recursive: true});
     writeManifest();
-    cpSync("popup.html", `${OUT_DIR}/popup.html`);
-    cpSync("popup.css", `${OUT_DIR}/popup.css`);
-    cpSync("icons", `${OUT_DIR}/icons`, {recursive: true});
 }
 
 // Re-copies static files after every (re)build so watch mode picks up HTML/CSS/manifest edits
