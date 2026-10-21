@@ -48,20 +48,6 @@ android {
         versionName = flutter.versionName
     }
 
-    flavorDimensions += "environment"
-
-    productFlavors {
-        create("development") {
-            dimension = "environment"
-            applicationIdSuffix = ".dev"
-            resValue("string", "app_name", "Passel Dev")
-        }
-        create("production") {
-            dimension = "environment"
-            resValue("string", "app_name", "Passel")
-        }
-    }
-
     signingConfigs {
         if (hasReleaseSigningConfig) {
             create("release") {
@@ -73,20 +59,61 @@ android {
         } else {
             logger.warn(
                 "[signing] key properties not found / incomplete – " +
-                        "prod release builds WILL fail. dev release will use debug keys."
+                        "productionRelease builds WILL fail. developmentRelease will use debug keys."
             )
+        }
+    }
+
+    flavorDimensions += "environment"
+
+    // Release signing is chosen per flavor (the release build type sets no
+    // signingConfig, so the flavor's applies; debug builds keep debug keys).
+    productFlavors {
+        create("development") {
+            dimension = "environment"
+            applicationIdSuffix = ".dev"
+            resValue("string", "app_name", "Passel Dev")
+            // Dev builds may fall back to debug keys when no keystore is set.
+            signingConfig = if (hasReleaseSigningConfig) {
+                signingConfigs.getByName("release")
+            } else {
+                signingConfigs.getByName("debug")
+            }
+        }
+        create("production") {
+            dimension = "environment"
+            resValue("string", "app_name", "Passel")
+            // Never debug-signed: without a keystore productionRelease fails
+            // (see the preProductionReleaseBuild check below).
+            signingConfig = if (hasReleaseSigningConfig) {
+                signingConfigs.getByName("release")
+            } else {
+                null
+            }
         }
     }
 
     buildTypes {
         release {
-            signingConfig = if (hasReleaseSigningConfig) {
-                signingConfigs.getByName("release")
-            } else {
-                // Fall back to debug keys only for the dev flavour;
-                // prod release without a keystore will still fail at upload time.
-                signingConfigs.getByName("debug")
-            }
+            // Flutter's Gradle plugin adds its own keep rules for the engine
+            // and plugins on top of the default optimized ProGuard config.
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"))
+        }
+    }
+}
+
+// Fail fast with a clear message instead of producing an unsigned store build.
+tasks.matching { it.name == "preProductionReleaseBuild" }.configureEach {
+    val releaseSigningAvailable = hasReleaseSigningConfig
+    doFirst {
+        if (!releaseSigningAvailable) {
+            throw GradleException(
+                "productionRelease requires release signing. Set " +
+                        "SIGNING_RELEASE_STORE_FILE, SIGNING_RELEASE_STORE_PASSWORD, " +
+                        "SIGNING_RELEASE_KEY_ALIAS and SIGNING_RELEASE_KEY_PASSWORD."
+            )
         }
     }
 }

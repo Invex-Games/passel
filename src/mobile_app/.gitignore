@@ -170,3 +170,5 @@ app.*.symbols
 # AI related
 .agents/rules/personal-*
 .agents/skills/personal-*
+# Local dart-define file (see .env.example)
+.env

@@ -38,11 +38,13 @@ class MyApp extends StatelessWidget {
 /// Routes to [LoginPage] (signed-out, no cache) or [PacketFeedPage]
 /// (signed-in, OR signed-out with cached data to browse offline).
 ///
-/// Sits inside [MaterialApp.home] but only makes a routing decision once during
-/// cold start — after that, auth changes are handled by the feed page itself
-/// (via [showLoginSheet]).  Because neither [authServiceProvider] nor
-/// [hasCachedPacketsProvider] depend on the widget tree, a
-/// [DynamicColorBuilder] theme rebuild does *not* re-trigger auth.
+/// The decision is reactive: [hasCachedPacketsProvider] is re-evaluated on
+/// every auth change and cache save, so e.g. an explicit sign-out (which
+/// clears the cache) returns to [LoginPage], while an expired session keeps
+/// the cached feed visible with a sign-in prompt (via [showLoginSheet]).
+/// Because neither [authServiceProvider] nor [hasCachedPacketsProvider]
+/// depend on the widget tree, a [DynamicColorBuilder] theme rebuild does
+/// *not* re-trigger auth.
 class StartupRouter extends ConsumerWidget {
   const StartupRouter({super.key});
 
@@ -51,8 +53,12 @@ class StartupRouter extends ConsumerWidget {
     final authState = ref.watch(authServiceProvider);
     final cacheState = ref.watch(hasCachedPacketsProvider);
 
-    // Still initializing auth or checking cache — show spinner.
-    if (authState.isLoading || cacheState.isLoading) {
+    // Still initializing auth or checking cache for the first time — show
+    // spinner.  (Re-checks keep the previous value, so the current page stays
+    // mounted instead of flashing a spinner.)
+    final authPending = !authState.hasValue && !authState.hasError;
+    final cachePending = !cacheState.hasValue && !cacheState.hasError;
+    if (authPending || cachePending) {
       return const Scaffold(
         body: Center(child: CircularProgressIndicator()),
       );

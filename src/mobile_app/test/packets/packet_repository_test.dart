@@ -4,32 +4,21 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
+import 'package:passel_mobileapp/auth/auth_helpers.dart';
 import 'package:passel_mobileapp/packets/data/packet.dart';
 import 'package:passel_mobileapp/packets/data/packet_repository.dart';
 
-/// In-memory cache that avoids SharedPreferences / Flutter bindings.
-class InMemoryPacketCache implements PacketCacheStrategy {
-  PacketsState? _state;
-
-  @override
-  Future<PacketsState?> load() async => _state;
-
-  @override
-  Future<void> save(PacketsState state) async => _state = state;
-
-  @override
-  Future<void> clear() async => _state = null;
-}
+import '../fakes.dart';
 
 void main() {
   const fakeToken = 'test-token';
 
   /// Helper: builds a [PacketRepository] backed by the given [MockClient].
-  PacketRepository buildRepo(MockClient client) {
+  PacketRepository buildRepo(MockClient client, {InMemoryPacketCache? cache}) {
     return PacketRepository(
       client: client,
-      tokenProvider: () async => fakeToken,
-      cache: InMemoryPacketCache(),
+      tokenProvider: ({bool forceRefresh = false}) async => fakeToken,
+      cache: cache ?? InMemoryPacketCache(),
       baseUrl: 'https://test.example.com',
     );
   }
@@ -44,6 +33,13 @@ void main() {
       'nextCursor': nextCursor,
     });
   }
+
+  /// A successful POST response echoing the created packet.
+  http.Response createdResponse(Map<String, dynamic> body) => http.Response(
+        jsonEncode(body),
+        201,
+        headers: {'content-type': 'application/json'},
+      );
 
   // ── fetchPackets ───────────────────────────────────────────────────────────
 
@@ -112,6 +108,48 @@ void main() {
       expect(result.nextCursor, 'cursor-2');
     });
 
+    test('keeps file packets and skips unknown packet types', () async {
+      final client = MockClient((_) async => http.Response(
+            packetsJson(packets: [
+              {r'$type': 'Text', 'id': '1', 'body': 'hi'},
+              {
+                r'$type': 'File',
+                'id': '2',
+                'fileName': 'cat.png',
+                'contentType': 'image/png',
+                'isImage': true,
+              },
+              {r'$type': 'Video', 'id': '3', 'url': 'x'},
+            ]),
+            200,
+            headers: {'content-type': 'application/json'},
+          ));
+
+      final result = await buildRepo(client).fetchPackets();
+
+      expect(result.packets.map((p) => p.id), ['1', '2']);
+      final file = result.packets[1];
+      expect(file.type, PacketType.file);
+      expect(file.title, 'cat.png');
+      expect(file.contentType, 'image/png');
+      expect(file.isImage, isTrue);
+    });
+
+    test('does not write the cache itself', () async {
+      final cache = InMemoryPacketCache();
+      final client = MockClient((_) async => http.Response(
+            packetsJson(packets: [
+              {r'$type': 'Text', 'id': '1', 'body': 'hi'},
+            ]),
+            200,
+            headers: {'content-type': 'application/json'},
+          ));
+
+      await buildRepo(client, cache: cache).fetchPackets();
+
+      expect(cache.state, isNull);
+    });
+
     test('throws on non-2xx response', () async {
       final client = MockClient((_) async => http.Response('error', 500));
       final repo = buildRepo(client);
@@ -175,105 +213,157 @@ void main() {
     });
   });
 
-  // ── pushPacket ─────────────────────────────────────────────────────────────
+  // ── 401 handling ───────────────────────────────────────────────────────────
 
-  group('PacketRepository.pushPacket', () {
-    test('sends correct JSON body and refreshes', () async {
-      var callCount = 0;
+  group('PacketRepository 401 retry', () {
+    test('refreshes the token and retries once on 401', () async {
+      final forceRefreshCalls = <bool>[];
+      final seenTokens = <String?>[];
       final client = MockClient((request) async {
-        callCount++;
-        if (request.method == 'POST') {
-          final body = jsonDecode(request.body) as Map<String, dynamic>;
-          expect(body.keys.first, r'$type');
-          expect(body[r'$type'], 'Text');
-          expect(body['body'], 'hello');
-          return http.Response('{}', 200,
-              headers: {'content-type': 'application/json'});
-        }
-        // GET (refresh after push)
+        seenTokens.add(request.headers['Authorization']);
+        if (seenTokens.length == 1) return http.Response('', 401);
         return http.Response(
           packetsJson(packets: [
-            {r'$type': 'Text', 'id': 'new', 'body': 'hello'},
+            {r'$type': 'Text', 'id': '1', 'body': 'hi'},
           ]),
           200,
           headers: {'content-type': 'application/json'},
         );
       });
+      final repo = PacketRepository(
+        client: client,
+        tokenProvider: ({bool forceRefresh = false}) async {
+          forceRefreshCalls.add(forceRefresh);
+          return forceRefresh ? 'fresh-token' : 'stale-token';
+        },
+        cache: InMemoryPacketCache(),
+        baseUrl: 'https://test.example.com',
+      );
+
+      final result = await repo.fetchPackets();
+
+      expect(result.packets.single.id, '1');
+      expect(forceRefreshCalls, [false, true]);
+      expect(seenTokens, ['Bearer stale-token', 'Bearer fresh-token']);
+    });
+
+    test('throws SessionExpiredException when the retry is also 401',
+        () async {
+      var calls = 0;
+      final client = MockClient((_) async {
+        calls++;
+        return http.Response('', 401);
+      });
+
+      await expectLater(
+        buildRepo(client).fetchPackets(),
+        throwsA(isA<SessionExpiredException>()),
+      );
+      expect(calls, 2);
+    });
+
+    test('propagates SessionExpiredException from the token provider',
+        () async {
+      final client = MockClient((_) async => http.Response('', 401));
+      final repo = PacketRepository(
+        client: client,
+        tokenProvider: ({bool forceRefresh = false}) async {
+          if (forceRefresh) throw const SessionExpiredException();
+          return 'stale-token';
+        },
+        cache: InMemoryPacketCache(),
+        baseUrl: 'https://test.example.com',
+      );
+
+      await expectLater(
+        repo.pushPacket(type: PacketType.text, payload: 'x'),
+        throwsA(isA<SessionExpiredException>()),
+      );
+    });
+  });
+
+  // ── pushPacket ─────────────────────────────────────────────────────────────
+
+  group('PacketRepository.pushPacket', () {
+    test('sends correct JSON body and returns the created packet', () async {
+      var callCount = 0;
+      final client = MockClient((request) async {
+        callCount++;
+        expect(request.method, 'POST');
+        final body = jsonDecode(request.body) as Map<String, dynamic>;
+        expect(body.keys.first, r'$type');
+        expect(body[r'$type'], 'Text');
+        expect(body['body'], 'hello');
+        return createdResponse(
+            {r'$type': 'Text', 'id': 'new', 'title': null, 'body': 'hello'});
+      });
 
       final repo = buildRepo(client);
-      final result = await repo.pushPacket(type: 'text', payload: 'hello');
+      final created =
+          await repo.pushPacket(type: PacketType.text, payload: 'hello');
 
-      expect(callCount, 2); // POST + GET
-      expect(result.packets.first.id, 'new');
+      expect(callCount, 1); // POST only — no re-fetch of page 1
+      expect(created?.id, 'new');
+      expect(created?.payload, 'hello');
+    });
+
+    test('returns null when the response body is not a packet', () async {
+      final client = MockClient((_) async =>
+          http.Response('', 204, headers: {'content-type': 'text/plain'}));
+
+      final created = await buildRepo(client)
+          .pushPacket(type: PacketType.text, payload: 'x');
+
+      expect(created, isNull);
     });
 
     test('includes title when provided', () async {
       final client = MockClient((request) async {
-        if (request.method == 'POST') {
-          final body = jsonDecode(request.body) as Map<String, dynamic>;
-          expect(body['title'], 'My Title');
-          return http.Response('{}', 200,
-              headers: {'content-type': 'application/json'});
-        }
-        return http.Response(
-          packetsJson(packets: [
-            {r'$type': 'Text', 'id': '1', 'body': 'x'},
-          ]),
-          200,
-          headers: {'content-type': 'application/json'},
-        );
-      });
-
-      final repo = buildRepo(client);
-      await repo.pushPacket(type: 'text', payload: 'x', title: 'My Title');
-    });
-
-    test('sends link packets with url and name', () async {
-      final client = MockClient((request) async {
-        if (request.method == 'POST') {
-          final body = jsonDecode(request.body) as Map<String, dynamic>;
-          expect(body.keys.first, r'$type');
-          expect(body[r'$type'], 'Link');
-          expect(body['url'], 'https://example.com');
-          expect(body['name'], 'Example');
-          return http.Response('{}', 200,
-              headers: {'content-type': 'application/json'});
-        }
-        return http.Response(
-          packetsJson(packets: [
-            {r'$type': 'Link', 'id': '1', 'url': 'https://example.com'},
-          ]),
-          200,
-          headers: {'content-type': 'application/json'},
-        );
+        final body = jsonDecode(request.body) as Map<String, dynamic>;
+        expect(body['title'], 'My Title');
+        return createdResponse(
+            {r'$type': 'Text', 'id': '1', 'title': 'My Title', 'body': 'x'});
       });
 
       final repo = buildRepo(client);
       await repo.pushPacket(
-          type: 'link', payload: 'https://example.com', title: 'Example');
+          type: PacketType.text, payload: 'x', title: 'My Title');
+    });
+
+    test('sends link packets with url and name', () async {
+      final client = MockClient((request) async {
+        final body = jsonDecode(request.body) as Map<String, dynamic>;
+        expect(body.keys.first, r'$type');
+        expect(body[r'$type'], 'Link');
+        expect(body['url'], 'https://example.com');
+        expect(body['name'], 'Example');
+        return createdResponse({
+          r'$type': 'Link',
+          'id': '1',
+          'name': 'Example',
+          'url': 'https://example.com',
+        });
+      });
+
+      final repo = buildRepo(client);
+      final created = await repo.pushPacket(
+          type: PacketType.link,
+          payload: 'https://example.com',
+          title: 'Example');
+      expect(created?.type, PacketType.link);
     });
 
     test('sends null title when not provided', () async {
       final client = MockClient((request) async {
-        if (request.method == 'POST') {
-          final body = jsonDecode(request.body) as Map<String, dynamic>;
-          // The server requires the key to be present, even when null.
-          expect(body.containsKey('title'), isTrue);
-          expect(body['title'], isNull);
-          return http.Response('{}', 200,
-              headers: {'content-type': 'application/json'});
-        }
-        return http.Response(
-          packetsJson(packets: [
-            {r'$type': 'Text', 'id': '1', 'body': 'x'},
-          ]),
-          200,
-          headers: {'content-type': 'application/json'},
-        );
+        final body = jsonDecode(request.body) as Map<String, dynamic>;
+        // The server requires the key to be present, even when null.
+        expect(body.containsKey('title'), isTrue);
+        expect(body['title'], isNull);
+        return createdResponse({r'$type': 'Text', 'id': '1', 'body': 'x'});
       });
 
       final repo = buildRepo(client);
-      await repo.pushPacket(type: 'text', payload: 'x');
+      await repo.pushPacket(type: PacketType.text, payload: 'x');
     });
 
     test('throws when push request fails', () async {
@@ -281,7 +371,7 @@ void main() {
       final repo = buildRepo(client);
 
       expect(
-        () => repo.pushPacket(type: 'text', payload: 'x'),
+        () => repo.pushPacket(type: PacketType.text, payload: 'x'),
         throwsA(isA<Exception>().having(
           (e) => e.toString(),
           'message',
@@ -291,29 +381,37 @@ void main() {
     });
   });
 
-  // ── validateResponse (static) ──────────────────────────────────────────────
+  // ── validateResponse ───────────────────────────────────────────────────────
 
-  group('PacketRepository.validateResponse', () {
+  group('validateResponse', () {
     test('does not throw for 200 with JSON content-type', () {
       final response = http.Response('{}', 200,
           headers: {'content-type': 'application/json'});
       // Should not throw
-      PacketRepository.validateResponse(response);
+      validateResponse(response);
     });
 
     test('throws for 200 with text/html content-type', () {
       final response = http.Response('<html></html>', 200,
           headers: {'content-type': 'text/html'});
       expect(
-        () => PacketRepository.validateResponse(response),
+        () => validateResponse(response),
         throwsA(isA<Exception>()),
+      );
+    });
+
+    test('throws SessionExpiredException for 401', () {
+      final response = http.Response('', 401);
+      expect(
+        () => validateResponse(response),
+        throwsA(isA<SessionExpiredException>()),
       );
     });
 
     test('throws for 4xx status', () {
       final response = http.Response('not found', 404);
       expect(
-        () => PacketRepository.validateResponse(response),
+        () => validateResponse(response),
         throwsA(isA<Exception>().having(
           (e) => e.toString(),
           'message',
@@ -325,7 +423,7 @@ void main() {
     test('throws for redirect with session-expired hint', () {
       final response = http.Response('', 301);
       expect(
-        () => PacketRepository.validateResponse(response),
+        () => validateResponse(response),
         throwsA(isA<Exception>().having(
           (e) => e.toString(),
           'message',
@@ -337,7 +435,7 @@ void main() {
     test('includes context label in error message', () {
       final response = http.Response('err', 500);
       expect(
-        () => PacketRepository.validateResponse(response, context: 'MyOp'),
+        () => validateResponse(response, context: 'MyOp'),
         throwsA(isA<Exception>().having(
           (e) => e.toString(),
           'message',

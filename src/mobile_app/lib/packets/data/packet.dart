@@ -3,6 +3,9 @@
 enum PacketType {
   link,
   text,
+
+  /// File packets aren't supported by the server yet; they are parsed so a
+  /// stray one doesn't break the feed, and rendered as a placeholder.
   file,
 }
 
@@ -12,12 +15,23 @@ class Packet {
     required this.type,
     required this.payload,
     this.title,
+    this.contentType,
+    this.isImage = false,
   });
 
   final String id;
   final PacketType type;
+
+  /// Text body, link URL, or (for files) the parcel id — may be empty for
+  /// file packets.
   final String payload;
   final String? title;
+
+  /// MIME type of a file packet's content (file packets only).
+  final String? contentType;
+
+  /// Whether a file packet holds an image (file packets only).
+  final bool isImage;
 
   /// Serialises to the API's wire format (also used for the disk cache).
   ///
@@ -28,12 +42,20 @@ class Packet {
         ...switch (type) {
           PacketType.text => {'title': title, 'body': payload},
           PacketType.link => {'name': title, 'url': payload},
-          PacketType.file => {'fileName': title, 'parcelId': payload},
+          PacketType.file => {
+              'fileName': title,
+              'parcelId': payload,
+              'contentType': contentType,
+              'isImage': isImage,
+            },
         },
       };
 
   /// Parses a packet from the API's wire format, e.g.
   /// `{"$type": "Text", "id": "…", "title": "…", "body": "…"}`.
+  ///
+  /// Throws [FormatException] for unknown types or missing required fields.
+  /// File packets only require an id, since they are display-only.
   factory Packet.fromJson(Map<String, dynamic> json) {
     final id = json['id']?.toString() ?? '';
     final typeValue = json['\$type']?.toString();
@@ -57,11 +79,35 @@ class Packet {
     if (id.isEmpty) {
       throw const FormatException('Packet id is required.');
     }
-    if (payload.isEmpty) {
+    if (payload.isEmpty && type != PacketType.file) {
       throw FormatException('Packet $payloadKey is required.');
     }
 
-    return Packet(id: id, type: type, payload: payload, title: title);
+    return Packet(
+      id: id,
+      type: type,
+      payload: payload,
+      title: title,
+      contentType:
+          type == PacketType.file ? json['contentType']?.toString() : null,
+      isImage: type == PacketType.file && json['isImage'] == true,
+    );
+  }
+
+  /// Parses a list of wire-format packets, skipping entries that are not
+  /// objects or fail [Packet.fromJson] (e.g. a packet type this version of
+  /// the app doesn't know yet) instead of failing the whole page.
+  static List<Packet> listFromJson(List<dynamic> rawList) {
+    final packets = <Packet>[];
+    for (final raw in rawList) {
+      if (raw is! Map<String, dynamic>) continue;
+      try {
+        packets.add(Packet.fromJson(raw));
+      } on FormatException {
+        // Skip unsupported / malformed packet.
+      }
+    }
+    return List.unmodifiable(packets);
   }
 
   /// Builds a request body for creating a new packet.
@@ -86,6 +132,17 @@ class Packet {
       };
 }
 
+/// Returns [existing] followed by the packets of [incoming] whose ids are not
+/// already present (and without duplicates within [incoming]).
+List<Packet> mergePackets(List<Packet> existing, List<Packet> incoming) {
+  final seen = <String>{};
+  final merged = <Packet>[];
+  for (final packet in [...existing, ...incoming]) {
+    if (seen.add(packet.id)) merged.add(packet);
+  }
+  return List.unmodifiable(merged);
+}
+
 // ─── Packets state ────────────────────────────────────────────────────────────
 
 /// Holds the current list of packets plus the cursor for the next page.
@@ -97,12 +154,17 @@ class PacketsState {
     this.packets = const [],
     this.nextCursor,
     this.isLoadingMore = false,
+    this.loadMoreError,
     this.lastSyncedAt,
   });
 
   final List<Packet> packets;
   final String? nextCursor;
   final bool isLoadingMore;
+
+  /// The error from the last failed "load more" (not persisted).  While set,
+  /// older pages are not fetched automatically — the user has to retry.
+  final Object? loadMoreError;
   final DateTime? lastSyncedAt;
 
   bool get hasMore => nextCursor != null;
@@ -111,12 +173,15 @@ class PacketsState {
     List<Packet>? packets,
     String? Function()? nextCursor,
     bool? isLoadingMore,
+    Object? Function()? loadMoreError,
     DateTime? Function()? lastSyncedAt,
   }) {
     return PacketsState(
       packets: packets ?? this.packets,
       nextCursor: nextCursor != null ? nextCursor() : this.nextCursor,
       isLoadingMore: isLoadingMore ?? this.isLoadingMore,
+      loadMoreError:
+          loadMoreError != null ? loadMoreError() : this.loadMoreError,
       lastSyncedAt:
           lastSyncedAt != null ? lastSyncedAt() : this.lastSyncedAt,
     );

@@ -2,8 +2,10 @@ import 'package:custom_refresh_indicator/custom_refresh_indicator.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../auth/auth_helpers.dart';
 import '../../auth/auth_service.dart';
 import '../../auth/login_page.dart';
+import '../data/packet.dart';
 import '../packets_provider.dart';
 import 'animated_tile_wrapper.dart';
 import 'packet_tile.dart';
@@ -25,6 +27,14 @@ class _PacketListState extends ConsumerState<PacketList>
   /// Tracks packet IDs that have already animated in (don't re-animate).
   final _animatedIds = <String>{};
 
+  /// Whether the scroll-triggered login prompt was already shown for the
+  /// current signed-out period.  Prevents a new sheet on every scroll
+  /// notification; reset when the auth state changes.
+  bool _scrollLoginPromptShown = false;
+
+  /// Whether a login sheet opened from this list is currently visible.
+  bool _loginSheetOpen = false;
+
   @override
   void initState() {
     super.initState();
@@ -42,24 +52,60 @@ class _PacketListState extends ConsumerState<PacketList>
     super.dispose();
   }
 
-  void _checkLoadMore(ScrollNotification notification) {
-    if (notification.metrics.pixels >=
-        notification.metrics.maxScrollExtent - 200) {
-      final packetsState = ref.read(packetsProvider).valueOrNull;
-      if (packetsState != null &&
-          packetsState.hasMore &&
-          !packetsState.isLoadingMore) {
-        ref.read(packetsProvider.notifier).loadMore().then((authed) {
-          if (!authed && mounted) showLoginSheet(context);
-        });
-      }
+  Future<void> _promptLogin() async {
+    if (_loginSheetOpen || !mounted) return;
+    _loginSheetOpen = true;
+    try {
+      await showLoginSheet(context);
+    } finally {
+      _loginSheetOpen = false;
     }
+  }
+
+  void _checkLoadMore(ScrollNotification notification) {
+    if (notification.metrics.pixels <
+        notification.metrics.maxScrollExtent - 200) {
+      return;
+    }
+    final packetsState = ref.read(packetsProvider).valueOrNull;
+    if (packetsState == null ||
+        !packetsState.hasMore ||
+        packetsState.isLoadingMore ||
+        packetsState.loadMoreError != null) {
+      return;
+    }
+
+    final isSignedIn = ref.read(authServiceProvider).valueOrNull == true;
+    if (!isSignedIn) {
+      // Prompt at most once per signed-out period; the end-of-list row offers
+      // a sign-in button after that.
+      if (!_scrollLoginPromptShown) {
+        _scrollLoginPromptShown = true;
+        _promptLogin();
+      }
+      return;
+    }
+
+    _loadMore();
+  }
+
+  Future<void> _loadMore({bool retry = false}) async {
+    final authed =
+        await ref.read(packetsProvider.notifier).loadMore(retry: retry);
+    if (!authed) _promptLogin();
   }
 
   Future<void> _onRefresh() async {
     _animatedIds.clear();
-    final authed = await ref.read(packetsProvider.notifier).refresh();
-    if (!authed && mounted) showLoginSheet(context);
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    try {
+      final authed = await ref.read(packetsProvider.notifier).refresh();
+      if (!authed) _promptLogin();
+    } on SessionExpiredException {
+      _promptLogin();
+    } catch (e) {
+      messenger?.showSnackBar(SnackBar(content: Text('Refresh failed: $e')));
+    }
   }
 
   @override
@@ -71,6 +117,12 @@ class _PacketListState extends ConsumerState<PacketList>
     final asyncState = ref.watch(packetsProvider);
     final isSignedIn =
         ref.watch(authServiceProvider).valueOrNull == true;
+
+    // A new auth state means a new chance to prompt on scroll.
+    ref.listen(
+      authServiceProvider.select((auth) => auth.valueOrNull == true),
+      (_, __) => _scrollLoginPromptShown = false,
+    );
 
     final packetsState = asyncState.valueOrNull;
     if (asyncState.isLoading && packetsState == null) {
@@ -100,7 +152,6 @@ class _PacketListState extends ConsumerState<PacketList>
     }
 
     final packets = packetsState?.packets ?? [];
-    final hasMore = packetsState?.hasMore ?? false;
 
     return NotificationListener<ScrollNotification>(
       onNotification: (notification) {
@@ -147,7 +198,7 @@ class _PacketListState extends ConsumerState<PacketList>
                               ),
                               const SizedBox(height: 12),
                               FilledButton.icon(
-                                onPressed: () => showLoginSheet(context),
+                                onPressed: _promptLogin,
                                 icon: const Icon(Icons.login),
                                 label: const Text('Sign in'),
                               ),
@@ -167,48 +218,14 @@ class _PacketListState extends ConsumerState<PacketList>
                 physics: const AlwaysScrollableScrollPhysics(),
                 // Bottom padding clears the FAB
                 padding: const EdgeInsets.only(bottom: 124),
-                // +1 for the top slot: "loading more" spinner or "all caught up"
+                // +1 for the top slot: "loading more" spinner, retry row,
+                // sign-in prompt, or "all caught up".
                 itemCount: packets.length + 1,
                 separatorBuilder: (_, __) =>
                     const SizedBox(height: 8), // Space between packets
                 itemBuilder: (context, index) {
                   if (index >= packets.length) {
-                    if (hasMore) {
-                      return const Padding(
-                        padding: EdgeInsets.all(16),
-                        child: Center(child: CircularProgressIndicator()),
-                      );
-                    }
-                    return Padding(
-                      padding: const EdgeInsets.only(
-                          top: 16, bottom: 32, left: 24, right: 24),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.list,
-                            size: 36,
-                            color: Theme.of(context)
-                                .colorScheme
-                                .onSurface
-                                .withValues(alpha: 0.3),
-                          ),
-                          const SizedBox(height: 10),
-                          Text(
-                            'You\'ve gone back to the beginning!',
-                            style: Theme.of(context)
-                                .textTheme
-                                .bodyMedium
-                                ?.copyWith(
-                                  color: Theme.of(context)
-                                      .colorScheme
-                                      .onSurface
-                                      .withValues(alpha: 0.4),
-                                ),
-                          ),
-                        ],
-                      ),
-                    );
+                    return _buildEndOfList(context, packetsState, isSignedIn);
                   }
                   final packet = packets[index];
                   final shouldAnimate = _animatedIds.add(packet.id);
@@ -223,6 +240,89 @@ class _PacketListState extends ConsumerState<PacketList>
                   );
                 },
               ),
+      ),
+    );
+  }
+
+  /// The slot after the oldest packet (rendered at the top of the reversed
+  /// list).
+  Widget _buildEndOfList(
+    BuildContext context,
+    PacketsState? packetsState,
+    bool isSignedIn,
+  ) {
+    final cs = Theme.of(context).colorScheme;
+    final mutedStyle = Theme.of(context)
+        .textTheme
+        .bodyMedium
+        ?.copyWith(color: cs.onSurface.withValues(alpha: 0.4));
+
+    if (packetsState != null && packetsState.hasMore) {
+      if (packetsState.loadMoreError != null && !packetsState.isLoadingMore) {
+        return InkWell(
+          onTap: () => _loadMore(retry: true),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.refresh, color: cs.error),
+                const SizedBox(height: 8),
+                Text(
+                  'Couldn\'t load older packets. Tap to retry.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: cs.error),
+                ),
+              ],
+            ),
+          ),
+        );
+      }
+
+      if (!isSignedIn) {
+        return Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'Sign in to load older packets',
+                textAlign: TextAlign.center,
+                style: mutedStyle,
+              ),
+              const SizedBox(height: 8),
+              TextButton.icon(
+                onPressed: _promptLogin,
+                icon: const Icon(Icons.login),
+                label: const Text('Sign in'),
+              ),
+            ],
+          ),
+        );
+      }
+
+      return const Padding(
+        padding: EdgeInsets.all(16),
+        child: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 16, bottom: 32, left: 24, right: 24),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            Icons.list,
+            size: 36,
+            color: cs.onSurface.withValues(alpha: 0.3),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            'You\'ve gone back to the beginning!',
+            style: mutedStyle,
+          ),
+        ],
       ),
     );
   }

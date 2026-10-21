@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../data/link_utils.dart';
 import '../data/packet.dart';
 import 'tile_header.dart';
 
@@ -13,6 +14,10 @@ class StandardTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Only http(s) links are tappable; anything else is shown as plain text.
+    final linkUri =
+        packet.type == PacketType.link ? tryParseHttpUrl(packet.payload) : null;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -20,12 +25,9 @@ class StandardTile extends StatelessWidget {
         const SizedBox(height: 16),
         Padding(
           padding: const EdgeInsets.only(left: 18.0),
-          child: packet.type == PacketType.link
+          child: linkUri != null
               ? GestureDetector(
-                  onTap: () => launchUrl(
-                    Uri.parse(packet.payload),
-                    mode: LaunchMode.externalApplication,
-                  ),
+                  onTap: () => _openLink(context, linkUri),
                   child: Text(
                     packet.payload,
                     style: TextStyle(
@@ -39,5 +41,21 @@ class StandardTile extends StatelessWidget {
         const SizedBox(height: 16),
       ],
     );
+  }
+
+  /// Launches [uri] externally; never throws — failures show a snackbar.
+  Future<void> _openLink(BuildContext context, Uri uri) async {
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    var launched = false;
+    try {
+      launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } catch (_) {
+      launched = false;
+    }
+    if (!launched) {
+      messenger?.showSnackBar(
+        const SnackBar(content: Text('Couldn\'t open this link')),
+      );
+    }
   }
 }

@@ -1,16 +1,67 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../auth/auth_helpers.dart';
 import '../../auth/login_page.dart';
+import '../data/link_utils.dart';
 import '../packets_provider.dart';
 
 /// Shows a bottom sheet for pushing a new text or link packet.
-void showPushPacketSheet(BuildContext context, WidgetRef ref) {
-  final controller = TextEditingController();
-  showModalBottomSheet<void>(
+///
+/// [context] must be the *page* context (not one inside the sheet): the
+/// sheet is closed before the push runs, so feedback (failure snackbar, login
+/// prompt) is shown from the page.
+Future<void> showPushPacketSheet(BuildContext context, WidgetRef ref) async {
+  // Capture page-level handles before opening the sheet.
+  final messenger = ScaffoldMessenger.of(context);
+  final notifier = ref.read(packetsProvider.notifier);
+
+  final text = await showModalBottomSheet<String>(
     context: context,
     isScrollControlled: true,
-    builder: (context) => Padding(
+    builder: (_) => const _PushPacketSheet(),
+  );
+  if (text == null || text.trim().isEmpty) return;
+
+  final trimmed = text.trim();
+  try {
+    final authed = await notifier.push(
+      type: packetTypeForInput(trimmed),
+      payload: trimmed,
+    );
+    if (!authed && context.mounted) await showLoginSheet(context);
+  } on SessionExpiredException {
+    if (context.mounted) await showLoginSheet(context);
+  } catch (e) {
+    messenger.showSnackBar(SnackBar(content: Text('Push failed: $e')));
+  }
+}
+
+/// Sheet content; pops with the entered text when the user submits.
+class _PushPacketSheet extends StatefulWidget {
+  const _PushPacketSheet();
+
+  @override
+  State<_PushPacketSheet> createState() => _PushPacketSheetState();
+}
+
+class _PushPacketSheetState extends State<_PushPacketSheet> {
+  final _controller = TextEditingController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    final value = _controller.text;
+    if (value.trim().isNotEmpty) Navigator.pop(context, value);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
       padding: EdgeInsets.only(
         left: 16,
         right: 16,
@@ -24,7 +75,7 @@ void showPushPacketSheet(BuildContext context, WidgetRef ref) {
           Text('Push a packet', style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 12),
           TextField(
-            controller: controller,
+            controller: _controller,
             autofocus: true,
             maxLines: 4,
             minLines: 1,
@@ -33,48 +84,16 @@ void showPushPacketSheet(BuildContext context, WidgetRef ref) {
               hintText: 'Type text or paste a URL…',
               border: OutlineInputBorder(),
             ),
-            onSubmitted: (value) {
-              if (value.trim().isNotEmpty) {
-                Navigator.pop(context);
-                _pushPacket(context, ref, value);
-              }
-            },
+            onSubmitted: (_) => _submit(),
           ),
           const SizedBox(height: 12),
           FilledButton.icon(
             icon: const Icon(Icons.send),
             label: const Text('Push'),
-            onPressed: () {
-              final value = controller.text;
-              if (value.trim().isNotEmpty) {
-                Navigator.pop(context);
-                _pushPacket(context, ref, value);
-              }
-            },
+            onPressed: _submit,
           ),
         ],
       ),
-    ),
-  );
-}
-
-Future<void> _pushPacket(
-    BuildContext context, WidgetRef ref, String text) async {
-  try {
-    final trimmed = text.trim();
-    final isUrl = Uri.tryParse(trimmed)?.hasScheme ?? false;
-    final authed = await ref.read(packetsProvider.notifier).push(
-          type: isUrl ? 'link' : 'text',
-          payload: trimmed,
-        );
-    if (!authed && context.mounted) {
-      showLoginSheet(context);
-    }
-  } catch (e) {
-    if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Push failed: $e')),
-      );
-    }
+    );
   }
 }

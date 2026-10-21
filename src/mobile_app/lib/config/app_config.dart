@@ -1,69 +1,53 @@
-import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:flutter/services.dart';
 
-/// Compile-time app configuration with optional `.env` overrides.
+/// Compile-time app configuration.
 ///
-/// Call [AppConfig.load] once at startup (before `runApp`) to read the
-/// bundled `.env` file. Any key present in `.env` takes precedence over
-/// the corresponding `--dart-define` value.
+/// All values come from `--dart-define` (CI) or `--dart-define-from-file`
+/// (local development). Nothing is read from a bundled asset, so a missing
+/// `.env` file can neither break the build nor the app start-up, and a stale
+/// local file can never override what the build system passes.
 ///
 /// ```
-/// # Dev (default):
-/// flutter run --flavor dev --dart-define=API_BASE_URL=https://my-tunnel.devtunnels.ms
+/// # Local dev — copy .env.example to .env (git-ignored) and fill it in:
+/// flutter run --flavor development --dart-define-from-file=.env
 ///
-/// # Prod:
-/// flutter run --flavor prod
+/// # CI / release — pass each value explicitly:
+/// flutter build appbundle --flavor production \
+///   --dart-define=API_BASE_URL=https://api.example.com \
+///   --dart-define=SERVER_CLIENT_ID=... --dart-define=APP_CLIENT_ID=...
 /// ```
+///
+/// If a key is passed both ways, the explicit `--dart-define` wins (the
+/// Flutter tool appends command-line defines after the file's).
 class AppConfig {
   AppConfig._();
 
-  /// Load the `.env` asset (safe to call even if the file is empty).
-  static Future<void> load() async {
-    await dotenv.load(fileName: '.env', mergeWith: {});
-  }
-
-  // ── helpers ──────────────────────────────────────────────────────────
-
-  /// Returns the `.env` value for [key] if present, otherwise the
-  /// compile-time `--dart-define` value (which may be empty).
-  static String _env(String key, {String dartDefine = ''}) =>
-      dotenv.maybeGet(key) ?? dartDefine;
-
   // ── configuration values ─────────────────────────────────────────────
 
-  /// The current flavor: "development" or "production".
-  static const String flavor = String.fromEnvironment(
-    'FLAVOR',
-    defaultValue: 'development',
-  );
+  /// The current flavor: "development" or "production" (the Android
+  /// `productFlavors` in `android/app/build.gradle.kts`).
+  ///
+  /// Comes from `flutter run/build --flavor <name>` via [appFlavor]; falls
+  /// back to "development" when no flavor is given (e.g. in tests).
+  static const String flavor = appFlavor ?? 'development';
 
-  static String get serverClientId => _env(
-        'SERVER_CLIENT_ID',
-        dartDefine: const String.fromEnvironment('SERVER_CLIENT_ID'),
-      );
+  static const String serverClientId =
+      String.fromEnvironment('SERVER_CLIENT_ID');
 
-  static String get appClientId => _env(
-        'APP_CLIENT_ID',
-        dartDefine: const String.fromEnvironment('APP_CLIENT_ID'),
-      );
+  static const String appClientId = String.fromEnvironment('APP_CLIENT_ID');
 
   /// The base URL for the Passel API.
   /// Override at build time:
   /// ```
   /// --dart-define=API_BASE_URL=https://my-custom-host.example.com
   /// ```
-  static String get apiBaseUrl => _env(
-        'API_BASE_URL',
-        dartDefine: const String.fromEnvironment('API_BASE_URL'),
-      );
+  static const String apiBaseUrl = String.fromEnvironment('API_BASE_URL');
 
   /// Default API version sent with every request.
   static const String apiVersion = '1';
 
   /// GET / POST packets endpoint.
   static String get packetsEndpoint => '$apiBaseUrl/api/packets';
-
-  /// Parcels endpoint (upload / download).
-  static String get parcelsEndpoint => '$apiBaseUrl/api/parcels';
 
   /// Builds a [Uri] for [endpoint] with `api-version` merged in.
   ///
@@ -80,7 +64,6 @@ class AppConfig {
     };
     return Uri.parse(endpoint).replace(queryParameters: merged);
   }
-
 
   static bool get isDev => flavor == 'development';
 

@@ -89,9 +89,10 @@ class _LoginPageState extends ConsumerState<LoginPage> {
 
 /// Shows a modal bottom sheet prompting the user to sign in.
 ///
-/// Automatically dismisses itself when sign-in succeeds.
-void showLoginSheet(BuildContext context) {
-  showModalBottomSheet<void>(
+/// Automatically dismisses itself when sign-in succeeds.  The returned future
+/// completes when the sheet is closed.
+Future<void> showLoginSheet(BuildContext context) {
+  return showModalBottomSheet<void>(
     context: context,
     builder: (_) => const _LoginSheet(),
   );
@@ -107,15 +108,6 @@ class _LoginSheet extends ConsumerStatefulWidget {
 class _LoginSheetState extends ConsumerState<_LoginSheet> {
   bool _loading = false;
   String? _error;
-
-  @override
-  void initState() {
-    super.initState();
-    // If sign-in succeeds (from any source), auto-dismiss the sheet.
-    // We don't use ref.listen in initState, so we set it up in build via
-    // a one-time flag — but since ConsumerState supports ref.listenManual
-    // in initState, we do it here.
-  }
 
   Future<void> _signIn() async {
     setState(() {

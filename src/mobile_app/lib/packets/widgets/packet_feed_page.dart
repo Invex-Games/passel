@@ -78,14 +78,8 @@ class _PacketFeedPageState extends ConsumerState<PacketFeedPage> {
     final packetsState = ref.watch(packetsProvider).valueOrNull;
     final syncText = _syncLabel(packetsState?.lastSyncedAt);
 
-    // When auth state transitions to signed-in, auto-refresh the feed.
-    ref.listen(authServiceProvider, (prev, next) {
-      final wasSignedIn = prev?.valueOrNull == true;
-      final nowSignedIn = next.valueOrNull == true;
-      if (!wasSignedIn && nowSignedIn) {
-        ref.read(packetsProvider.notifier).refresh();
-      }
-    });
+    // No manual refresh on sign-in here: [PacketsNotifier] watches the auth
+    // state and rebuilds (cache first, then a fresh fetch) when it changes.
 
     return Scaffold(
       body: NotificationListener<ScrollNotification>(

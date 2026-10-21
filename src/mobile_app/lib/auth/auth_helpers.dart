@@ -3,26 +3,53 @@ import 'package:http/http.dart' as http;
 
 import 'auth_service.dart';
 
-/// Returns a valid ID token or signs out and throws if the session expired.
-///
-/// Shared between [PacketsNotifier] and [ParcelService] so both use the same
-/// token-refresh / sign-out logic.
-Future<String> requireToken(Ref ref) async {
+/// Thrown when the user's session can't be used or refreshed (no token, or
+/// the server keeps rejecting it).  The UI should prompt the user to sign in.
+class SessionExpiredException implements Exception {
+  const SessionExpiredException([
+    this.message = 'Session expired — please sign in again.',
+  ]);
+
+  final String message;
+
+  @override
+  String toString() => message;
+}
+
+/// Supplies a Bearer token; [forceRefresh] discards the cached token first
+/// (used after the server responded with HTTP 401).
+typedef TokenProvider = Future<String> Function({bool forceRefresh});
+
+/// Returns a valid ID token, or throws [SessionExpiredException] if the
+/// session can't be refreshed (the auth state is then signed-out).
+Future<String> requireToken(Ref ref, {bool forceRefresh = false}) async {
   final authNotifier = ref.read(authServiceProvider.notifier);
-  final token = await authNotifier.getIdToken();
+  final token = await authNotifier.getIdToken(forceRefresh: forceRefresh);
   if (token == null) {
-    throw Exception('Session expired — please sign in again.');
+    throw const SessionExpiredException();
   }
   return token;
 }
 
+/// Sends an authenticated request built by [send], retrying **once** with a
+/// force-refreshed token if the server answers HTTP 401.
+///
+/// [send] must build a fresh request each time (an `http` request can only be
+/// sent once).
+Future<http.Response> sendWithAuthRetry(
+  TokenProvider tokenProvider,
+  Future<http.Response> Function(String token) send,
+) async {
+  final response = await send(await tokenProvider());
+  if (response.statusCode != 401) return response;
+  return send(await tokenProvider(forceRefresh: true));
+}
+
 /// Shared HTTP client that does **not** follow redirects.
 ///
-/// When the bearer token is expired the API may return a 3xx redirect to an
-/// identity-provider sign-in page. If the client follows it, we end up with a
-/// 200 HTML response that fails to parse as JSON.  Disabling auto-redirect lets
-/// us catch the 3xx status code in [validateResponse] and surface a clear
-/// "session expired" error instead.
+/// The API answers unauthenticated requests with 401, but if a proxy or
+/// misconfiguration ever redirects to a sign-in page we want to catch the 3xx
+/// in [validateResponse] instead of parsing a 200 HTML page as JSON.
 final apiClientProvider = Provider<http.Client>((ref) {
   final inner = http.Client();
   ref.onDispose(inner.close);
@@ -32,13 +59,12 @@ final apiClientProvider = Provider<http.Client>((ref) {
 /// Throws a descriptive [Exception] if [response] indicates a failure.
 ///
 /// Checks:
-/// 1. Non-2xx status → throws immediately.
-/// 2. If the response body looks like HTML (e.g. a sign-in page served after a
-///    redirect that slipped through), throws an auth-related message.
+/// 1. 401 → [SessionExpiredException] (callers retry once before this).
+/// 2. 3xx → auth-related error (a redirect to a sign-in page slipped through).
+/// 3. Other non-2xx status → throws with the status code.
+/// 4. A 2xx HTML body (some proxies / CDNs inject auth pages with a 200).
 void validateResponse(http.Response response, {String context = 'Request'}) {
   if (response.statusCode >= 200 && response.statusCode < 300) {
-    // Successful status — still guard against HTML bodies (some proxies /
-    // CDNs inject auth pages with a 200 status).
     final contentType = response.headers['content-type'] ?? '';
     if (contentType.contains('text/html')) {
       throw Exception(
@@ -47,6 +73,12 @@ void validateResponse(http.Response response, {String context = 'Request'}) {
       );
     }
     return;
+  }
+
+  if (response.statusCode == 401) {
+    throw SessionExpiredException(
+      '$context was rejected (HTTP 401) — please sign in again.',
+    );
   }
 
   if (response.statusCode >= 300 && response.statusCode < 400) {
@@ -72,4 +104,3 @@ class _NoRedirectClient extends http.BaseClient {
     return _inner.send(request);
   }
 }
-

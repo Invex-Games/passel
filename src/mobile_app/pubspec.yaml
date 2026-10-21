@@ -42,12 +42,8 @@ dependencies:
   google_sign_in: ^7.2.0
   custom_refresh_indicator: ^4.0.1
   dynamic_color: ^1.7.0
-  flutter_svg: ^2.0.0
-  fullscreen_image_viewer: ^1.2.0
   share_plus: ^10.0.0
   shared_preferences: ^2.3.0
-  cached_network_image_ce: ^4.6.4
-  flutter_dotenv: ^6.0.1
 
 dev_dependencies:
   flutter_test:
@@ -71,8 +67,13 @@ flutter:
   # included with your application so that you can use the icons in
   # the material Icons class.
   uses-material-design: true
-  assets:
-    - .env
+
+  # Configuration (API URL, client ids) is passed with --dart-define /
+  # --dart-define-from-file, not bundled as an asset — see
+  # lib/config/app_config.dart and .env.example.
+
+  # To add assets to your application, add an assets section, like this:
+  # assets:
   #   - images/a_dot_ham.jpeg
 
   # An image asset can refer to one or more resolution-specific "variants", see

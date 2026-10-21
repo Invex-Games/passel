@@ -52,13 +52,46 @@ void main() {
       expect(p.type, PacketType.file);
       expect(p.payload, equals('abcde12345'));
       expect(p.title, 'Screenshot');
+      expect(p.contentType, 'image/png');
+      expect(p.isImage, isTrue);
+    });
+
+    test('tolerates file packets without a parcel id', () {
+      final p = Packet.fromJson({
+        r'$type': 'File',
+        'id': 'f1',
+        'fileName': 'report.pdf',
+      });
+      expect(p.type, PacketType.file);
+      expect(p.payload, isEmpty);
+      expect(p.contentType, isNull);
+      expect(p.isImage, isFalse);
+    });
+
+    test('ignores file-only fields on other packet types', () {
+      final p = Packet.fromJson({
+        r'$type': 'Text',
+        'id': 't1',
+        'body': 'hi',
+        'contentType': 'text/plain',
+        'isImage': true,
+      });
+      expect(p.contentType, isNull);
+      expect(p.isImage, isFalse);
     });
 
     test('round-trips through toJson', () {
       for (final packet in const [
         Packet(id: 'a', type: PacketType.text, payload: 'hi', title: 'T'),
         Packet(id: 'b', type: PacketType.link, payload: 'https://x.com'),
-        Packet(id: 'c', type: PacketType.file, payload: 'p1', title: 'f.png'),
+        Packet(
+          id: 'c',
+          type: PacketType.file,
+          payload: 'p1',
+          title: 'f.png',
+          contentType: 'image/png',
+          isImage: true,
+        ),
       ]) {
         final json = packet.toJson();
         expect(json.keys.first, r'$type');
@@ -68,6 +101,8 @@ void main() {
         expect(parsed.type, packet.type);
         expect(parsed.payload, packet.payload);
         expect(parsed.title, packet.title);
+        expect(parsed.contentType, packet.contentType);
+        expect(parsed.isImage, packet.isImage);
       }
     });
 
@@ -122,7 +157,49 @@ void main() {
     });
   });
 
+  group('Packet.listFromJson', () {
+    test('skips malformed and unsupported entries', () {
+      final packets = Packet.listFromJson([
+        {r'$type': 'Text', 'id': '1', 'body': 'ok'},
+        {r'$type': 'Video', 'id': '2', 'body': 'nope'},
+        {r'$type': 'Text', 'id': '', 'body': 'no id'},
+        'not a map',
+        {r'$type': 'Link', 'id': '3', 'url': 'https://x.com'},
+      ]);
+      expect(packets.map((p) => p.id), ['1', '3']);
+    });
+  });
+
+  group('mergePackets', () {
+    const a = Packet(id: 'a', type: PacketType.text, payload: 'a');
+    const b = Packet(id: 'b', type: PacketType.text, payload: 'b');
+    const c = Packet(id: 'c', type: PacketType.text, payload: 'c');
+    const bUpdated = Packet(id: 'b', type: PacketType.text, payload: 'b2');
+
+    test('appends new packets and keeps existing order', () {
+      expect(mergePackets([a, b], [c]).map((p) => p.id), ['a', 'b', 'c']);
+    });
+
+    test('drops incoming duplicates, keeping the existing copy', () {
+      final merged = mergePackets([a, b], [bUpdated, c]);
+      expect(merged.map((p) => p.id), ['a', 'b', 'c']);
+      expect(merged[1].payload, 'b');
+    });
+
+    test('de-duplicates within the incoming list', () {
+      expect(mergePackets([], [a, a, b]).map((p) => p.id), ['a', 'b']);
+    });
+  });
+
   group('PacketsState', () {
+    test('copyWith can set and clear loadMoreError', () {
+      const state = PacketsState();
+      final failed = state.copyWith(loadMoreError: () => 'boom');
+      expect(failed.loadMoreError, 'boom');
+      expect(failed.copyWith(isLoadingMore: true).loadMoreError, 'boom');
+      expect(failed.copyWith(loadMoreError: () => null).loadMoreError, isNull);
+    });
+
     test('lastSyncedAt defaults to null', () {
       const state = PacketsState();
       expect(state.lastSyncedAt, isNull);
