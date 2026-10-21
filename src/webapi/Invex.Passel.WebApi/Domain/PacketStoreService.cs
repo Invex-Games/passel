@@ -1,4 +1,6 @@
-﻿namespace Invex.Passel.WebApi.Domain;
+﻿using Npgsql;
+
+namespace Invex.Passel.WebApi.Domain;
 
 internal interface IPacketStoreService
 {
@@ -7,7 +9,10 @@ internal interface IPacketStoreService
     Task<PacketAggregate?> Handle(CreateLinkPacket command);
 }
 
-internal sealed class PacketStoreService(IDocumentSession session) : IPacketStoreService
+internal sealed partial class PacketStoreService(
+    IDocumentSession session,
+    NpgsqlDataSource dataSource,
+    ILogger<PacketStoreService> logger) : IPacketStoreService
 {
     public async Task<PacketAggregate?> Handle(CreateTextPacket command)
     {
@@ -22,8 +27,8 @@ internal sealed class PacketStoreService(IDocumentSession session) : IPacketStor
             CreatedAt = DateTimeOffset.UtcNow,
         });
 
-        QueueNotification(command.UserId, id);
         await session.SaveChangesAsync();
+        await NotifyCreatedAsync(command.UserId, id);
 
         return await session.Events.FetchLatest<PacketAggregate>(id);
     }
@@ -41,15 +46,30 @@ internal sealed class PacketStoreService(IDocumentSession session) : IPacketStor
             CreatedAt = DateTimeOffset.UtcNow,
         });
 
-        QueueNotification(command.UserId, id);
         await session.SaveChangesAsync();
+        await NotifyCreatedAsync(command.UserId, id);
 
         return await session.Events.FetchLatest<PacketAggregate>(id);
     }
 
-    // Runs in the same transaction as the event append; Postgres only delivers the notification once it commits
-    private void QueueNotification(string userId, Guid packetId) =>
-        session.QueueSqlCommand("select pg_notify(?, ?)",
-            PacketNotification.Channel,
-            new PacketNotification(userId, packetId).ToPayload());
+    // Sent once the packet is committed, so it never announces one that was rolled back. It can't be queued in the
+    // session: Marten reads its batch's results positionally and would hand the pg_notify result to the next
+    // operation. A lost notification only delays live clients until their next resync, so it doesn't fail the request.
+    private async Task NotifyCreatedAsync(string userId, Guid packetId)
+    {
+        try
+        {
+            await using var notify = dataSource.CreateCommand("select pg_notify($1, $2)");
+            notify.Parameters.Add(new() { Value = PacketNotification.Channel });
+            notify.Parameters.Add(new() { Value = new PacketNotification(userId, packetId).ToPayload() });
+            await notify.ExecuteNonQueryAsync();
+        }
+        catch (Exception exception)
+        {
+            LogNotifyFailed(exception, packetId);
+        }
+    }
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Failed to notify listeners of packet {PacketId}")]
+    private partial void LogNotifyFailed(Exception exception, Guid packetId);
 }

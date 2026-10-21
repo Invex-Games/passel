@@ -1,8 +1,7 @@
 namespace Invex.Passel.WebApi.Services;
 
 /// <summary>
-///     The payload of a Postgres <c>NOTIFY</c> on <see cref="Channel" />, sent in the same transaction that creates a
-///     packet so it is only delivered once the packet is committed.
+///     The payload of a Postgres <c>NOTIFY</c> on <see cref="Channel" />, sent once a created packet is committed.
 /// </summary>
 internal sealed record PacketNotification(string UserId, Guid PacketId)
 {
