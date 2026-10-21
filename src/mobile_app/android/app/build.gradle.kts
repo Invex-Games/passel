@@ -11,8 +11,8 @@ plugins {
 
 val keystoreProperties = Properties()
 
-if (System.getenv("SIGNING_RELEASE_KEY_PROPERTIES") != null)
-    keystoreProperties.setProperty("storePassword", System.getenv("SIGNING_RELEASE_KEY_PASSWORD"))
+if (System.getenv("SIGNING_RELEASE_STORE_PASSWORD") != null)
+    keystoreProperties.setProperty("storePassword", System.getenv("SIGNING_RELEASE_STORE_PASSWORD"))
 
 if (System.getenv("SIGNING_RELEASE_KEY_PASSWORD") != null)
     keystoreProperties.setProperty("keyPassword", System.getenv("SIGNING_RELEASE_KEY_PASSWORD"))

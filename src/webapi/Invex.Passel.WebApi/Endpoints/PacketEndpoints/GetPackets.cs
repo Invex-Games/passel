@@ -50,22 +50,22 @@ public static partial class PacketEndpoints
 
     public static void MapGetPackets(this IEndpointRouteBuilder builder) =>
         builder.MapGet(string.Empty,
-            ([FromQuery] string? cursor, IIdEncodingService encodingService, IQuerySession querySession) =>
+            async ([FromQuery] string? cursor, IIdEncodingService encodingService, IQuerySession querySession) =>
             {
                 const int batchSize = 50;
 
                 var packets = cursor is null
-                    ? querySession
+                    ? await querySession
                         .Query<PacketAggregate>()
                         .OrderByDescending(p => p.Id)
                         .Take(batchSize + 1)
-                        .ToList()
-                    : querySession
+                        .ToListAsync()
+                    : await querySession
                         .Query<PacketAggregate>()
                         .Where(x => x.Id < encodingService.Decode(cursor))
                         .OrderByDescending(p => p.Id)
                         .Take(batchSize + 1)
-                        .ToList();
+                        .ToListAsync();
 
                 if (packets.Count is 0)
                     return Results.Ok(new GetPacketsResponseBody

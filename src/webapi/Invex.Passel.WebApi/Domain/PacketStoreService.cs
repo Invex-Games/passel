@@ -11,7 +11,8 @@ internal sealed class PacketStoreService(IDocumentSession session) : IPacketStor
 {
     public async Task<PacketAggregate?> Handle(CreateTextPacket command)
     {
-        var stream = await session.Events.FetchForWriting<PacketAggregate>(Guid.CreateVersion7());
+        var id = Guid.CreateVersion7();
+        var stream = await session.Events.FetchForWriting<PacketAggregate>(id);
 
         stream.AppendOne(new TextPacketCreated
         {
@@ -23,12 +24,13 @@ internal sealed class PacketStoreService(IDocumentSession session) : IPacketStor
 
         await session.SaveChangesAsync();
 
-        return stream.Aggregate;
+        return await session.Events.FetchLatest<PacketAggregate>(id);
     }
 
     public async Task<PacketAggregate?> Handle(CreateLinkPacket command)
     {
-        var stream = await session.Events.FetchForWriting<PacketAggregate>(Guid.CreateVersion7());
+        var id = Guid.CreateVersion7();
+        var stream = await session.Events.FetchForWriting<PacketAggregate>(id);
 
         stream.AppendOne(new LinkPacketCreated
         {
@@ -40,6 +42,6 @@ internal sealed class PacketStoreService(IDocumentSession session) : IPacketStor
 
         await session.SaveChangesAsync();
 
-        return stream.Aggregate;
+        return await session.Events.FetchLatest<PacketAggregate>(id);
     }
 }

@@ -9,8 +9,12 @@ builder
     .Services
     .AddMarten(storeOptions =>
     {
-        storeOptions.Projections.Add<PacketAggregate>(ProjectionLifecycle.Inline);
+        storeOptions.Projections.Snapshot<PacketAggregate>(SnapshotLifecycle.Inline);
         storeOptions.AutoCreateSchemaObjects = AutoCreate.All;
+
+        // jsonb reorders keys, so the "$type" discriminator is not guaranteed to come first
+        storeOptions.UseSystemTextJsonForSerialization(configure: jsonOptions =>
+            jsonOptions.AllowOutOfOrderMetadataProperties = true);
     })
     .UseLightweightSessions()
     .UseNpgsqlDataSource();

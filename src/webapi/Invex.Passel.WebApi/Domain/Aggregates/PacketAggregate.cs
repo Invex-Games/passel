@@ -37,7 +37,7 @@ public partial record Packet
 }
 
 [PublicAPI]
-public sealed class PacketAggregate : SingleStreamProjection<PacketAggregate, Guid>
+public sealed class PacketAggregate
 {
     public Guid Id { get; init; } = Guid.Empty;
 
