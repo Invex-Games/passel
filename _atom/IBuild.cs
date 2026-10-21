@@ -7,7 +7,9 @@ internal interface IBuild : IBuildDefinition,
     IAzureKeyVault,
     IBuildWebApi,
     IBuildMobileAppAndroid,
-    IBuildChromeExtension
+    IBuildChromeExtension,
+    ITestTargets,
+    ISetupDevEnvironment
 {
     IReadOnlyList<IBuildOption> IBuildDefinition.Options => [BuildOptions.AzureKeyVault.UseAzureKeyVault];
 }

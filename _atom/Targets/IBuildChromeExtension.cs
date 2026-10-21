@@ -1,6 +1,6 @@
 ﻿namespace Atom.Targets;
 
-internal interface IBuildChromeExtension : IProcessHelper, IConfigurationHelper
+internal interface IBuildChromeExtension : IChromeExtensionHelper, IConfigurationHelper
 {
     const string ChromeExtensionArtifactName = "ChromeExtension";
 
@@ -15,8 +15,7 @@ internal interface IBuildChromeExtension : IProcessHelper, IConfigurationHelper
             .ProducesArtifact(ChromeExtensionArtifactName)
             .Executes(async cancellationToken =>
             {
-                var chromeExtensionDirectory = RootedFileSystem.AtomRootDirectory / "src" / "chrome-extension";
-                var chromeExtensionBuildDirectory = chromeExtensionDirectory / "dist";
+                var chromeExtensionBuildDirectory = ChromeExtensionDirectory / "dist";
                 var chromeExtensionPublishDirectory = RootedFileSystem.AtomPublishDirectory / ChromeExtensionArtifactName;
 
                 RootedFileSystem.CleanOrCreateDirectory(chromeExtensionPublishDirectory);
@@ -31,18 +30,11 @@ internal interface IBuildChromeExtension : IProcessHelper, IConfigurationHelper
                 if (ChromeExtensionClientId is { Length: > 0 })
                     buildVariables["GOOGLE_CLIENT_ID"] = ChromeExtensionClientId;
 
-                var npmPath = await FindEnvironmentPath("npm", cancellationToken);
-
-                await ProcessRunner.RunAsync(new(npmPath, "ci")
-                    {
-                        WorkingDirectory = chromeExtensionDirectory,
-                        OutputLogLevel = LogLevel.Debug,
-                    },
-                    cancellationToken);
+                var npmPath = await RestoreChromeExtensionPackages(cancellationToken);
 
                 await ProcessRunner.RunAsync(new(npmPath, "run build")
                     {
-                        WorkingDirectory = chromeExtensionDirectory,
+                        WorkingDirectory = ChromeExtensionDirectory,
                         EnvironmentVariables = buildVariables,
                     },
                     cancellationToken);
