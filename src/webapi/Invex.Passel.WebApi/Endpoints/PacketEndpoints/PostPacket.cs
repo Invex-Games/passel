@@ -74,6 +74,41 @@ public static partial class PacketEndpoints
         }
     }
 
+    internal const int MaxTitleLength = 256;
+    internal const int MaxUrlLength = 2048;
+    internal const int MaxBodyLength = 64 * 1024;
+    private const long MaxRequestBodySize = 256 * 1024;
+
+    internal static Dictionary<string, string[]> Validate(PostPacketRequestBody packet)
+    {
+        var errors = new Dictionary<string, string[]>();
+
+        switch (packet)
+        {
+            case PostPacketRequestBody.Link link:
+                if (link.Name is { Length: > MaxTitleLength })
+                    errors["name"] = [$"Name must be at most {MaxTitleLength} characters."];
+
+                if (link.Url is not { Length: > 0 and <= MaxUrlLength } ||
+                    !Uri.TryCreate(link.Url, UriKind.Absolute, out var uri) ||
+                    uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps)
+                    errors["url"] = [$"Url must be an absolute http or https URL of at most {MaxUrlLength} characters."];
+
+                break;
+
+            case PostPacketRequestBody.Text text:
+                if (text.Title is { Length: > MaxTitleLength })
+                    errors["title"] = [$"Title must be at most {MaxTitleLength} characters."];
+
+                if (string.IsNullOrWhiteSpace(text.Body) || text.Body.Length > MaxBodyLength)
+                    errors["body"] = [$"Body must be non-empty and at most {MaxBodyLength} characters."];
+
+                break;
+        }
+
+        return errors;
+    }
+
     public static void MapPostPacket(this IEndpointRouteBuilder builder) =>
         builder
             .MapPost(string.Empty,
@@ -83,10 +118,19 @@ public static partial class PacketEndpoints
                     IIdEncodingService encodingService,
                     IPacketStoreService packetStoreService) =>
                 {
-                    var ownerId = httpContext.User.FindFirstValue(ClaimTypes.NameIdentifier)!;
+                    var ownerId = httpContext.User.FindFirstValue(ClaimTypes.NameIdentifier);
 
                     if (ownerId is not { Length: > 0 })
-                        return Results.Forbid();
+                        return Results.Unauthorized();
+
+                    if (packet is PostPacketRequestBody.File)
+                        return Results.Problem("File packets are not supported in the current version.",
+                            statusCode: StatusCodes.Status400BadRequest);
+
+                    var errors = Validate(packet);
+
+                    if (errors.Count > 0)
+                        return Results.ValidationProblem(errors);
 
                     var result = packet switch
                     {
@@ -105,13 +149,8 @@ public static partial class PacketEndpoints
                         _ => null,
                     };
 
-                    if (result is null && packet is PostPacketRequestBody.File)
-                        return Results.Problem("File packets are not supported in the current version.",
-                            statusCode: StatusCodes.Status400BadRequest);
-
                     return result?.Packet switch
                     {
-                        Packet.File => throw new NotImplementedException(),
                         Packet.Link linkResult => Results.Ok(new PostPacketResponseBody.Link
                         {
                             Name = linkResult.Name,
@@ -141,11 +180,5 @@ public static partial class PacketEndpoints
                     Title = "Packet title",
                     Body = "Packet body"
                 })
-            .AcceptsJson(nameof(PostPacketRequestBody.File),
-                new PostPacketRequestBody.File
-                {
-                    FileName = "example.txt",
-                    ContentType = "text/plain",
-                    Payload = "SGVsbG8sIFdvcmxkIQ==", // "Hello, World!" in Base64
-                });
+            .WithMetadata(new RequestSizeLimitAttribute(MaxRequestBodySize));
 }

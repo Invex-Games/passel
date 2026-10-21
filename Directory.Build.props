@@ -1,11 +1,11 @@
 <Project>
   <PropertyGroup>
-    <Product>Invex Send WebAPI</Product>
+    <Product>Invex Passel</Product>
     <Authors>Declan Smith</Authors>
 
     <PackageIcon>icon.png</PackageIcon>
     <PackageReadmeFile>readme.md</PackageReadmeFile>
-    <PackageDescription>The backend for the Invex Send service</PackageDescription>
+    <PackageDescription>The backend for the Invex Passel service</PackageDescription>
     <EnablePackageValidation>true</EnablePackageValidation>
     <PublishRepositoryUrl>true</PublishRepositoryUrl>
 
@@ -14,7 +14,6 @@
     <Nullable>enable</Nullable>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <NoWarn>$(NoWarn);CA1873;CS1591;NU5104;RCS1001;RCS1003;RCS1123;</NoWarn>
-    <WarningsNotAsErrors>$(WarningsNotAsErrors);NU1901;NU1902;NU1903;NU1904</WarningsNotAsErrors>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
   </PropertyGroup>
 

@@ -2,6 +2,8 @@
 
 public static partial class PacketEndpoints
 {
+    internal const int GetPacketsBatchSize = 50;
+
     [PublicAPI]
     public sealed partial record GetPacketsResponseBody
     {
@@ -48,41 +50,64 @@ public static partial class PacketEndpoints
         }
     }
 
+    /// <summary>
+    ///     Splits a result set fetched with <c>Take(batchSize + 1)</c> into the page to return and the cursor for the
+    ///     next page. The extra row only signals that more data exists; the cursor is the last row actually returned.
+    /// </summary>
+    internal static (IReadOnlyList<PacketAggregate> Page, Guid? NextCursor) Paginate(
+        IReadOnlyList<PacketAggregate> fetched,
+        int batchSize)
+    {
+        if (fetched.Count <= batchSize)
+            return (fetched, null);
+
+        var page = fetched
+            .Take(batchSize)
+            .ToList();
+
+        return (page, page[^1].Id);
+    }
+
     public static void MapGetPackets(this IEndpointRouteBuilder builder) =>
         builder.MapGet(string.Empty,
-            async ([FromQuery] string? cursor, IIdEncodingService encodingService, IQuerySession querySession) =>
+            async (
+                [FromQuery] string? cursor,
+                HttpContext httpContext,
+                IIdEncodingService encodingService,
+                IQuerySession querySession) =>
             {
-                const int batchSize = 50;
+                var ownerId = httpContext.User.FindFirstValue(ClaimTypes.NameIdentifier);
 
-                var packets = cursor is null
-                    ? await querySession
-                        .Query<PacketAggregate>()
-                        .OrderByDescending(p => p.Id)
-                        .Take(batchSize + 1)
-                        .ToListAsync()
-                    : await querySession
-                        .Query<PacketAggregate>()
-                        .Where(x => x.Id < encodingService.Decode(cursor))
-                        .OrderByDescending(p => p.Id)
-                        .Take(batchSize + 1)
-                        .ToListAsync();
+                if (ownerId is not { Length: > 0 })
+                    return Results.Unauthorized();
 
-                if (packets.Count is 0)
-                    return Results.Ok(new GetPacketsResponseBody
-                    {
-                        Packets = [],
-                        NextCursor = null,
-                    });
+                Guid? cursorId = null;
 
-                var nextCursor = packets.Count >= batchSize
-                    ? packets.Last()
-                        .Id
-                    : Guid.Empty;
+                if (cursor is not null)
+                {
+                    if (!encodingService.TryDecode(cursor, out var decodedCursor))
+                        return Results.Problem("The cursor is invalid.", statusCode: StatusCodes.Status400BadRequest);
+
+                    cursorId = decodedCursor;
+                }
+
+                var query = querySession
+                    .Query<PacketAggregate>()
+                    .Where(p => p.UserId == ownerId);
+
+                if (cursorId is { } beforeId)
+                    query = query.Where(p => p.Id < beforeId);
+
+                var fetched = await query
+                    .OrderByDescending(p => p.Id)
+                    .Take(GetPacketsBatchSize + 1)
+                    .ToListAsync();
+
+                var (page, nextCursor) = Paginate(fetched, GetPacketsBatchSize);
 
                 return Results.Ok(new GetPacketsResponseBody
                 {
-                    Packets = packets
-                        .Take(batchSize)
+                    Packets = page
                         .Select<PacketAggregate, GetPacketsResponseBody.Packet>(p => p.Packet switch
                         {
                             Packet.Link link => new GetPacketsResponseBody.Packet.Link
@@ -105,10 +130,11 @@ public static partial class PacketEndpoints
                                 IsImage = file.IsImage,
                                 Id = encodingService.Encode(p.Id),
                             },
+                            _ => throw new UnreachableException(),
                         })
                         .ToList(),
-                    NextCursor = nextCursor != Guid.Empty
-                        ? encodingService.Encode(nextCursor)
+                    NextCursor = nextCursor is { } next
+                        ? encodingService.Encode(next)
                         : null,
                 });
             });

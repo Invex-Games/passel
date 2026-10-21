@@ -2,10 +2,17 @@
 
 internal static class HostWebExtensions
 {
+    private const string DevelopmentAuthenticationScheme = "Smart";
+
     public static void AddWebDefaults(this WebApplicationBuilder builder)
     {
         builder.Services.ConfigureHttpJsonOptions(options =>
-            options.SerializerOptions.Converters.Add(new JsonStringEnumConverter(JsonNamingPolicy.CamelCase)));
+        {
+            options.SerializerOptions.Converters.Add(new JsonStringEnumConverter(JsonNamingPolicy.CamelCase));
+
+            // Clients aren't required to send the "$type" discriminator as the first property
+            options.SerializerOptions.AllowOutOfOrderMetadataProperties = true;
+        });
 
         builder.Services.AddProblemDetails();
         builder.Services.AddHttpContextAccessor();
@@ -16,25 +23,20 @@ internal static class HostWebExtensions
             .AllowAnyHeader()
             .AllowAnyMethod()));
 
-        builder
+        // Clients authenticate with Google ID tokens. Cookie + Google OIDC browser login only exists in
+        // development so Scalar can call authenticated endpoints; in production, unauthenticated API
+        // requests get a plain 401 rather than a redirect to Google.
+        var isDevelopment = builder.Environment.IsDevelopment();
+
+        var authentication = builder
             .Services
             .AddAuthentication(options =>
             {
-                options.DefaultScheme = "Smart";
-                options.DefaultChallengeScheme = "Smart";
-            })
-            .AddPolicyScheme("Smart",
-                "Cookie or Bearer",
-                options =>
-                {
-                    options.ForwardDefaultSelector = ctx => ctx.Request.Headers.ContainsKey("Authorization")
-                        ? JwtBearerDefaults.AuthenticationScheme
-                        : CookieAuthenticationDefaults.AuthenticationScheme;
-                })
-            .AddCookie(cookieOptions =>
-            {
-                cookieOptions.ForwardChallenge = GoogleOpenIdConnectDefaults.AuthenticationScheme;
-                cookieOptions.ForwardForbid = GoogleOpenIdConnectDefaults.AuthenticationScheme;
+                options.DefaultScheme = isDevelopment
+                    ? DevelopmentAuthenticationScheme
+                    : JwtBearerDefaults.AuthenticationScheme;
+
+                options.DefaultChallengeScheme = options.DefaultScheme;
             })
             .AddJwtBearer(options =>
             {
@@ -52,15 +54,29 @@ internal static class HostWebExtensions
                     ValidIssuers = ["https://accounts.google.com", "accounts.google.com"],
                     ValidAudiences = [clientId, ..additionalAudiences],
                 };
-            })
-            .AddGoogleOpenIdConnect(googleOptions =>
-            {
-                googleOptions.ClientId = builder.Configuration["Authentication:Google:ClientId"];
-                googleOptions.ClientSecret = builder.Configuration["Authentication:Google:ClientSecret"];
-
-                if (builder.Environment.IsDevelopment())
-                    googleOptions.ProtocolValidator.RequireNonce = false;
             });
+
+        if (isDevelopment)
+            authentication
+                .AddPolicyScheme(DevelopmentAuthenticationScheme,
+                    "Cookie or Bearer",
+                    options =>
+                    {
+                        options.ForwardDefaultSelector = ctx => ctx.Request.Headers.ContainsKey("Authorization")
+                            ? JwtBearerDefaults.AuthenticationScheme
+                            : CookieAuthenticationDefaults.AuthenticationScheme;
+                    })
+                .AddCookie(cookieOptions =>
+                {
+                    cookieOptions.ForwardChallenge = GoogleOpenIdConnectDefaults.AuthenticationScheme;
+                    cookieOptions.ForwardForbid = GoogleOpenIdConnectDefaults.AuthenticationScheme;
+                })
+                .AddGoogleOpenIdConnect(googleOptions =>
+                {
+                    googleOptions.ClientId = builder.Configuration["Authentication:Google:ClientId"];
+                    googleOptions.ClientSecret = builder.Configuration["Authentication:Google:ClientSecret"];
+                    googleOptions.ProtocolValidator.RequireNonce = false;
+                });
 
         builder.Services.AddAuthorization();
 

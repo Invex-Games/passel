@@ -4,7 +4,7 @@ public interface IIdEncodingService
 {
     string Encode(Guid id);
 
-    Guid Decode(string hash);
+    bool TryDecode(string? hash, out Guid id);
 }
 
 internal sealed class IdEncodingService : IIdEncodingService
@@ -35,20 +35,28 @@ internal sealed class IdEncodingService : IIdEncodingService
         return _encoder.Encode(low, high);
     }
 
-    public Guid Decode(string? hash)
+    public bool TryDecode(string? hash, out Guid id)
     {
-        if (hash is null)
-            return Guid.Empty;
+        id = Guid.Empty;
+
+        if (string.IsNullOrEmpty(hash))
+            return false;
 
         var numbers = _encoder.Decode(hash);
 
-        if (numbers.Count < 2)
-            return Guid.Empty;
+        if (numbers.Count != 2)
+            return false;
+
+        // Sqids decodes several strings to the same numbers; only accept the canonical encoding
+        if (_encoder.Encode(numbers[0], numbers[1]) != hash)
+            return false;
 
         Span<byte> bytes = stackalloc byte[16];
         BitConverter.TryWriteBytes(bytes[..8], numbers[0]);
         BitConverter.TryWriteBytes(bytes[8..], numbers[1]);
 
-        return new(bytes);
+        id = new(bytes);
+
+        return true;
     }
 }

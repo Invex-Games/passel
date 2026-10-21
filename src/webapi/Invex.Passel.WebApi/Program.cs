@@ -10,7 +10,16 @@ builder
     .AddMarten(storeOptions =>
     {
         storeOptions.Projections.Snapshot<PacketAggregate>(SnapshotLifecycle.Inline);
-        storeOptions.AutoCreateSchemaObjects = AutoCreate.All;
+
+        storeOptions
+            .Schema
+            .For<PacketAggregate>()
+            .Index(p => p.UserId);
+
+        // AutoCreate.All drops and recreates mismatched tables, which is only acceptable for local data
+        storeOptions.AutoCreateSchemaObjects = builder.Environment.IsDevelopment()
+            ? AutoCreate.All
+            : AutoCreate.CreateOrUpdate;
 
         // jsonb reorders keys, so the "$type" discriminator is not guaranteed to come first
         storeOptions.UseSystemTextJsonForSerialization(configure: jsonOptions =>
