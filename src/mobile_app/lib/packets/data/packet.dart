@@ -143,6 +143,26 @@ List<Packet> mergePackets(List<Packet> existing, List<Packet> incoming) {
   return List.unmodifiable(merged);
 }
 
+// ─── Live events ──────────────────────────────────────────────────────────────
+
+/// An event from the live packet stream (`GET /api/packets/events`).
+sealed class PacketEvent {
+  const PacketEvent();
+}
+
+/// The stream is connected, or events may have been missed.  Packets fetched
+/// after this can't miss any created later, since those arrive on the stream.
+class PacketsResyncEvent extends PacketEvent {
+  const PacketsResyncEvent();
+}
+
+/// A packet was created (by this or another device).
+class PacketCreatedEvent extends PacketEvent {
+  const PacketCreatedEvent(this.packet);
+
+  final Packet packet;
+}
+
 // ─── Packets state ────────────────────────────────────────────────────────────
 
 /// Holds the current list of packets plus the cursor for the next page.

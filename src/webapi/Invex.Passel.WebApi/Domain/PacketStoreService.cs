@@ -22,6 +22,7 @@ internal sealed class PacketStoreService(IDocumentSession session) : IPacketStor
             CreatedAt = DateTimeOffset.UtcNow,
         });
 
+        QueueNotification(command.UserId, id);
         await session.SaveChangesAsync();
 
         return await session.Events.FetchLatest<PacketAggregate>(id);
@@ -40,8 +41,15 @@ internal sealed class PacketStoreService(IDocumentSession session) : IPacketStor
             CreatedAt = DateTimeOffset.UtcNow,
         });
 
+        QueueNotification(command.UserId, id);
         await session.SaveChangesAsync();
 
         return await session.Events.FetchLatest<PacketAggregate>(id);
     }
+
+    // Runs in the same transaction as the event append; Postgres only delivers the notification once it commits
+    private void QueueNotification(string userId, Guid packetId) =>
+        session.QueueSqlCommand("select pg_notify(?, ?)",
+            PacketNotification.Channel,
+            new PacketNotification(userId, packetId).ToPayload());
 }

@@ -65,6 +65,13 @@ class AppConfig {
     return Uri.parse(endpoint).replace(queryParameters: merged);
   }
 
+  /// Names of the required values that weren't passed at build time (e.g.
+  /// the app was run without `--dart-define-from-file=.env`).
+  static List<String> get missingKeys => [
+        if (apiBaseUrl.isEmpty) 'API_BASE_URL',
+        if (serverClientId.isEmpty) 'SERVER_CLIENT_ID',
+      ];
+
   static bool get isDev => flavor == 'development';
 
   static bool get isProd => flavor == 'production';

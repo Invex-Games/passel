@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
@@ -6,6 +7,7 @@ import '../../auth/auth_helpers.dart';
 import '../../config/app_config.dart';
 import 'packet.dart';
 import 'packet_cache.dart';
+import 'server_sent_events.dart';
 
 /// Abstraction over packet cache storage so the repository can be unit-tested
 /// without SharedPreferences / Flutter bindings.
@@ -41,6 +43,7 @@ class PacketRepository {
     required TokenProvider tokenProvider,
     PacketCacheStrategy cache = const SharedPrefsPacketCache(),
     String? baseUrl,
+    this.eventStreamIdleTimeout = const Duration(seconds: 45),
   })  : _client = client,
         _tokenProvider = tokenProvider,
         _cache = cache,
@@ -49,6 +52,10 @@ class PacketRepository {
   final http.Client _client;
   final TokenProvider _tokenProvider;
   final PacketCacheStrategy _cache;
+
+  /// How long the event stream may stay silent before the connection is
+  /// treated as dead.  The server sends a heartbeat every 20 seconds.
+  final Duration eventStreamIdleTimeout;
 
   /// Optional base URL override; falls back to [AppConfig.apiBaseUrl].
   final String? _baseUrl;
@@ -88,6 +95,113 @@ class PacketRepository {
       nextCursor: nextCursor,
       lastSyncedAt: DateTime.now(),
     );
+  }
+
+  // ── Live events ────────────────────────────────────────────────────────────
+
+
+  /// Opens the live packet event stream.
+  ///
+  /// Emits a [PacketsResyncEvent] once connected, then a [PacketCreatedEvent]
+  /// per new packet.  The stream ends if the server closes the connection
+  /// and errors if it fails ([SessionExpiredException] if the session is
+  /// rejected); either way the caller should reconnect.  Cancelling the
+  /// subscription closes the connection.
+  Stream<PacketEvent> watchEvents() {
+    // Aborts the request if cancelled while connecting.
+    final abort = Completer<void>();
+    StreamSubscription<ServerSentEvent>? events;
+    late final StreamController<PacketEvent> controller;
+
+    Future<void> connect() async {
+      try {
+        final uri = AppConfig.apiUri('$_packetsEndpoint/events');
+        final response = await sendWithAuthRetry(
+          _tokenProvider,
+          (token) => _client.send(
+            http.AbortableRequest('GET', uri, abortTrigger: abort.future)
+              ..headers.addAll({
+                'Authorization': 'Bearer $token',
+                'Accept': 'text/event-stream',
+              }),
+          ),
+        );
+
+        // Cancelled while connecting, by a client that can't abort.
+        if (abort.isCompleted) {
+          await response.stream.listen(null).cancel();
+          return;
+        }
+
+        await _validateEventStream(response);
+
+        events = decodeServerSentEvents(
+          response.stream.timeout(eventStreamIdleTimeout),
+        ).listen(
+          (event) {
+            final packetEvent = _toPacketEvent(event);
+            if (packetEvent != null) controller.add(packetEvent);
+          },
+          onError: (Object e, StackTrace s) {
+            controller.addError(e, s);
+            controller.close();
+          },
+          onDone: controller.close,
+          cancelOnError: true,
+        );
+      } catch (e, s) {
+        // Errors caused by the caller cancelling aren't worth reporting.
+        if (!abort.isCompleted) controller.addError(e, s);
+        await controller.close();
+      }
+    }
+
+    controller = StreamController<PacketEvent>(
+      onListen: () {
+        unawaited(connect());
+      },
+      onCancel: () {
+        if (!abort.isCompleted) abort.complete();
+        return events?.cancel();
+      },
+    );
+    return controller.stream;
+  }
+
+  /// Throws like [validateResponse] unless [response] is an event stream.
+  static Future<void> _validateEventStream(
+    http.StreamedResponse response,
+  ) async {
+    final contentType = response.headers['content-type'] ?? '';
+    final isSuccess = response.statusCode >= 200 && response.statusCode < 300;
+    if (isSuccess && contentType.startsWith('text/event-stream')) return;
+
+    const context = 'Watch packets';
+    validateResponse(await http.Response.fromStream(response),
+        context: context);
+    throw Exception('$context received "$contentType" instead of an event '
+        'stream.');
+  }
+
+  /// Maps a server-sent event to a [PacketEvent], or `null` for heartbeats
+  /// and events this version of the app doesn't understand.
+  static PacketEvent? _toPacketEvent(ServerSentEvent event) {
+    switch (event.event) {
+      case 'resync':
+        return const PacketsResyncEvent();
+      case 'packet-created':
+        try {
+          final decoded = jsonDecode(event.data);
+          if (decoded is Map<String, dynamic>) {
+            return PacketCreatedEvent(Packet.fromJson(decoded));
+          }
+        } on FormatException {
+          // Unparseable or unsupported packet — skip it like the feed does.
+        }
+        return null;
+      default:
+        return null;
+    }
   }
 
   // ── Write ──────────────────────────────────────────────────────────────────

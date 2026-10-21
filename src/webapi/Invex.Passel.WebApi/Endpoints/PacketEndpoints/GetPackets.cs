@@ -68,6 +68,34 @@ public static partial class PacketEndpoints
         return (page, page[^1].Id);
     }
 
+    internal static GetPacketsResponseBody.Packet ToResponsePacket(
+        PacketAggregate aggregate,
+        IIdEncodingService encodingService) =>
+        aggregate.Packet switch
+        {
+            Packet.Link link => new GetPacketsResponseBody.Packet.Link
+            {
+                Name = link.Name,
+                Url = link.Url,
+                Id = encodingService.Encode(aggregate.Id),
+            },
+            Packet.Text text => new GetPacketsResponseBody.Packet.Text
+            {
+                Title = text.Title,
+                Body = text.Body,
+                Id = encodingService.Encode(aggregate.Id),
+            },
+            Packet.File file => new GetPacketsResponseBody.Packet.File
+            {
+                FileName = file.FileName,
+                ContentType = file.ContentType,
+                ParcelId = encodingService.Encode(file.ParcelId),
+                IsImage = file.IsImage,
+                Id = encodingService.Encode(aggregate.Id),
+            },
+            _ => throw new UnreachableException(),
+        };
+
     public static void MapGetPackets(this IEndpointRouteBuilder builder) =>
         builder.MapGet(string.Empty,
             async (
@@ -108,30 +136,7 @@ public static partial class PacketEndpoints
                 return Results.Ok(new GetPacketsResponseBody
                 {
                     Packets = page
-                        .Select<PacketAggregate, GetPacketsResponseBody.Packet>(p => p.Packet switch
-                        {
-                            Packet.Link link => new GetPacketsResponseBody.Packet.Link
-                            {
-                                Name = link.Name,
-                                Url = link.Url,
-                                Id = encodingService.Encode(p.Id),
-                            },
-                            Packet.Text text => new GetPacketsResponseBody.Packet.Text
-                            {
-                                Title = text.Title,
-                                Body = text.Body,
-                                Id = encodingService.Encode(p.Id),
-                            },
-                            Packet.File file => new GetPacketsResponseBody.Packet.File
-                            {
-                                FileName = file.FileName,
-                                ContentType = file.ContentType,
-                                ParcelId = encodingService.Encode(file.ParcelId),
-                                IsImage = file.IsImage,
-                                Id = encodingService.Encode(p.Id),
-                            },
-                            _ => throw new UnreachableException(),
-                        })
+                        .Select(p => ToResponsePacket(p, encodingService))
                         .ToList(),
                     NextCursor = nextCursor is { } next
                         ? encodingService.Encode(next)

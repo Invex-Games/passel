@@ -6,6 +6,7 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
+import 'package:passel_mobileapp/app_lifecycle.dart';
 import 'package:passel_mobileapp/auth/auth_service.dart';
 import 'package:passel_mobileapp/packets/data/packet.dart';
 import 'package:passel_mobileapp/packets/data/packet_repository.dart';
@@ -214,6 +215,31 @@ class FakePacketRepository extends PacketRepository {
     String? title,
   }) =>
       onPush(type, payload);
+
+  /// Live connections opened via [watchEvents], oldest first.  The test
+  /// drives each one by adding events / errors or closing it.
+  final connections = <StreamController<PacketEvent>>[];
+
+  @override
+  Stream<PacketEvent> watchEvents() {
+    final connection = StreamController<PacketEvent>();
+    connections.add(connection);
+    return connection.stream;
+  }
+}
+
+// ─── Lifecycle fakes ─────────────────────────────────────────────────────────
+
+/// [AppForegroundNotifier] that doesn't need a Flutter binding; flip it with
+/// [setForeground].
+class FakeAppForeground extends AppForegroundNotifier {
+  FakeAppForeground({this.initial = true});
+  final bool initial;
+
+  @override
+  bool build() => initial;
+
+  void setForeground(bool foreground) => state = foreground;
 }
 
 /// Shorthand for a text packet with the given [id].

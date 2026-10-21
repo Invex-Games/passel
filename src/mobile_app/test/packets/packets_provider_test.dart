@@ -335,6 +335,158 @@ void main() {
     });
   });
 
+  group('PacketsNotifier.applyCreated', () {
+    test('prepends the packet, keeps loaded pages, and saves', () async {
+      repo.onFetch = (cursor) async =>
+          cursor == null ? page(['a'], next: 'c1') : page(['b']);
+      final c = await start();
+      final notifier = c.read(packetsProvider.notifier);
+      await notifier.loadMore();
+
+      await notifier.applyCreated(textPacket('live'));
+
+      expect(idsOf(c), ['live', 'a', 'b']);
+      expect(repo.cache.state?.packets.first.id, 'live');
+      expect(repo.fetchCursors, [null, 'c1']); // no extra fetch
+    });
+
+    test('leaves an already-listed packet in place', () async {
+      repo.onFetch = (_) async => page(['a', 'b']);
+      final c = await start();
+
+      await c.read(packetsProvider.notifier).applyCreated(textPacket('b'));
+
+      expect(idsOf(c), ['a', 'b']);
+    });
+
+    test('is ignored when signed out', () async {
+      repo.cache.state = page(['a']);
+      final c = await start(signedIn: false);
+
+      await c.read(packetsProvider.notifier).applyCreated(textPacket('live'));
+
+      expect(idsOf(c), ['a']);
+    });
+
+    test('survives a refresh whose page predates it', () async {
+      final pending = Completer<PacketsState>();
+      var calls = 0;
+      repo.onFetch = (_) =>
+          ++calls == 1 ? Future.value(page(['a'])) : pending.future;
+      final c = await start();
+      final notifier = c.read(packetsProvider.notifier);
+
+      final refresh = notifier.refresh();
+      await notifier.applyCreated(textPacket('live'));
+      pending.complete(page(['new', 'a']));
+      await refresh;
+
+      expect(idsOf(c), ['live', 'new', 'a']);
+      expect(repo.cache.state?.packets.map((p) => p.id), ['live', 'new', 'a']);
+    });
+
+    test('is included when it arrives while the first fetch is in flight',
+        () async {
+      final pending = Completer<PacketsState>();
+      repo.onFetch = (_) => pending.future;
+      final c = ProviderContainer(overrides: [
+        authServiceProvider.overrideWith(() => FakeAuthService(signedIn: true)),
+        packetRepositoryProvider.overrideWithValue(repo),
+      ]);
+      addTearDown(c.dispose);
+      await c.read(authServiceProvider.future);
+      c.listen(packetsProvider, (_, __) {});
+      await pumpEventQueue();
+
+      await c.read(packetsProvider.notifier).applyCreated(textPacket('live'));
+      pending.complete(page(['a']));
+      await c.read(packetsProvider.future);
+
+      expect(idsOf(c), ['live', 'a']);
+    });
+  });
+
+  group('PacketsNotifier.syncLatest', () {
+    test('merges the first page on top, keeping loaded pages and cursor',
+        () async {
+      var firstPageCalls = 0;
+      repo.onFetch = (cursor) async {
+        if (cursor == 'c1') return page(['c', 'd'], next: 'c2');
+        return ++firstPageCalls == 1
+            ? page(['a', 'b'], next: 'c1')
+            : page(['new', 'a'], next: 'x');
+      };
+      final c = await start();
+      final notifier = c.read(packetsProvider.notifier);
+      await notifier.loadMore();
+
+      await notifier.syncLatest();
+
+      expect(idsOf(c), ['new', 'a', 'b', 'c', 'd']);
+      expect(stateOf(c).nextCursor, 'c2');
+      expect(repo.cache.state?.packets.first.id, 'new');
+    });
+
+    test('replaces the list when the page does not overlap it', () async {
+      var calls = 0;
+      repo.onFetch = (_) async =>
+          ++calls == 1 ? page(['a'], next: 'c1') : page(['x', 'y'], next: 'c9');
+      final c = await start();
+
+      await c.read(packetsProvider.notifier).syncLatest();
+
+      expect(idsOf(c), ['x', 'y']);
+      expect(stateOf(c).nextCursor, 'c9');
+    });
+
+    test('fetches again after an in-flight build completes', () async {
+      final pending = Completer<PacketsState>();
+      var calls = 0;
+      repo.onFetch = (_) =>
+          ++calls == 1 ? pending.future : Future.value(page(['new', 'a']));
+      final c = ProviderContainer(overrides: [
+        authServiceProvider.overrideWith(() => FakeAuthService(signedIn: true)),
+        packetRepositoryProvider.overrideWithValue(repo),
+      ]);
+      addTearDown(c.dispose);
+      await c.read(authServiceProvider.future);
+      c.listen(packetsProvider, (_, __) {});
+      await pumpEventQueue();
+
+      final sync = c.read(packetsProvider.notifier).syncLatest();
+      pending.complete(page(['a']));
+      await sync;
+
+      expect(repo.fetchCursors, [null, null]);
+      expect(idsOf(c), ['new', 'a']);
+    });
+
+    test('keeps a packet that arrived while it was fetching', () async {
+      final pending = Completer<PacketsState>();
+      var calls = 0;
+      repo.onFetch = (_) =>
+          ++calls == 1 ? Future.value(page(['a'])) : pending.future;
+      final c = await start();
+      final notifier = c.read(packetsProvider.notifier);
+
+      final sync = notifier.syncLatest();
+      await notifier.applyCreated(textPacket('live'));
+      pending.complete(page(['new', 'a']));
+      await sync;
+
+      expect(idsOf(c), ['live', 'new', 'a']);
+    });
+
+    test('does nothing when signed out', () async {
+      repo.cache.state = page(['a']);
+      final c = await start(signedIn: false);
+
+      await c.read(packetsProvider.notifier).syncLatest();
+
+      expect(repo.fetchCursors, isEmpty);
+    });
+  });
+
   group('hasCachedPacketsProvider', () {
     test('is re-evaluated after packets are saved', () async {
       repo.onFetch = (_) async => page(['a']);

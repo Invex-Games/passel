@@ -36,12 +36,14 @@ Future<String> requireToken(Ref ref, {bool forceRefresh = false}) async {
 ///
 /// [send] must build a fresh request each time (an `http` request can only be
 /// sent once).
-Future<http.Response> sendWithAuthRetry(
+Future<T> sendWithAuthRetry<T extends http.BaseResponse>(
   TokenProvider tokenProvider,
-  Future<http.Response> Function(String token) send,
+  Future<T> Function(String token) send,
 ) async {
   final response = await send(await tokenProvider());
   if (response.statusCode != 401) return response;
+  // An unread streamed body would keep the rejected connection open.
+  if (response is http.StreamedResponse) await response.stream.drain<void>();
   return send(await tokenProvider(forceRefresh: true));
 }
 

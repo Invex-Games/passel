@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'auth/auth_service.dart';
 import 'auth/login_page.dart';
+import 'config/app_config.dart';
+import 'config/config_error_page.dart';
 import 'packets/packets_provider.dart';
 import 'packets/widgets/packet_feed_page.dart';
 import 'theme/theme.dart';
@@ -26,7 +28,11 @@ class MyApp extends StatelessWidget {
           darkTheme: darkDynamic != null
               ? fallbackTheme.theme(darkDynamic)
               : fallbackTheme.dark(),
-          home: const StartupRouter(),
+          // Without its configuration the app can't sign in or reach the API,
+          // so explain how to fix the build instead of failing later.
+          home: AppConfig.missingKeys.isNotEmpty
+              ? ConfigErrorPage(missingKeys: AppConfig.missingKeys)
+              : const StartupRouter(),
         );
       },
     );

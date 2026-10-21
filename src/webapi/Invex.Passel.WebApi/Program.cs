@@ -31,7 +31,9 @@ builder
 builder
     .Services
     .AddSingleton<IIdEncodingService, IdEncodingService>()
-    .AddScoped<IPacketStoreService, PacketStoreService>();
+    .AddScoped<IPacketStoreService, PacketStoreService>()
+    .AddSingleton<IPacketEventHub, PacketEventHub>()
+    .AddHostedService<PacketNotificationListener>();
 
 var app = builder.Build();
 

@@ -1,7 +1,9 @@
 import 'dart:async';
+import 'dart:math';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../app_lifecycle.dart';
 import '../auth/auth_helpers.dart';
 import '../auth/auth_service.dart';
 import 'data/packet.dart';
@@ -63,6 +65,12 @@ class PacketsNotifier extends AsyncNotifier<PacketsState> {
   /// completes late is dropped instead of overwriting newer data.
   int _replaceSeq = 0;
 
+  /// Packets added outside a fetch (pushed, or received from the live
+  /// stream) since the last [build], oldest first.  A fetch that was already
+  /// in flight when one arrived may predate it, so the ones that arrived
+  /// during the fetch are merged back on top of the fetched page.
+  final _arrivals = <Packet>[];
+
   @override
   Future<PacketsState> build() async {
     // Rebuild from scratch whenever the user signs in / out or the account
@@ -70,6 +78,7 @@ class PacketsNotifier extends AsyncNotifier<PacketsState> {
     final signedIn = ref.watch(_isSignedInProvider);
     _epoch++;
     _generation++;
+    _arrivals.clear();
     final seq = ++_replaceSeq;
 
     // Always serve cached data first so the feed appears instantly.
@@ -80,10 +89,10 @@ class PacketsNotifier extends AsyncNotifier<PacketsState> {
       if (cached != null) {
         // Return cache immediately, then silently refresh.
         unawaited(_backgroundRefresh());
-        return cached;
+        return _withArrivalsSince(0, cached);
       }
       // No cache — must fetch from network.
-      final fresh = await _repo.fetchPackets();
+      final fresh = _withArrivalsSince(0, await _repo.fetchPackets());
       if (seq == _replaceSeq) unawaited(_persist(fresh));
       return fresh;
     }
@@ -105,12 +114,22 @@ class PacketsNotifier extends AsyncNotifier<PacketsState> {
   /// replace (or a rebuild) started in the meantime.
   Future<void> _replaceFromNetwork() async {
     final seq = ++_replaceSeq;
+    final arrivalsMark = _arrivals.length;
     final fresh = await _repo.fetchPackets();
     if (seq != _replaceSeq) return;
 
     _generation++;
-    state = AsyncData(fresh);
-    await _persist(fresh);
+    final replaced = _withArrivalsSince(arrivalsMark, fresh);
+    state = AsyncData(replaced);
+    await _persist(replaced);
+  }
+
+  /// Returns [page] with the packets that arrived since [arrivalsMark] (an
+  /// earlier `_arrivals.length`) merged on top, newest first.
+  PacketsState _withArrivalsSince(int arrivalsMark, PacketsState page) {
+    if (arrivalsMark >= _arrivals.length) return page;
+    final arrived = _arrivals.sublist(arrivalsMark).reversed.toList();
+    return page.copyWith(packets: mergePackets(arrived, page.packets));
   }
 
   /// Saves [packetsState] to disk; failures are non-fatal.
@@ -201,12 +220,74 @@ class PacketsNotifier extends AsyncNotifier<PacketsState> {
       return true;
     }
 
+    _arrivals.add(created);
     final updated = latest.copyWith(
       packets: mergePackets([created], latest.packets),
     );
     state = AsyncData(updated);
     await _persist(updated);
     return true;
+  }
+
+  /// Adds a packet received from the live stream to the top of the list.
+  Future<void> applyCreated(Packet packet) async {
+    if (!_isSignedIn) return;
+    _arrivals.add(packet);
+
+    // While (re)building, the build merges [_arrivals] into its result.
+    if (state.isLoading) return;
+    final latest = state.valueOrNull;
+    if (latest == null) return;
+
+    // Usually this device's own push, echoed back.
+    if (latest.packets.any((p) => p.id == packet.id)) return;
+
+    final updated = latest.copyWith(
+      packets: mergePackets([packet], latest.packets),
+    );
+    state = AsyncData(updated);
+    await _persist(updated);
+  }
+
+  /// Fetches the first page and merges it into the top of the list, keeping
+  /// any older pages that were already loaded.
+  ///
+  /// Used to catch up when the live stream (re)connects.  If the page
+  /// doesn't overlap the list, too much changed to stitch them together and
+  /// the list is replaced instead.  Throws if the request fails.
+  Future<void> syncLatest() async {
+    if (!_isSignedIn) return;
+
+    if (state.isLoading) {
+      try {
+        // The build's own fetch may predate the caller's reason to sync.
+        await future;
+      } catch (_) {
+        return;
+      }
+    }
+
+    final seq = ++_replaceSeq;
+    final arrivalsMark = _arrivals.length;
+    final fresh = await _repo.fetchPackets();
+    if (seq != _replaceSeq) return;
+
+    final page = _withArrivalsSince(arrivalsMark, fresh);
+    final latest = state.valueOrNull;
+    final listedIds = {...?latest?.packets.map((p) => p.id)};
+
+    final PacketsState synced;
+    if (latest == null || !page.packets.any((p) => listedIds.contains(p.id))) {
+      _generation++;
+      synced = page;
+    } else {
+      synced = latest.copyWith(
+        packets: mergePackets(page.packets, latest.packets),
+        lastSyncedAt: () => fresh.lastSyncedAt,
+      );
+    }
+    state = AsyncData(synced);
+    await _persist(synced);
   }
 
   /// Manually refresh the packets list (pull-to-refresh).
@@ -219,5 +300,125 @@ class PacketsNotifier extends AsyncNotifier<PacketsState> {
     if (!_isSignedIn) return false;
     await _replaceFromNetwork();
     return true;
+  }
+}
+
+// ─── Live updates provider ───────────────────────────────────────────────────
+
+/// Keeps [packetsProvider] up to date by listening to the server's packet
+/// event stream; `true` while connected.
+///
+/// The stream is open only while this provider is watched (by
+/// [PacketFeedPage]), the user is signed in, and the app is in the
+/// foreground.  Coming back to the foreground reconnects, and every
+/// (re)connection catches up on what was missed with
+/// [PacketsNotifier.syncLatest].
+final packetLiveUpdatesProvider =
+    NotifierProvider.autoDispose<PacketLiveUpdates, bool>(
+        PacketLiveUpdates.new);
+
+class PacketLiveUpdates extends AutoDisposeNotifier<bool> {
+  /// Upper bound for the delay between reconnection attempts.
+  static const maxRetryDelay = Duration(minutes: 1);
+
+  final _random = Random();
+
+  StreamSubscription<PacketEvent>? _connection;
+  Timer? _retryTimer;
+
+  /// Consecutive connection failures, for the retry backoff.
+  int _failures = 0;
+
+  /// Whether the feed hasn't caught up since the stream was (re)started.
+  /// Normally the stream's first resync does it; if connecting fails, the
+  /// feed is synced directly instead (so it still refreshes on resume when
+  /// the stream is unavailable).
+  bool _needsSync = true;
+
+  PacketsNotifier get _packets => ref.read(packetsProvider.notifier);
+
+  @override
+  bool build() {
+    final active =
+        ref.watch(_isSignedInProvider) && ref.watch(appForegroundProvider);
+    ref.onDispose(_stop);
+
+    _failures = 0;
+    _needsSync = true;
+    if (active) _connect();
+    return false;
+  }
+
+  void _connect() {
+    _retryTimer = null;
+    late final StreamSubscription<PacketEvent> connection;
+    connection = ref.read(packetRepositoryProvider).watchEvents().listen(
+          (event) => _onEvent(connection, event),
+          onError: (Object error) => _onDisconnected(connection, error),
+          onDone: () => _onDisconnected(connection, null),
+          cancelOnError: true,
+        );
+    _connection = connection;
+  }
+
+  void _onEvent(StreamSubscription<PacketEvent> connection, PacketEvent event) {
+    switch (event) {
+      case PacketsResyncEvent():
+        _failures = 0;
+        _needsSync = false;
+        state = true;
+        unawaited(_sync(connection));
+      case PacketCreatedEvent(:final packet):
+        unawaited(_packets.applyCreated(packet));
+    }
+  }
+
+  /// Catches up after a resync.  If that fails, packets may have been
+  /// missed, so the connection is dropped to retry the whole handshake.
+  Future<void> _sync(StreamSubscription<PacketEvent> connection) async {
+    try {
+      await _packets.syncLatest();
+    } catch (e) {
+      if (!identical(connection, _connection)) return;
+      unawaited(connection.cancel());
+      _onDisconnected(connection, e);
+    }
+  }
+
+  void _onDisconnected(
+    StreamSubscription<PacketEvent> connection,
+    Object? error,
+  ) {
+    // A connection that was already replaced or stopped.
+    if (!identical(connection, _connection)) return;
+    _connection = null;
+    state = false;
+
+    if (_needsSync) {
+      _needsSync = false;
+      unawaited(_packets.syncLatest().catchError((_) {}));
+    }
+
+    // The auth state flips to signed-out (or the user is prompted on their
+    // next action); reconnecting with the same session would fail again.
+    if (error is SessionExpiredException) return;
+
+    _retryTimer = Timer(_retryDelay(_failures++), _connect);
+  }
+
+  /// Exponential backoff from 1 second up to [maxRetryDelay], with jitter so
+  /// clients don't all reconnect at once after a server restart.
+  Duration _retryDelay(int failures) {
+    final base = Duration(seconds: 1 << min(failures, 6));
+    final capped = base < maxRetryDelay ? base : maxRetryDelay;
+    return capped * (0.75 + _random.nextDouble() * 0.25);
+  }
+
+  void _stop() {
+    _retryTimer?.cancel();
+    _retryTimer = null;
+    final connection = _connection;
+    _connection = null;
+    unawaited(connection?.cancel());
   }
 }

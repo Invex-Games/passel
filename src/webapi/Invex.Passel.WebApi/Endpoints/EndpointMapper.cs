@@ -14,6 +14,7 @@ internal static class EndpointMapper
 
             group.MapPostPacket();
             group.MapGetPackets();
+            group.MapGetPacketEvents();
         }
     }
 }

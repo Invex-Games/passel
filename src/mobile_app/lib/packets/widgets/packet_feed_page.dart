@@ -76,7 +76,12 @@ class _PacketFeedPageState extends ConsumerState<PacketFeedPage> {
     final isSignedIn =
         ref.watch(authServiceProvider).valueOrNull == true;
     final packetsState = ref.watch(packetsProvider).valueOrNull;
-    final syncText = _syncLabel(packetsState?.lastSyncedAt);
+
+    // Watching keeps the live connection open while the feed is shown; it
+    // also reconnects and catches up whenever the app returns to the
+    // foreground.
+    final isLive = ref.watch(packetLiveUpdatesProvider);
+    final syncText = isLive ? 'Live' : _syncLabel(packetsState?.lastSyncedAt);
 
     // No manual refresh on sign-in here: [PacketsNotifier] watches the auth
     // state and rebuilds (cache first, then a fresh fetch) when it changes.
