@@ -62,6 +62,6 @@ In development a policy scheme picks how each request is authenticated:
 - A request with an `Authorization` header uses bearer tokens.
 - Any other request uses a cookie, issued by Google OpenID Connect login.
 
-That cookie login is what lets Scalar call authenticated endpoints. Production only accepts bearer tokens, and unauthenticated requests get a plain 401.
+That cookie login is what lets Scalar call authenticated endpoints. The login cookie is `Secure` and `SameSite=Strict`. The OpenID Connect correlation and nonce cookies are `Secure` and `SameSite=Lax`, which works because Google returns the code in a top-level GET (`response_mode=query`), and the nonce in the ID token is validated. Production only accepts bearer tokens, and unauthenticated requests get a plain 401.
 
 See [Google OAuth Clients](../getting-started/google-oauth.md) for which client is which.

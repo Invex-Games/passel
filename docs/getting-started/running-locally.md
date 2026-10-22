@@ -12,7 +12,7 @@ Or, without the Aspire CLI:
 dotnet run --project src/webapi/Invex.Passel.AppHost
 ```
 
-The Aspire dashboard opens at `https://localhost:17106` and starts these resources:
+The Aspire dashboard opens at `https://localhost:17106`. It asks for a login token, because it shows the Google client secret and the database password: the console prints a link that carries the token (`https://localhost:17106/login?t=<token>`), and `aspire run` opens that link for you. The AppHost starts these resources:
 
 | Resource | What it is |
 |---|---|

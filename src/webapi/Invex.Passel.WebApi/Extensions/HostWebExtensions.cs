@@ -1,6 +1,7 @@
 using System.Net;
 using Microsoft.AspNetCore.HostFiltering;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
+using Microsoft.IdentityModel.Protocols.OpenIdConnect;
 using ForwardedHeaders = Microsoft.AspNetCore.HttpOverrides.ForwardedHeaders;
 
 namespace Invex.Passel.WebApi.Extensions;
@@ -84,12 +85,25 @@ internal static class HostWebExtensions
                 {
                     cookieOptions.ForwardChallenge = GoogleOpenIdConnectDefaults.AuthenticationScheme;
                     cookieOptions.ForwardForbid = GoogleOpenIdConnectDefaults.AuthenticationScheme;
+
+                    // Only ever sent back to this origin over HTTPS; Scalar lives on the same origin, so Strict
+                    // costs nothing
+                    cookieOptions.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+                    cookieOptions.Cookie.SameSite = SameSiteMode.Strict;
                 })
                 .AddGoogleOpenIdConnect(googleOptions =>
                 {
                     googleOptions.ClientId = builder.Configuration["Authentication:Google:ClientId"];
                     googleOptions.ClientSecret = builder.Configuration["Authentication:Google:ClientSecret"];
-                    googleOptions.ProtocolValidator.RequireNonce = false;
+
+                    // The correlation and nonce cookies only need to come back with the callback from Google. Lax
+                    // cookies ride along with a top-level GET, so the code is returned in the query rather than
+                    // by the form post the OIDC handler would otherwise ask for
+                    googleOptions.ResponseMode = OpenIdConnectResponseMode.Query;
+                    googleOptions.CorrelationCookie.SameSite = SameSiteMode.Lax;
+                    googleOptions.CorrelationCookie.SecurePolicy = CookieSecurePolicy.Always;
+                    googleOptions.NonceCookie.SameSite = SameSiteMode.Lax;
+                    googleOptions.NonceCookie.SecurePolicy = CookieSecurePolicy.Always;
                 });
 
         builder.Services.AddAuthorization();
