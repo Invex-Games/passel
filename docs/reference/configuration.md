@@ -10,6 +10,12 @@
 
 The values are stored in the AppHost's user secrets as `Parameters:<name>`. In Development all three are optional and default to empty, so the dashboard doesn't prompt for them; the API then works through the Dev scheme described in [Run without Google](../getting-started/running-locally.md#run-without-google). Outside Development they're required. The AppHost also gives the extension `API_URL` (`<API https endpoint>/api/packets`) and gives the API its `passel-db` connection string.
 
+The AppHost reads one setting of its own:
+
+| Key | Default | Description |
+|---|---|---|
+| `DevTunnel:AllowAnonymous` | `true` | Whether the `passel-api-tunnel` resource lets anyone with the URL through. Set it to `false` (in user secrets, the git-ignored `appsettings.Development.json`, or the `DevTunnel__AllowAnonymous` environment variable) and the tunnel requires a Dev Tunnels access token, which the mobile app sends from `TUNNEL_ACCESS_TOKEN`; see [Requiring a token](../getting-started/running-locally.md#requiring-a-token). The tunnel only runs when started from the dashboard either way. |
+
 ## Web API
 
 | Key | Required | Description |
@@ -56,9 +62,10 @@ When you run the API outside the AppHost, put these in `src/webapi/Invex.Passel.
 
 | Key | Required | Description |
 |---|---|---|
-| `API_BASE_URL` | Yes | The API root as the device can reach it, for example the dev tunnel URL |
+| `API_BASE_URL` | Yes | The API root as the device can reach it: `http://localhost:5218` for a phone on USB (with `adb reverse tcp:5218 tcp:5218`), `http://10.0.2.2:5218` for an emulator, or the dev tunnel URL. The production flavor requires `https://`; the development flavor allows `http://` only to `localhost`, `127.0.0.1` and `10.0.2.2`. |
 | `SERVER_CLIENT_ID` | Yes | The Google web client id |
 | `APP_CLIENT_ID` | No | The Android client id |
+| `TUNNEL_ACCESS_TOKEN` | No | A Dev Tunnels access token (`devtunnel token <tunnel-id> --scopes connect`), sent as `X-Tunnel-Authorization: tunnel <token>` with every request, for a tunnel that doesn't allow anonymous access. Development flavor only: the production flavor refuses to start with one. |
 
 ## Build
 

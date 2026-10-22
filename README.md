@@ -10,7 +10,7 @@ Send links and text between your devices. This repository contains:
 
 ## Quick start
 
-You need the .NET 10 SDK, Docker and Node.js. Flutter and the Dev Tunnels CLI are only needed for mobile work. The [Atom](https://github.com/Invex-Games/atom) build tool is pinned in `dotnet-tools.json`; `dotnet tool restore` installs it.
+You need the .NET 10 SDK, Docker and Node.js. Flutter and the Android SDK are only needed for mobile work, and the Dev Tunnels CLI only for a phone that is not on USB. The [Atom](https://github.com/Invex-Games/atom) build tool is pinned in `dotnet-tools.json`; `dotnet tool restore` installs it.
 
 ```
 dotnet tool restore               # installs the Atom build tool
@@ -18,7 +18,7 @@ dotnet atom SetupDevEnvironment   # checks tools, prepares local config and pack
 aspire run                        # or: dotnet run --project src/webapi/Invex.Passel.AppHost
 ```
 
-The AppHost starts PostgreSQL, the API (`https://localhost:7030`), the extension's watch build and a dev tunnel for phones. The Google OAuth client values are optional for local work: without them the API accepts `Authorization: Dev <user>` instead of Google tokens.
+The AppHost starts PostgreSQL, the API (`https://localhost:7030`) and the extension's watch build, and holds a dev tunnel you can start from the dashboard for a phone that is not on USB. The Google OAuth client values are optional for local work: without them the API accepts `Authorization: Dev <user>` instead of Google tokens.
 
 ## Docs
 

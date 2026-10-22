@@ -15,6 +15,7 @@ All notable changes to Passel. The format follows [Keep a Changelog](https://kee
 - GitHub Actions workflows and Dependabot configuration generated from the Atom build definition, plus contributing guidelines, code owners and a pull request template.
 - Abuse controls in the API: rate limits per user for creates, reads and event streams, per-user packet and storage quotas, caps on open event streams per user and per instance, and streams that end when the token they were opened with expires.
 - A Development-only `Authorization: Dev <user>` scheme, so the API, Scalar and the tests run without Google credentials; the AppHost's Google parameters are optional in Development.
+- A USB path for mobile development: the development flavor of the app may use plain HTTP to `localhost` and the emulator host, so a phone reaches the local API through `adb reverse` without a tunnel; the production flavor refuses an `http://` API URL. A `TUNNEL_ACCESS_TOKEN` dart-define and a `DevTunnel:AllowAnonymous` AppHost setting for running the dev tunnel without anonymous access.
 
 ### Changed
 
@@ -23,6 +24,7 @@ All notable changes to Passel. The format follows [Keep a Changelog](https://kee
 - NuGet package versions are managed centrally in `Directory.Packages.props`; the .NET SDK is pinned in `global.json`.
 - The extension tests run on vitest 5; the unused `cupertino_icons` dependency and the unused file-packet command and endpoint helpers were removed.
 - HTTP hygiene in the API: CORS is off until the web app needs it, HSTS and host filtering apply outside Development, forwarded headers are honoured behind a setting, the development cookies and OIDC nonce validation are hardened, and the Aspire dashboard asks for its login token.
+- The dev tunnel no longer starts with the AppHost; start it from the dashboard when a phone is not on USB. Scalar, the OpenAPI document and the browser login answer only on `localhost`, so they are never served through the tunnel.
 - The extension caches only the first page of the feed, lays the feed out in one pass and animates only packets that arrive live, shows every piece of feedback in one snackbar, hides the composer while signed out, truncates long tab titles, caps its event-stream buffer, and spreads reconnects and resync fetches.
 - The mobile app caches only the first page with debounced writes and a single parse, shows the cached feed before Google Sign-In has initialised, keeps tile state across inserts, clamps long notes to eight lines with a "Show more" toggle, and spreads reconnects and resync fetches.
 

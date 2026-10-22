@@ -50,7 +50,7 @@ internal interface ISetupDevEnvironment : IChromeExtensionHelper, IFlutterHelper
                     false);
 
                 await CheckTool("devtunnel",
-                    "reaching the API from a phone",
+                    "reaching the API from a phone that is not on USB (a phone on USB uses adb reverse instead)",
                     "https://learn.microsoft.com/azure/developer/dev-tunnels/get-started",
                     false);
 
