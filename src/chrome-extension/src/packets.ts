@@ -73,6 +73,21 @@ export function tryParseHttpUrl(text: string): URL | null {
     }
 }
 
+/** The longest link name (and text title) the API accepts; longer ones are rejected. */
+export const MAX_TITLE_LENGTH = 256;
+
+/**
+ * Cuts a page title down to what the API accepts as a link name. A tab's title is whatever the page set,
+ * and sending one over the limit would fail the whole send.
+ */
+export function truncateTitle(title: string, maxLength = MAX_TITLE_LENGTH): string {
+    if (title.length <= maxLength) return title;
+
+    // Don't cut a surrogate pair in half: a lone surrogate isn't valid in the JSON the API reads.
+    const end = /[\uD800-\uDBFF]/.test(title[maxLength - 1]) ? maxLength - 1 : maxLength;
+    return title.slice(0, end);
+}
+
 /** Builds the packet to send for text typed into the popup: a link if it's a web URL, otherwise text. */
 export function packetDataForInput(text: string): PacketData {
     const trimmed = text.trim();

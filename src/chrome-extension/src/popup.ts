@@ -1,6 +1,6 @@
 import {clearFeedCache, loadFeedCache, saveFeedCache} from "./cache.js";
 import {FeedRequestError, FeedStore, type FeedState} from "./feed.js";
-import {packetDataForInput, tryParseHttpUrl} from "./packets.js";
+import {packetDataForInput, truncateTitle, tryParseHttpUrl} from "./packets.js";
 import {FEED_PORT_NAME} from "./types.js";
 import type {
     AuthStateResponse,
@@ -258,7 +258,7 @@ sendPageBtn.addEventListener("click", async () => {
             showError("Could not get current tab.");
             return;
         }
-        await send({$type: "Link", name: tab.title || null, url: tab.url}, "Page sent!");
+        await send({$type: "Link", name: tab.title ? truncateTitle(tab.title) : null, url: tab.url}, "Page sent!");
     } catch (err) {
         showError(`Error: ${(err as Error).message}`);
     } finally {
