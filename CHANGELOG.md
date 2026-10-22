@@ -19,6 +19,7 @@ All notable changes to Passel. The format follows [Keep a Changelog](https://kee
 - Sign-in without Google in the clients' development builds: the mobile app's `DEV_USER` dart-define and the extension's `DEV_SIGN_IN` build flag (set by the AppHost) sign in through that scheme as any named user, with a field for switching users, so per-user behaviour can be tested from one device. Production builds refuse the define and never compile the flag in.
 - A USB path for mobile development: the development flavor of the app may use plain HTTP to `localhost` and the emulator host, so a phone reaches the local API through `adb reverse` without a tunnel; the production flavor refuses an `http://` API URL. A `TUNNEL_ACCESS_TOKEN` dart-define and a `DevTunnel:AllowAnonymous` AppHost setting for running the dev tunnel without anonymous access.
 - Integration tests for the API against PostgreSQL in Docker (Testcontainers): ownership isolation, paging, delete semantics, live updates end to end and the schema on an empty database. `dotnet atom TestWebApi` and the workflows run them after the unit tests.
+- Widget tests for the mobile app's screens: the feed page signed in and out with its sync label, the list's loading, failure and empty states and its loading of older items, the send sheet, the tiles and delete with undo. `dotnet atom TestMobileApp` runs the suite with coverage and keeps the lcov report as a build artifact.
 
 ### Changed
 
