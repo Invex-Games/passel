@@ -25,6 +25,7 @@ All notable changes to Passel. The format follows [Keep a Changelog](https://kee
 - HTTP hygiene in the API: CORS is off until the web app needs it, HSTS and host filtering apply outside Development, forwarded headers are honoured behind a setting, the development cookies and OIDC nonce validation are hardened, and the Aspire dashboard asks for its login token.
 - The extension caches only the first page of the feed, lays the feed out in one pass and animates only packets that arrive live, shows every piece of feedback in one snackbar, hides the composer while signed out, truncates long tab titles, caps its event-stream buffer, and spreads reconnects and resync fetches.
 - The mobile app caches only the first page with debounced writes and a single parse, shows the cached feed before Google Sign-In has initialised, keeps tile state across inserts, clamps long notes to eight lines with a "Show more" toggle, and spreads reconnects and resync fetches.
+- Query and live-update tuning in the API: the feed is served by one composite index on user and packet id (with the DDL and measured plans in the Web API docs), live updates are dispatched in batches with one query per batch, stream heartbeats are timed without exceptions, event streams are left out of request tracing, resyncs after a listener reconnect are spread over a few seconds, and each stream sends its own `retry` value.
 
 ### Fixed
 

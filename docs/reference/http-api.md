@@ -68,7 +68,7 @@ A `text/event-stream` of the caller's changes:
 | `packet-deleted` | `{ "id": "…" }` |
 | `ping` | Heartbeat, after 20 seconds without other events |
 
-There are no event ids. To recover after a disconnect, reconnect and handle the `resync`. The server may close a stream at any time, for example on shutdown or when the client falls behind. Clients should reconnect with backoff.
+There are no event ids. To recover after a disconnect, reconnect and handle the `resync`. The server may close a stream at any time, for example on shutdown or when the client falls behind. The first event carries a `retry:` field, a reconnection delay between 2 and 6 seconds chosen per stream, so clients that honour it (such as `EventSource`) reconnect spread out after a restart. Other clients should reconnect with jittered backoff.
 
 A stream also ends when the token that opened it would stop validating (its `exp` plus five minutes of clock skew, so about an hour for a Google ID token) and after a day at most. Reconnect with a fresh token. A user may hold five streams open per API instance; opening a sixth closes the oldest. When an instance has no room for another stream at all, the request gets **503 Service Unavailable** with `Retry-After`.
 
