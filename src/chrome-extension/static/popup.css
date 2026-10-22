@@ -381,7 +381,6 @@ main {
 .menu button:hover,
 .menu button:focus-visible {
     background: var(--md-sys-color-surface-container-high);
-    outline: none;
 }
 
 .menu-detail {
@@ -693,6 +692,27 @@ main {
 
 .md-btn-icon.spinning .icon {
     animation: spin 0.7s linear infinite;
+}
+
+/* ── Keyboard focus ────────────────────────────────────── */
+/* The MD3 focus indicator: a ring in the secondary colour, just outside the control. */
+.md-btn:focus-visible,
+.text-btn:focus-visible,
+.toast-action:focus-visible {
+    outline: 3px solid var(--md-sys-color-secondary);
+    outline-offset: 2px;
+}
+
+/* Icon buttons sit in tight headers, so the ring hugs the circle. */
+.md-btn-icon:focus-visible {
+    outline: 3px solid var(--md-sys-color-secondary);
+    outline-offset: 0;
+}
+
+/* Menu items fill the menu's width, so the ring goes inside the item. */
+.menu button:focus-visible {
+    outline: 3px solid var(--md-sys-color-secondary);
+    outline-offset: -3px;
 }
 
 .disabled-section {
