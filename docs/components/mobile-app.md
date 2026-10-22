@@ -34,4 +34,4 @@ Copy `.env.example` to `.env` for local runs. If a value is passed both in the f
 | `development` | `com.invex.passel.mobileapp.dev` | Passel Dev | The release key if one is configured, otherwise debug keys |
 | `production` | `com.invex.passel.mobileapp` | Passel | The release keystore, from the `SIGNING_RELEASE_*` environment variables |
 
-`atom BuildMobileAppAndroid --mobile-app-flavor production` builds an obfuscated app bundle and packages its symbols. The development flavor builds a debug APK. See [Build Targets](../reference/build-targets.md).
+`dotnet atom BuildMobileAppAndroid --mobile-app-flavor production` builds an obfuscated app bundle and packages its symbols. The development flavor builds a debug APK. See [Build Targets](../reference/build-targets.md).

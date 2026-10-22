@@ -1,6 +1,6 @@
 # Build Targets
 
-The build is an [Atom](https://github.com/Invex-Games/atom) project in `_atom/`. Run a target from the repository root with `atom <Target>`, and list targets and their parameters with `atom -h`.
+The build is an [Atom](https://github.com/Invex-Games/atom) project in `_atom/`. Run `dotnet tool restore` once, then run a target from the repository root with `dotnet atom <Target>`. To list the targets and their parameters, run `dotnet run --project _atom -- --help` (the help of the tool itself describes the tool, not the targets). With the tool installed globally, `atom <Target>` also works from PowerShell and cmd.
 
 Parameters can be passed on the command line (`--mobile-app-flavor production`), or set in `_atom/appsettings.json`. Secrets are read from Azure Key Vault (`invex-passel`).
 

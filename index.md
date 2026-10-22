@@ -18,6 +18,6 @@ Builds, tests and docs are driven by [Atom](https://github.com/Invex-Games/atom)
 
 ## Start here
 
-1. [Install the prerequisites](docs/getting-started/prerequisites.md), then run `atom SetupDevEnvironment` to check them.
+1. [Install the prerequisites](docs/getting-started/prerequisites.md), then run `dotnet tool restore` and `dotnet atom SetupDevEnvironment` to check them.
 2. [Set up the Google OAuth clients](docs/getting-started/google-oauth.md) the apps sign in with.
 3. [Run everything locally](docs/getting-started/running-locally.md) with the Aspire AppHost.

@@ -37,7 +37,7 @@ The manifest's `host_permissions` are generated from the `API_URL` origin, so th
 | `npm run dev` / `npm run dev:watch` | Unminified build with source maps (the AppHost runs `dev:watch`) |
 | `npm run build` | Type-check, test, then a minified build |
 | `npm test` | Vitest |
-| `atom BuildChromeExtension` | Release build, zipped into `atom-publish/ChromeExtension` |
+| `dotnet atom BuildChromeExtension` | Release build, zipped into `atom-publish/ChromeExtension` |
 
 Load `dist/` unpacked; see [Running Locally](../getting-started/running-locally.md#chrome-extension). The source folder deliberately has no manifest, so it can't be loaded by mistake.
 

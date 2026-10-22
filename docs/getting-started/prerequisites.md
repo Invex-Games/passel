@@ -5,7 +5,7 @@
 | Tool | Needed for | Required |
 |---|---|---|
 | [.NET 10 SDK](https://dotnet.microsoft.com/download) | The Web API, the Aspire AppHost and the Atom build | Yes |
-| [Atom tool](https://github.com/Invex-Games/atom) (`dotnet tool install -g Invex.Atom.Tool`) | Running build, test, setup and docs targets | Yes |
+| [Atom tool](https://github.com/Invex-Games/atom), installed by `dotnet tool restore` from `dotnet-tools.json` | Running build, test, setup and docs targets | Yes |
 | [Docker](https://docs.docker.com/get-started/get-docker/) | The PostgreSQL container the AppHost starts | Yes |
 | [Node.js](https://nodejs.org/) (with npm) | The Chrome extension | Yes |
 | [Aspire CLI](https://aspire.dev/get-started/install-cli/) | `aspire run` (`dotnet run --project src/webapi/Invex.Passel.AppHost` works without it) | No |
@@ -23,7 +23,8 @@ dotnet dev-certs https --trust
 From the repository root, run:
 
 ```
-atom SetupDevEnvironment
+dotnet tool restore
+dotnet atom SetupDevEnvironment
 ```
 
 The target:
