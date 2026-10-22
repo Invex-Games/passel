@@ -40,6 +40,33 @@ class FakeAuthService extends AsyncNotifier<bool> implements AuthService {
       signedIn ? 'fake-token' : null;
 }
 
+/// Auth service whose initialisation completes only when the test calls
+/// [complete], like Google Sign-In still initialising on a cold start.
+class PendingAuthService extends AsyncNotifier<bool> implements AuthService {
+  final _initialised = Completer<bool>();
+
+  @override
+  Future<bool> build() => _initialised.future;
+
+  /// Finishes initialising, signed in or out.
+  void complete(bool signedIn) => _initialised.complete(signedIn);
+
+  @override
+  Future<bool> signIn() async {
+    state = const AsyncData(true);
+    return true;
+  }
+
+  @override
+  Future<void> signOut() async {
+    state = const AsyncData(false);
+  }
+
+  @override
+  Future<String?> getIdToken({bool forceRefresh = false}) async =>
+      state.valueOrNull == true ? 'fake-token' : null;
+}
+
 /// Auth service whose [signIn] completes only when the caller completes the future.
 class SlowAuthService extends AsyncNotifier<bool> implements AuthService {
   SlowAuthService(this._signInFuture);

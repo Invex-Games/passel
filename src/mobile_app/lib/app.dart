@@ -44,6 +44,12 @@ class MyApp extends StatelessWidget {
 /// Routes to [LoginPage] (signed-out, no cache) or [PacketFeedPage]
 /// (signed-in, OR signed-out with cached data to browse offline).
 ///
+/// A cached feed is shown as soon as the cache has been read, without
+/// waiting for Google Sign-In to initialise (a network round-trip on a cold
+/// start): the feed page treats auth that is still initialising as signed
+/// out and updates when it settles.  Without a cache the decision needs the
+/// auth state, so the spinner stays until it is known.
+///
 /// Whether there is a feed to show comes from [cachedPacketsProvider] until
 /// the feed has loaded, and from the feed itself after that, so the decision
 /// stays reactive without re-reading the disk: an explicit sign-out (which
@@ -62,14 +68,24 @@ class StartupRouter extends ConsumerWidget {
       (feed) => feed.hasValue ? feed.requireValue.packets.isNotEmpty : null,
     ));
 
-    // Still initializing auth or reading the cache for the first time — show
-    // spinner.  (Re-checks keep the previous value, so the current page stays
-    // mounted instead of flashing a spinner.)
+    // `null` while the cache is being read for the first time.  (Re-checks
+    // keep the previous value, so the current page stays mounted instead of
+    // flashing a spinner.)
+    final bool? hasCache;
+    if (feedHasPackets != null) {
+      hasCache = feedHasPackets;
+    } else if (cacheState.hasValue || cacheState.hasError) {
+      hasCache = cacheState.valueOrNull?.packets.isNotEmpty ?? false;
+    } else {
+      hasCache = null;
+    }
+
+    // Cached data can be browsed signed out, so don't wait for auth.
+    if (hasCache == true) return const PacketFeedPage();
+
+    // Reading the cache, or no cache and auth still initializing — spinner.
     final authPending = !authState.hasValue && !authState.hasError;
-    final cachePending = feedHasPackets == null &&
-        !cacheState.hasValue &&
-        !cacheState.hasError;
-    if (authPending || cachePending) {
+    if (hasCache == null || authPending) {
       return const Scaffold(
         body: Center(child: CircularProgressIndicator()),
       );
@@ -82,16 +98,9 @@ class StartupRouter extends ConsumerWidget {
       );
     }
 
-    final isSignedIn = authState.valueOrNull == true;
-    final hasCache = feedHasPackets ??
-        (cacheState.valueOrNull?.packets.isNotEmpty ?? false);
-
-    // Signed out AND no cached data → full-screen login.
-    if (!isSignedIn && !hasCache) {
-      return const LoginPage();
-    }
-
-    // Otherwise go straight to the feed (works both online and offline).
-    return const PacketFeedPage();
+    // Signed out AND no cached data → full-screen login; otherwise the feed.
+    return authState.valueOrNull == true
+        ? const PacketFeedPage()
+        : const LoginPage();
   }
 }
