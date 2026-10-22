@@ -2,8 +2,8 @@ import 'package:fake_async/fake_async.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:passel_mobileapp/api/errors.dart';
 import 'package:passel_mobileapp/app_lifecycle.dart';
-import 'package:passel_mobileapp/auth/auth_helpers.dart';
 import 'package:passel_mobileapp/auth/auth_service.dart';
 import 'package:passel_mobileapp/packets/data/packet.dart';
 import 'package:passel_mobileapp/packets/packets_provider.dart';

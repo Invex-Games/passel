@@ -1,9 +1,11 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
+import 'package:passel_mobileapp/api/errors.dart';
 import 'package:passel_mobileapp/auth/auth_helpers.dart';
 import 'package:passel_mobileapp/packets/data/packet.dart';
 import 'package:passel_mobileapp/packets/data/packet_repository.dart';
@@ -213,6 +215,53 @@ void main() {
     });
   });
 
+  // ── Failures ───────────────────────────────────────────────────────────────
+
+  group('PacketRepository failures', () {
+    test('carry the problem details the server sent', () async {
+      final client = MockClient((_) async => http.Response(
+            jsonEncode({
+              'title': 'One or more validation errors occurred.',
+              'status': 400,
+              'errors': {
+                'body': ['Body must be non-empty and at most 65536 characters.'],
+              },
+            }),
+            400,
+            headers: {'content-type': 'application/problem+json'},
+          ));
+
+      await expectLater(
+        buildRepo(client).pushPacket(type: PacketType.text, payload: ''),
+        throwsA(isA<ApiException>()
+            .having((e) => e.status, 'status', 400)
+            .having((e) => e.errors.keys, 'fields', ['body'])
+            .having((e) => e.context, 'context', 'Push packet')),
+      );
+    });
+
+    test('surface transport failures as NetworkException', () async {
+      final client = MockClient(
+          (_) async => throw const SocketException('Network unreachable'));
+
+      await expectLater(
+        buildRepo(client).fetchPackets(),
+        throwsA(isA<NetworkException>()
+            .having((e) => e.cause, 'cause', isA<SocketException>())),
+      );
+    });
+
+    test('include failures the http client reports', () async {
+      final client = MockClient((_) async => throw http.ClientException(
+          'Connection closed before full header was received'));
+
+      await expectLater(
+        buildRepo(client).deletePacket('a'),
+        throwsA(isA<NetworkException>()),
+      );
+    });
+  });
+
   // ── 401 handling ───────────────────────────────────────────────────────────
 
   group('PacketRepository 401 retry', () {
@@ -417,6 +466,29 @@ void main() {
           'message',
           contains('HTTP 404'),
         )),
+      );
+    });
+
+    test('throws an ApiException carrying the problem details', () {
+      final response = http.Response(
+        jsonEncode({
+          'title': 'Bad Request',
+          'status': 400,
+          'detail': 'The cursor is invalid.',
+        }),
+        400,
+        headers: {'content-type': 'application/problem+json'},
+      );
+      expect(
+        () => validateResponse(response, context: 'Fetch packets'),
+        throwsA(isA<ApiException>()
+            .having((e) => e.status, 'status', 400)
+            .having((e) => e.detail, 'detail', 'The cursor is invalid.')
+            .having(
+              (e) => e.toString(),
+              'toString',
+              'Fetch packets failed with HTTP 400: The cursor is invalid.',
+            )),
       );
     });
 

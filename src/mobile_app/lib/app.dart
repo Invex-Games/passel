@@ -2,6 +2,7 @@ import 'package:dynamic_color/dynamic_color.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'api/errors.dart';
 import 'auth/auth_service.dart';
 import 'auth/login_page.dart';
 import 'config/app_config.dart';
@@ -94,7 +95,15 @@ class StartupRouter extends ConsumerWidget {
     // Auth init error — surface it.
     if (authState.hasError) {
       return Scaffold(
-        body: Center(child: Text('Auth error: ${authState.error}')),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(32),
+            child: Text(
+              describeError(authState.error!),
+              textAlign: TextAlign.center,
+            ),
+          ),
+        ),
       );
     }
 

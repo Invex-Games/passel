@@ -5,7 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
-import 'package:passel_mobileapp/auth/auth_helpers.dart';
+import 'package:passel_mobileapp/api/errors.dart';
 import 'package:passel_mobileapp/packets/data/packet.dart';
 import 'package:passel_mobileapp/packets/data/packet_repository.dart';
 

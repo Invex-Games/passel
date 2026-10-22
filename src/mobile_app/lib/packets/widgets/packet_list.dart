@@ -2,7 +2,7 @@ import 'package:custom_refresh_indicator/custom_refresh_indicator.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../auth/auth_helpers.dart';
+import '../../api/errors.dart';
 import '../../auth/auth_service.dart';
 import '../../auth/login_page.dart';
 import '../data/packet.dart';
@@ -104,7 +104,9 @@ class _PacketListState extends ConsumerState<PacketList> {
     } on SessionExpiredException {
       _promptLogin();
     } catch (e) {
-      messenger?.showSnackBar(SnackBar(content: Text('Refresh failed: $e')));
+      messenger?.showSnackBar(
+        SnackBar(content: Text('Refresh failed: ${describeError(e)}')),
+      );
     }
   }
 
@@ -133,7 +135,8 @@ class _PacketListState extends ConsumerState<PacketList> {
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
-                asyncState.error.toString(),
+                describeError(asyncState.error!),
+                textAlign: TextAlign.center,
                 style: TextStyle(color: Theme.of(context).colorScheme.error),
               ),
               const SizedBox(height: 16),

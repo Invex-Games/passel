@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../auth/auth_helpers.dart';
+import '../../api/errors.dart';
 import '../../auth/login_page.dart';
 import '../data/packet.dart';
 import '../packets_provider.dart';
@@ -47,7 +47,9 @@ void deletePacketWithUndo(BuildContext context, WidgetRef ref, Packet packet) {
       if (context.mounted) await showLoginSheet(context);
     } catch (e) {
       messenger.showSnackBar(
-        SnackBar(content: Text('Couldn\'t delete packet: $e')),
+        SnackBar(
+          content: Text('Couldn\'t delete packet: ${describeError(e)}'),
+        ),
       );
     }
   });

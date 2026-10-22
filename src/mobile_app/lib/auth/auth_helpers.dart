@@ -1,20 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 
+import '../api/errors.dart';
 import 'auth_service.dart';
-
-/// Thrown when the user's session can't be used or refreshed (no token, or
-/// the server keeps rejecting it).  The UI should prompt the user to sign in.
-class SessionExpiredException implements Exception {
-  const SessionExpiredException([
-    this.message = 'Session expired — please sign in again.',
-  ]);
-
-  final String message;
-
-  @override
-  String toString() => message;
-}
 
 /// Supplies a Bearer token; [forceRefresh] discards the cached token first
 /// (used after the server responded with HTTP 401).
@@ -34,18 +22,22 @@ Future<String> requireToken(Ref ref, {bool forceRefresh = false}) async {
 /// Sends an authenticated request built by [send], retrying **once** with a
 /// force-refreshed token if the server answers HTTP 401.
 ///
-/// [send] must build a fresh request each time (an `http` request can only be
-/// sent once).
+/// Transport failures (no connection, a timeout) surface as
+/// [NetworkException].  [send] must build a fresh request each time (an
+/// `http` request can only be sent once).
 Future<T> sendWithAuthRetry<T extends http.BaseResponse>(
   TokenProvider tokenProvider,
   Future<T> Function(String token) send,
-) async {
-  final response = await send(await tokenProvider());
-  if (response.statusCode != 401) return response;
-  // An unread streamed body would keep the rejected connection open.
-  if (response is http.StreamedResponse) await response.stream.drain<void>();
-  return send(await tokenProvider(forceRefresh: true));
-}
+) =>
+    wrapNetworkErrors(() async {
+      final response = await send(await tokenProvider());
+      if (response.statusCode != 401) return response;
+      // An unread streamed body would keep the rejected connection open.
+      if (response is http.StreamedResponse) {
+        await response.stream.drain<void>();
+      }
+      return send(await tokenProvider(forceRefresh: true));
+    });
 
 /// Shared HTTP client that does **not** follow redirects.
 ///
@@ -58,12 +50,13 @@ final apiClientProvider = Provider<http.Client>((ref) {
   return _NoRedirectClient(inner);
 });
 
-/// Throws a descriptive [Exception] if [response] indicates a failure.
+/// Throws if [response] indicates a failure.
 ///
 /// Checks:
 /// 1. 401 → [SessionExpiredException] (callers retry once before this).
 /// 2. 3xx → auth-related error (a redirect to a sign-in page slipped through).
-/// 3. Other non-2xx status → throws with the status code.
+/// 3. Other non-2xx status → [ApiException], carrying the problem details the
+///    server sent, if any.
 /// 4. A 2xx HTML body (some proxies / CDNs inject auth pages with a 200).
 void validateResponse(http.Response response, {String context = 'Request'}) {
   if (response.statusCode >= 200 && response.statusCode < 300) {
@@ -79,7 +72,7 @@ void validateResponse(http.Response response, {String context = 'Request'}) {
 
   if (response.statusCode == 401) {
     throw SessionExpiredException(
-      '$context was rejected (HTTP 401) — please sign in again.',
+      '$context was rejected (HTTP 401). Please sign in again.',
     );
   }
 
@@ -90,7 +83,7 @@ void validateResponse(http.Response response, {String context = 'Request'}) {
     );
   }
 
-  throw Exception('$context failed with HTTP ${response.statusCode}');
+  throw ApiException.fromResponse(response, context: context);
 }
 
 // ── Private ─────────────────────────────────────────────────────────────────

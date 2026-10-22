@@ -137,6 +137,7 @@ class FakeGoogleSignIn implements GoogleSignIn {
   Future<GoogleSignInAccount?> Function() onLightweight =
       () async => null;
   Future<GoogleSignInAccount> Function()? onAuthenticate;
+  Future<void> Function() onInitialize = () async {};
 
   int lightweightCalls = 0;
   int signOutCalls = 0;
@@ -148,7 +149,8 @@ class FakeGoogleSignIn implements GoogleSignIn {
     String? serverClientId,
     String? nonce,
     String? hostedDomain,
-  }) async {}
+  }) =>
+      onInitialize();
 
   @override
   Stream<GoogleSignInAuthenticationEvent> get authenticationEvents =>

@@ -3,6 +3,7 @@ import 'dart:math';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../api/errors.dart';
 import '../app_lifecycle.dart';
 import '../auth/auth_helpers.dart';
 import '../auth/auth_service.dart';

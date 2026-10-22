@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../api/errors.dart';
 import 'auth_service.dart';
 
 // ─── Full-screen login page (first launch, no cached data) ──────────────────
@@ -27,7 +28,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         setState(() => _error = 'Sign-in was cancelled.');
       }
     } catch (e) {
-      if (mounted) setState(() => _error = e.toString());
+      if (mounted) setState(() => _error = describeError(e));
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -120,7 +121,7 @@ class _LoginSheetState extends ConsumerState<_LoginSheet> {
         setState(() => _error = 'Sign-in was cancelled.');
       }
     } catch (e) {
-      if (mounted) setState(() => _error = e.toString());
+      if (mounted) setState(() => _error = describeError(e));
     } finally {
       if (mounted) setState(() => _loading = false);
     }

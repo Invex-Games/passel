@@ -7,6 +7,7 @@
 | Folder | Contents |
 |---|---|
 | `lib/config/` | `AppConfig`, the compile-time configuration, and the page shown when a required value is missing |
+| `lib/api/` | The error types (`ApiException`, `NetworkException`, `SessionExpiredException`, `SignInException`) and `describeError`, which turns any of them into user-facing text |
 | `lib/auth/` | Google Sign-In (`google_sign_in` 7), ID token refresh, and HTTP helpers that retry once on a 401 |
 | `lib/packets/` | The packet model, repository (HTTP and SSE), offline cache, Riverpod providers and widgets |
 | `lib/theme/` | The Material 3 theme, used when the device doesn't provide dynamic colour |
@@ -16,6 +17,10 @@ State lives in Riverpod providers. `packetsProvider` serves the cached feed firs
 The feed is cached in `shared_preferences`, so it can still be browsed offline. On a cold start `StartupRouter` shows the cached feed as soon as the cache has been read, before Google Sign-In has initialised; the full-screen login page is only shown when there is no cache and the user turns out to be signed out. The cache holds the first page only: at most 50 packets (`PacketCache.maxPackets`) and the cursor that followed the first page, so older pages are fetched again when the user scrolls to them. Writes are debounced by 300 ms (`packetCacheWriteDelayProvider`), so a burst of live events is written once, and the cache is parsed once at start-up by `cachedPacketsProvider`, which the start-up router and the feed share.
 
 Sign-in asks Google for a token for the **web** client (`SERVER_CLIENT_ID`), which the API accepts as its main audience. The token is kept in memory only.
+
+## Errors
+
+`validateResponse` (in `lib/auth/auth_helpers.dart`) turns a failure response into an `ApiException` with the status and, when the server sent `application/problem+json`, its `title`, `detail` and the validation messages keyed by field. Transport failures thrown by `package:http` and `dart:io` (no connection, timeouts) become a `NetworkException`, a 401 that survives the token retry a `SessionExpiredException`, and Google Sign-In failures a `SignInException` whose message is already written for the user. Every snackbar and error row (push, refresh, delete, the feed's error state, the login page and sheet, the start-up auth error) shows `describeError(error)`: client errors (4xx) use the server's `detail` or field messages, everything else a short generic sentence, so no exception text reaches the screen.
 
 ## Configuration
 

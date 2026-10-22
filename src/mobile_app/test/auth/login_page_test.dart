@@ -4,13 +4,60 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:passel_mobileapp/api/errors.dart';
 import 'package:passel_mobileapp/auth/auth_service.dart';
 import 'package:passel_mobileapp/auth/login_page.dart';
 
 import '../fakes.dart';
 
 void main() {
+  /// Pumps [LoginPage] with a sign-in that fails with [error] once tapped,
+  /// and returns once the failure has been shown.
+  Future<void> pumpFailingSignIn(WidgetTester tester, Object error) async {
+    final completer = Completer<bool>();
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          authServiceProvider
+              .overrideWith(() => SlowAuthService(completer.future)),
+        ],
+        child: const MaterialApp(home: LoginPage()),
+      ),
+    );
+
+    await tester.tap(find.text('Sign in with Google'));
+    await tester.pump();
+    completer.completeError(error);
+    await tester.pumpAndSettle();
+  }
+
   group('LoginPage', () {
+    testWidgets('shows the sign-in failure as written for the user',
+        (tester) async {
+      await pumpFailingSignIn(
+        tester,
+        const SignInException(
+            'Google Sign-In is not available on this device.'),
+      );
+
+      expect(
+        find.text('Google Sign-In is not available on this device.'),
+        findsOneWidget,
+      );
+      expect(find.text('Sign in with Google'), findsOneWidget);
+    });
+
+    testWidgets('never shows a raw exception', (tester) async {
+      await pumpFailingSignIn(
+        tester,
+        Exception('GoogleSignInException(code unknownError, null, null)'),
+      );
+
+      expect(find.text('Something went wrong. Please try again.'),
+          findsOneWidget);
+      expect(find.textContaining('Exception'), findsNothing);
+    });
+
     testWidgets('renders sign-in button and branding', (tester) async {
       await tester.pumpWidget(
         ProviderScope(
