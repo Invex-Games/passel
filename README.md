@@ -40,4 +40,4 @@ Start with [Prerequisites](docs/getting-started/prerequisites.md), [Google OAuth
 
 ## Contributing
 
-Branch and commit conventions, the pull request checklist and what CI runs are in [CONTRIBUTING.md](CONTRIBUTING.md). Notable changes are listed in [CHANGELOG.md](CHANGELOG.md).
+Branch and commit conventions, the pull request checklist and what CI runs are in [CONTRIBUTING.md](CONTRIBUTING.md). Notable changes are listed in [CHANGELOG.md](CHANGELOG.md). Passel is released under the [MIT License](LICENSE).

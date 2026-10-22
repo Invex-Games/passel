@@ -12,7 +12,7 @@ All notable changes to Passel. The format follows [Keep a Changelog](https://kee
 - An Aspire AppHost that runs PostgreSQL, the API, the extension's watch build and a dev tunnel for phones, prompting for the Google OAuth values.
 - Build targets for the test suites and for checking and preparing a development machine (`SetupDevEnvironment`).
 - A DocFX developer site under `docs/`, with an October 2026 evaluation of the project, a feature list, a web app plan and a roadmap.
-- GitHub Actions workflows and Dependabot configuration generated from the Atom build definition, plus contributing guidelines, code owners and a pull request template.
+- GitHub Actions workflows and Dependabot configuration generated from the Atom build definition, plus contributing guidelines, code owners, a pull request template and the MIT license.
 - Abuse controls in the API: rate limits per user for creates, reads and event streams, per-user packet and storage quotas, caps on open event streams per user and per instance, and streams that end when the token they were opened with expires.
 - A Development-only `Authorization: Dev <user>` scheme, so the API, Scalar and the tests run without Google credentials; the AppHost's Google parameters are optional in Development.
 
