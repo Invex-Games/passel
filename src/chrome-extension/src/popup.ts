@@ -28,6 +28,9 @@ const KEEP_ALIVE_INTERVAL_MS = 20_000;
 /** Older packets start loading once the end of the feed is this close to being scrolled into view. */
 const LOAD_MORE_THRESHOLD_PX = 200;
 
+/** Where the copy menu opens, measured from the top of its tile: just under the tile's header. */
+const MENU_TOP_PX = 40;
+
 // ── DOM references ────────────────────────────────────────
 
 const mainEl = document.getElementById("main") as HTMLElement;
@@ -169,7 +172,7 @@ function onPortMessage(message: FeedPortMessage): void {
                     feed.syncLatest().catch(err => handleFeedError(err, null));
                     break;
                 case "created":
-                    feed.applyCreated(message.event.packet);
+                    applyArrived(message.event.packet);
                     break;
                 case "deleted":
                     feed.applyDeleted(message.event.id);
@@ -296,7 +299,7 @@ async function send(data: PacketData, successMessage: string): Promise<boolean> 
     if (response?.signedOut) setAuthState({signedIn: false});
 
     if (response?.success) {
-        if (response.packet) feed.applyCreated(response.packet);
+        if (response.packet) applyArrived(response.packet);
         showStatus(successMessage, true);
         return true;
     }
@@ -324,25 +327,39 @@ document.addEventListener("paste", (e: ClipboardEvent) => {
 /** Tiles by packet id. Packets never change, so a tile is built once and reused. */
 const tiles = new Map<string, HTMLElement>();
 
+/** Ids of packets that arrived since the last render (sent here, or received live), so their tiles slide in. */
+const arrivedIds = new Set<string>();
+
+/** Adds a packet that just arrived to the feed; unlike a cached or fetched one, its tile animates in. */
+function applyArrived(packet: Packet): void {
+    arrivedIds.add(packet.id);
+    feed.applyCreated(packet);
+}
+
 function renderFeed(state: FeedState): void {
     const elements = state.packets.map(packet => {
         let tile = tiles.get(packet.id);
         if (!tile) {
-            tile = createTile(packet);
+            tile = createTile(packet, arrivedIds.has(packet.id));
             tiles.set(packet.id, tile);
         }
         return tile;
     });
+    arrivedIds.clear();
 
     const listed = new Set(state.packets.map(p => p.id));
     for (const id of tiles.keys()) {
         if (!listed.has(id)) tiles.delete(id);
     }
 
-    // Only touch the DOM when the list changed, so tiles (and open menus) aren't needlessly re-inserted.
+    // Only touch the DOM when the list changed, so tiles (and an open menu) aren't needlessly re-inserted.
     const children = feedList.children;
     const unchanged = children.length === elements.length && elements.every((el, i) => children[i] === el);
-    if (!unchanged) feedList.replaceChildren(...elements);
+    if (!unchanged) {
+        // The menu is positioned against the tile it belongs to, which is about to move.
+        closeMenu();
+        feedList.replaceChildren(...elements);
+    }
 
     renderFeedEnd(state);
     updateSyncLabel();
@@ -395,9 +412,18 @@ function renderFeedEnd(state: FeedState): void {
     feedEnd.append(textEl("span", "", "You've gone back to the beginning!"));
 }
 
-function createTile(packet: Packet): HTMLElement {
+function createTile(packet: Packet, arrived: boolean): HTMLElement {
     const tile = document.createElement("article");
     tile.className = "packet";
+
+    if (arrived) {
+        // Only live arrivals slide in; a cached or fetched render would otherwise animate every tile at once.
+        // The class goes once the animation ends, so re-inserting the tile when the list is reordered doesn't replay it.
+        tile.classList.add("arrived");
+        tile.addEventListener("animationend", e => {
+            if (e.target === tile) tile.classList.remove("arrived");
+        });
+    }
 
     const link = packet.type === "link" ? tryParseHttpUrl(packet.payload) : null;
 
@@ -435,13 +461,19 @@ function createTile(packet: Packet): HTMLElement {
     return tile;
 }
 
-/** Adds a "Show more" button to newly shown clamped text that overflows, or unclamps text that fits. */
+/**
+ * Adds a "Show more" button to newly shown clamped text that overflows, or unclamps text that fits.
+ * Every body is measured before any is changed, so the feed is laid out once rather than once per tile.
+ */
 function measureClampedTiles(): void {
-    for (const body of feedList.querySelectorAll<HTMLElement>(".packet-body.clamped:not([data-measured])")) {
+    const bodies = [...feedList.querySelectorAll<HTMLElement>(".packet-body.clamped:not([data-measured])")];
+    const overflowing = bodies.map(body => body.scrollHeight > body.clientHeight + 1);
+
+    bodies.forEach((body, i) => {
         body.dataset.measured = "true";
-        if (body.scrollHeight <= body.clientHeight + 1) {
+        if (!overflowing[i]) {
             body.classList.remove("clamped");
-            continue;
+            return;
         }
 
         const more = textButton("Show more", () => {
@@ -450,7 +482,7 @@ function measureClampedTiles(): void {
         });
         more.classList.add("show-more");
         body.after(more);
-    }
+    });
 }
 
 function packetTitle(packet: Packet): string {
@@ -503,7 +535,10 @@ function copyPacket(packet: Packet, tile: HTMLElement): void {
         menu.append(item);
     }
 
-    tile.append(menu);
+    // The menu hangs below the tile's header but lives in the list: a tile contains its paint (see .packet in
+    // popup.css), so a menu inside it would be clipped at the tile's edge and painted under the next tile.
+    menu.style.top = `${tile.offsetTop + MENU_TOP_PX}px`;
+    feedList.append(menu);
     openMenu = menu;
     (menu.firstElementChild as HTMLElement).focus();
 }
