@@ -17,7 +17,8 @@ chrome.runtime.onInstalled.addListener(async () => {
     await chrome.contextMenus.removeAll();
     chrome.contextMenus.create({id: "passel-link", title: "Send link to Passel", contexts: ["link"]});
     chrome.contextMenus.create({id: "passel-selection", title: "Send selection to Passel", contexts: ["selection"]});
-    chrome.contextMenus.create({id: "passel-image", title: "Send image link to Passel", contexts: ["image"]});
+    // Says what it does: the image itself can't be sent until file packets exist, so the URL goes as a link.
+    chrome.contextMenus.create({id: "passel-image", title: "Send image URL to Passel", contexts: ["image"]});
 
     // Earlier versions kept the token in local storage; it now lives in session storage.
     await chrome.storage.local.remove("idToken");
