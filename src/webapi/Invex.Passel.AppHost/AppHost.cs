@@ -1,4 +1,5 @@
 using Aspire.Hosting.Publishing;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 
 var builder = DistributedApplication.CreateBuilder(args);
@@ -43,12 +44,23 @@ builder
     .WithEnvironment("API_URL", ReferenceExpression.Create($"{webApi.GetEndpoint("https")}/api/packets"))
     .WithEnvironment("GOOGLE_CLIENT_ID", extensionClientId);
 
-// Gives physical devices a stable public URL for the API; use it as the mobile app's API_BASE_URL.
-// Needs the devtunnel CLI, and a one-off `devtunnel user login`.
-builder
+// Gives a phone that is not on USB a stable public URL for the API, to use as the mobile app's API_BASE_URL.
+// It only runs when started from the dashboard: while it runs, anyone with the URL can reach the Development
+// API (docs/getting-started/running-locally.md says what that exposes). A phone on USB and an emulator use
+// `adb reverse` and http://localhost:5218 instead and need no tunnel. Needs the devtunnel CLI and a one-off
+// `devtunnel user login`.
+//
+// Anonymous by default, so the phone needs nothing but the URL. Set DevTunnel:AllowAnonymous to false (in this
+// project's user secrets, its git-ignored appsettings.Development.json, or the DevTunnel__AllowAnonymous
+// environment variable) to require a Dev Tunnels access token instead; the app sends one from its
+// TUNNEL_ACCESS_TOKEN dart-define.
+var tunnel = builder
     .AddDevTunnel("passel-api-tunnel")
     .WithReference(webApi.GetEndpoint("https"))
-    .WithAnonymousAccess();
+    .WithExplicitStart();
+
+if (builder.Configuration.GetValue("DevTunnel:AllowAnonymous", true))
+    tunnel.WithAnonymousAccess();
 
 builder
     .Build()
