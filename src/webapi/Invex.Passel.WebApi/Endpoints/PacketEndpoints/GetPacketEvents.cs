@@ -16,7 +16,8 @@ public static partial class PacketEndpoints
     internal const string ResyncEventType = "resync";
 
     /// <summary>
-    ///     A packet was created; the data is the packet in the same shape as a <c>GET /api/packets</c> item.
+    ///     A packet was created; the data is the packet as a <see cref="PacketResponse" />, the shape of a
+    ///     <c>GET /api/packets</c> item.
     /// </summary>
     internal const string PacketCreatedEventType = "packet-created";
 
@@ -35,6 +36,8 @@ public static partial class PacketEndpoints
     ///     Keeps idle connections open through proxies and lets clients detect a dead connection.
     /// </summary>
     internal const string HeartbeatEventType = "ping";
+
+    private const string EventStreamContentType = "text/event-stream";
 
     private static readonly TimeSpan HeartbeatInterval = TimeSpan.FromSeconds(20);
 
@@ -228,7 +231,7 @@ public static partial class PacketEndpoints
 
                         await foreach (var item in StreamPacketEvents(reader,
                                            packet => JsonSerializer.Serialize(
-                                               ToResponsePacket(packet, encodingService),
+                                               PacketResponse.From(packet, encodingService),
                                                serializerOptions),
                                            packetId => JsonSerializer.Serialize(new PacketDeletedEventData
                                                {
@@ -241,5 +244,7 @@ public static partial class PacketEndpoints
                             yield return item;
                     }
                 })
+            .Produces(StatusCodes.Status200OK, contentType: EventStreamContentType)
+            .ProducesProblem(StatusCodes.Status503ServiceUnavailable)
             .RequireRateLimiting(RateLimitPolicies.Streams);
 }

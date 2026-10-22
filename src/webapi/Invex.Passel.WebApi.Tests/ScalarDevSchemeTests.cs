@@ -15,8 +15,9 @@ using Microsoft.Extensions.Options;
 namespace Invex.Passel.WebApi.Tests;
 
 /// <summary>
-///     The Scalar page and the OpenAPI document served by the real Development authentication setup. With Google
-///     login configured the document declares the Dev scheme and the Google login; a visitor who is not logged in
+///     The Scalar page and the OpenAPI document served by the real Development authentication setup. The document
+///     always declares the bearer token; with Google login configured it adds the Dev scheme and the Google login
+///     (otherwise the Dev scheme alone); a visitor who is not logged in
 ///     gets the Dev scheme filled in, one who is logged in with Google gets the login selected, so the page sends
 ///     the login cookie rather than a Dev header that would win over it.
 /// </summary>
@@ -124,11 +125,17 @@ public sealed class ScalarDevSchemeTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task The_document_declares_the_Dev_scheme_and_the_Google_login()
+    public async Task The_document_declares_the_bearer_token_the_Dev_scheme_and_the_Google_login()
     {
         using var document = await GetDocument(_client);
 
         var schemes = document.RootElement.GetProperty("components").GetProperty("securitySchemes");
+
+        // The bearer token is the scheme every environment accepts; the other two exist in Development only
+        var bearer = schemes.GetProperty("Bearer");
+        Assert.Equal("http", bearer.GetProperty("type").GetString());
+        Assert.Equal("bearer", bearer.GetProperty("scheme").GetString());
+
         Assert.Equal("header", schemes.GetProperty("Dev").GetProperty("in").GetString());
 
         var login = schemes.GetProperty(HostDevExtensions.GoogleLoginSchemeName);
@@ -136,7 +143,7 @@ public sealed class ScalarDevSchemeTests : IAsyncLifetime
         Assert.Equal("cookie", login.GetProperty("in").GetString());
         Assert.Equal(".AspNetCore.Cookies", login.GetProperty("name").GetString());
 
-        // Either scheme satisfies the document
+        // Any one scheme satisfies the document
         var requirements = document
             .RootElement
             .GetProperty("security")
@@ -144,11 +151,11 @@ public sealed class ScalarDevSchemeTests : IAsyncLifetime
             .Select(requirement => requirement.EnumerateObject().Single().Name)
             .ToList();
 
-        Assert.Equal(["Dev", HostDevExtensions.GoogleLoginSchemeName], requirements);
+        Assert.Equal(["Bearer", "Dev", HostDevExtensions.GoogleLoginSchemeName], requirements);
     }
 
     [Fact]
-    public async Task Without_Google_login_the_document_declares_only_the_Dev_scheme()
+    public async Task Without_Google_login_the_document_declares_the_bearer_token_and_the_Dev_scheme()
     {
         await using var app = await StartHost(googleLoginConfigured: false);
         using var client = app.GetTestClient();
@@ -156,7 +163,7 @@ public sealed class ScalarDevSchemeTests : IAsyncLifetime
         using var document = await GetDocument(client);
 
         var schemes = document.RootElement.GetProperty("components").GetProperty("securitySchemes");
-        Assert.Equal(["Dev"], schemes.EnumerateObject().Select(scheme => scheme.Name).ToList());
+        Assert.Equal(["Bearer", "Dev"], schemes.EnumerateObject().Select(scheme => scheme.Name).ToList());
     }
 
     private static async Task<JsonDocument> GetDocument(HttpClient client)

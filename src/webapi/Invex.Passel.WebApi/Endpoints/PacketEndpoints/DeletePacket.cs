@@ -29,6 +29,8 @@ public static partial class PacketEndpoints
                         ? Results.NoContent()
                         : Results.NotFound();
                 })
+            .Produces(StatusCodes.Status204NoContent)
+            .Produces(StatusCodes.Status404NotFound)
             // Deleting is as cheap as reading and bounded by what the user created, so it shares the read limit
             .RequireRateLimiting(RateLimitPolicies.Reads);
 }

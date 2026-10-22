@@ -20,6 +20,7 @@ All notable changes to Passel. The format follows [Keep a Changelog](https://kee
 - A USB path for mobile development: the development flavor of the app may use plain HTTP to `localhost` and the emulator host, so a phone reaches the local API through `adb reverse` without a tunnel; the production flavor refuses an `http://` API URL. A `TUNNEL_ACCESS_TOKEN` dart-define and a `DevTunnel:AllowAnonymous` AppHost setting for running the dev tunnel without anonymous access.
 - Integration tests for the API against PostgreSQL in Docker (Testcontainers): ownership isolation, paging, delete semantics, live updates end to end and the schema on an empty database. `dotnet atom TestWebApi` and the workflows run them after the unit tests.
 - Widget tests for the mobile app's screens: the feed page signed in and out with its sync label, the list's loading, failure and empty states and its loading of older items, the send sheet, the tiles and delete with undo. `dotnet atom TestMobileApp` runs the suite with coverage and keeps the lcov report as a build artifact.
+- One wire shape for packets in the API, shared by the list, the create response and the `packet-created` event, with the OpenAPI document and sample payloads committed under `contracts/` and checked against the running API, and feed scenarios that the extension and mobile app test suites both run, so the three sides can't drift apart unnoticed.
 
 ### Changed
 

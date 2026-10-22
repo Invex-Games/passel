@@ -39,49 +39,6 @@ public static partial class PacketEndpoints
         }
     }
 
-    [PublicAPI]
-    [Union]
-    [JsonDerivedType(typeof(Link), typeDiscriminator: nameof(Link))]
-    [JsonDerivedType(typeof(Text), typeDiscriminator: nameof(Text))]
-    [JsonDerivedType(typeof(File), typeDiscriminator: nameof(File))]
-    public partial record PostPacketResponseBody
-    {
-        public required string Id { get; init; }
-
-        /// <summary>
-        ///     When the packet was created, in UTC.
-        /// </summary>
-        public required DateTimeOffset CreatedAt { get; init; }
-
-        [PublicAPI]
-        public sealed partial record Link
-        {
-            public required string? Name { get; init; }
-
-            public required string Url { get; init; }
-        }
-
-        [PublicAPI]
-        public sealed partial record Text
-        {
-            public required string? Title { get; init; }
-
-            public required string Body { get; init; }
-        }
-
-        [PublicAPI]
-        public sealed partial record File
-        {
-            public required string? FileName { get; init; }
-
-            public required string ContentType { get; init; }
-
-            public required string ParcelId { get; init; }
-
-            public required bool IsImage { get; init; }
-        }
-    }
-
     internal const int MaxTitleLength = 256;
     internal const int MaxUrlLength = 2048;
     internal const int MaxBodyLength = 64 * 1024;
@@ -183,28 +140,14 @@ public static partial class PacketEndpoints
                         _ => throw new UnreachableException(),
                     };
 
-                    // Typed as the union so the "$type" discriminator is written, as in the list
-                    PostPacketResponseBody response = created.Content switch
-                    {
-                        PacketContent.Link link => new PostPacketResponseBody.Link
-                        {
-                            Name = link.Name,
-                            Url = link.Url,
-                            Id = encodingService.Encode(created.Id),
-                            CreatedAt = created.CreatedAt,
-                        },
-                        PacketContent.Text text => new PostPacketResponseBody.Text
-                        {
-                            Title = text.Title,
-                            Body = text.Body,
-                            Id = encodingService.Encode(created.Id),
-                            CreatedAt = created.CreatedAt,
-                        },
-                        _ => throw new UnreachableException(),
-                    };
-
-                    return Results.Ok(response);
+                    // The created packet comes back in the list-item shape; From returns the union, so the "$type"
+                    // discriminator is written
+                    return Results.Ok(PacketResponse.From(created, encodingService));
                 })
+            .Produces<PacketResponse>()
+            // A file packet gets a plain problem with the same status; one schema per status, so the fuller one
+            .ProducesValidationProblem()
+            .ProducesProblem(StatusCodes.Status413PayloadTooLarge)
             .AcceptsJson(nameof(PostPacketRequestBody.Link),
                 new PostPacketRequestBody.Link
                 {

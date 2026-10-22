@@ -1,0 +1,28 @@
+{
+  "packets": [
+    {
+      "$type": "Link",
+      "id": "s3lQ7vopAEf78w5ep9yBm2c",
+      "createdAt": "2026-10-22T11:03:08.1234567+00:00",
+      "name": "Example",
+      "url": "https://example.com/page?q=1"
+    },
+    {
+      "$type": "Text",
+      "id": "2k0csnWDuyvsYyhLHPwz2Cx",
+      "createdAt": "2026-10-22T11:02:08.1234567+00:00",
+      "title": null,
+      "body": "Hello from my laptop\nSecond line, with a café"
+    },
+    {
+      "$type": "File",
+      "id": "hQ7YeW1zESoeBzPwpDTVG96",
+      "createdAt": "2026-10-22T11:01:08.1234567+00:00",
+      "fileName": "screenshot.png",
+      "contentType": "image/png",
+      "parcelId": "qrjMmYBVnK8m3coMo0hiMeN",
+      "isImage": true
+    }
+  ],
+  "nextCursor": "hQ7YeW1zESoeBzPwpDTVG96"
+}

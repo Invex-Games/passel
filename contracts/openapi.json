@@ -1,0 +1,620 @@
+{
+  "openapi": "3.1.1",
+  "info": {
+    "title": "Passel API",
+    "description": "",
+    "version": "1"
+  },
+  "paths": {
+    "/api/packets": {
+      "post": {
+        "tags": [
+          "Packets"
+        ],
+        "summary": "",
+        "parameters": [
+          {
+            "name": "api-version",
+            "in": "query",
+            "description": "The requested API version",
+            "schema": {
+              "enum": [
+                "1"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PostPacketRequestBody"
+              },
+              "examples": {
+                "Link": {
+                  "value": {
+                    "name": "Packet name",
+                    "url": "https://example.com"
+                  }
+                },
+                "Text": {
+                  "value": {
+                    "title": "Packet title",
+                    "body": "Packet body"
+                  }
+                }
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PacketResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Payload Too Large",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "Packets"
+        ],
+        "summary": "",
+        "parameters": [
+          {
+            "name": "cursor",
+            "in": "query",
+            "description": "",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "api-version",
+            "in": "query",
+            "description": "The requested API version",
+            "schema": {
+              "enum": [
+                "1"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetPacketsResponseBody"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/packets/events": {
+      "get": {
+        "tags": [
+          "Packets"
+        ],
+        "summary": "",
+        "parameters": [
+          {
+            "name": "api-version",
+            "in": "query",
+            "description": "The requested API version",
+            "schema": {
+              "enum": [
+                "1"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "OK"
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/packets/{id}": {
+      "delete": {
+        "tags": [
+          "Packets"
+        ],
+        "summary": "",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "api-version",
+            "in": "query",
+            "description": "The requested API version",
+            "schema": {
+              "enum": [
+                "1"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "204": {
+            "description": "No Content"
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "GetPacketsResponseBody": {
+        "required": [
+          "packets"
+        ],
+        "type": "object",
+        "properties": {
+          "packets": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PacketResponse"
+            }
+          },
+          "nextCursor": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "The cursor for the next page, or `null` on the last one."
+          }
+        },
+        "description": "One page of the caller's packets, newest first."
+      },
+      "HttpValidationProblemDetails": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "title": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "status": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "detail": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "instance": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "errors": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
+      "PacketResponse": {
+        "required": [
+          "$type"
+        ],
+        "type": "object",
+        "anyOf": [
+          {
+            "$ref": "#/components/schemas/PacketResponseLink"
+          },
+          {
+            "$ref": "#/components/schemas/PacketResponseText"
+          },
+          {
+            "$ref": "#/components/schemas/PacketResponseFile"
+          }
+        ],
+        "description": "A packet as the API returns it: the shape of a `GET /api/packets` item, of the\n`POST /api/packets` response and of the `packet-created` event data.",
+        "discriminator": {
+          "propertyName": "$type",
+          "mapping": {
+            "Link": "#/components/schemas/PacketResponseLink",
+            "Text": "#/components/schemas/PacketResponseText",
+            "File": "#/components/schemas/PacketResponseFile"
+          }
+        }
+      },
+      "PacketResponseFile": {
+        "required": [
+          "id",
+          "createdAt",
+          "fileName",
+          "contentType",
+          "parcelId",
+          "isImage"
+        ],
+        "properties": {
+          "$type": {
+            "enum": [
+              "File"
+            ],
+            "type": "string"
+          },
+          "id": {
+            "type": "string",
+            "description": "The packet's public id, opaque to clients; the list pages on it."
+          },
+          "createdAt": {
+            "type": "string",
+            "description": "When the packet was created, in UTC.",
+            "format": "date-time"
+          },
+          "fileName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "contentType": {
+            "type": "string"
+          },
+          "parcelId": {
+            "type": "string"
+          },
+          "isImage": {
+            "type": "boolean"
+          }
+        }
+      },
+      "PacketResponseLink": {
+        "required": [
+          "id",
+          "createdAt",
+          "name",
+          "url"
+        ],
+        "properties": {
+          "$type": {
+            "enum": [
+              "Link"
+            ],
+            "type": "string"
+          },
+          "id": {
+            "type": "string",
+            "description": "The packet's public id, opaque to clients; the list pages on it."
+          },
+          "createdAt": {
+            "type": "string",
+            "description": "When the packet was created, in UTC.",
+            "format": "date-time"
+          },
+          "name": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "url": {
+            "type": "string"
+          }
+        }
+      },
+      "PacketResponseText": {
+        "required": [
+          "id",
+          "createdAt",
+          "title",
+          "body"
+        ],
+        "properties": {
+          "$type": {
+            "enum": [
+              "Text"
+            ],
+            "type": "string"
+          },
+          "id": {
+            "type": "string",
+            "description": "The packet's public id, opaque to clients; the list pages on it."
+          },
+          "createdAt": {
+            "type": "string",
+            "description": "When the packet was created, in UTC.",
+            "format": "date-time"
+          },
+          "title": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "body": {
+            "type": "string"
+          }
+        }
+      },
+      "PostPacketRequestBody": {
+        "required": [
+          "$type"
+        ],
+        "type": "object",
+        "anyOf": [
+          {
+            "$ref": "#/components/schemas/PostPacketRequestBodyLink"
+          },
+          {
+            "$ref": "#/components/schemas/PostPacketRequestBodyText"
+          },
+          {
+            "$ref": "#/components/schemas/PostPacketRequestBodyFile"
+          }
+        ],
+        "discriminator": {
+          "propertyName": "$type",
+          "mapping": {
+            "Link": "#/components/schemas/PostPacketRequestBodyLink",
+            "Text": "#/components/schemas/PostPacketRequestBodyText",
+            "File": "#/components/schemas/PostPacketRequestBodyFile"
+          }
+        }
+      },
+      "PostPacketRequestBodyFile": {
+        "required": [
+          "fileName",
+          "contentType",
+          "payload"
+        ],
+        "properties": {
+          "$type": {
+            "enum": [
+              "File"
+            ],
+            "type": "string"
+          },
+          "fileName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "contentType": {
+            "type": "string"
+          },
+          "payload": {}
+        }
+      },
+      "PostPacketRequestBodyLink": {
+        "required": [
+          "name",
+          "url"
+        ],
+        "properties": {
+          "$type": {
+            "enum": [
+              "Link"
+            ],
+            "type": "string"
+          },
+          "name": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "url": {
+            "type": "string"
+          }
+        }
+      },
+      "PostPacketRequestBodyText": {
+        "required": [
+          "title",
+          "body"
+        ],
+        "properties": {
+          "$type": {
+            "enum": [
+              "Text"
+            ],
+            "type": "string"
+          },
+          "title": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "body": {
+            "type": "string"
+          }
+        }
+      },
+      "ProblemDetails": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "title": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "status": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "detail": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "instance": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      }
+    },
+    "securitySchemes": {
+      "Bearer": {
+        "type": "http",
+        "description": "A Google ID token issued for one of the API's client ids.",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      },
+      "Dev": {
+        "type": "apiKey",
+        "description": "Development only: \"Dev <user-id>\" signs the request in as that user.",
+        "name": "Authorization",
+        "in": "header"
+      }
+    }
+  },
+  "security": [
+    {
+      "Bearer": []
+    },
+    {
+      "Dev": []
+    }
+  ],
+  "tags": [
+    {
+      "name": "Packets"
+    }
+  ]
+}

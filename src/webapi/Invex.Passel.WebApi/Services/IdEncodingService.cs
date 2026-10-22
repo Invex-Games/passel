@@ -9,11 +9,16 @@ public interface IIdEncodingService
 
 internal sealed class IdEncodingService : IIdEncodingService
 {
+    /// <summary>
+    ///     The alphabet used when <c>Encoding:Alphabet</c> is not configured.
+    /// </summary>
+    internal const string DefaultAlphabet = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+
     private readonly SqidsEncoder<ulong> _encoder;
 
     public IdEncodingService(IConfiguration config)
     {
-        var alphabet = config["Encoding:Alphabet"] ?? "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+        var alphabet = config["Encoding:Alphabet"] ?? DefaultAlphabet;
 
         _encoder = new(new()
         {
