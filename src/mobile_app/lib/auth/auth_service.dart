@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'data/account_info.dart';
 import 'data/auth_repository.dart';
 import '../config/app_config.dart';
 import '../packets/data/packet_cache.dart';
@@ -81,6 +82,11 @@ class AuthService extends AsyncNotifier<bool> {
   /// The development user signed in right now, or `null`.
   String? get currentDevUser =>
       ref.read(authRepositoryProvider).currentDevUser;
+
+  /// The Google account signed in right now, or `null` when signed out or
+  /// signed in as a development user.
+  AccountInfo? get currentAccount =>
+      ref.read(authRepositoryProvider).currentAccount;
 
   /// Signs out and clears the user's locally cached data.
   ///

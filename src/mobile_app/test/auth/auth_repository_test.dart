@@ -277,6 +277,32 @@ void main() {
       expect(prefs.getString(AuthRepository.lastUserIdKey), isNull);
     });
 
+    test('names the account that signed in, and forgets it on sign-out',
+        () async {
+      String token() => fakeJwt(clock.add(const Duration(hours: 1)));
+      google.onLightweight = () async =>
+          FakeGoogleAccount(id: 'user-1', idToken: token(), displayName: ' ');
+      final repo = buildRepo();
+      expect(repo.currentAccount, isNull);
+
+      await init(repo);
+
+      expect(repo.currentAccount?.email, 'user-1@example.com');
+      expect(repo.currentAccount?.displayName, isNull,
+          reason: 'a blank name is no name');
+
+      google.onAuthenticate = () async => FakeGoogleAccount(
+            id: 'user-1',
+            idToken: token(),
+            displayName: 'Ada Lovelace',
+          );
+      await repo.signIn();
+      expect(repo.currentAccount?.displayName, 'Ada Lovelace');
+
+      await repo.signOut();
+      expect(repo.currentAccount, isNull);
+    });
+
     test('clears user data when a different account signs in', () async {
       SharedPreferences.setMockInitialValues(
           {AuthRepository.lastUserIdKey: 'user-1'});

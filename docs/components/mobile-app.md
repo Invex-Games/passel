@@ -10,6 +10,7 @@
 | `lib/api/` | The error types (`ApiException`, `NetworkException`, `SessionExpiredException`, `SignInException`) and `describeError`, which turns any of them into user-facing text |
 | `lib/auth/` | Google Sign-In (`google_sign_in` 7), ID token refresh, the `DEV_USER` sign-in through the API's `Dev` scheme (`authorization.dart` maps a token to its `Authorization` header), the API HTTP client (`ApiClient`: never follows redirects, sends the tunnel token when there is one) and helpers that retry once on a 401 |
 | `lib/packets/` | The packet model, repository (HTTP and SSE), offline cache, Riverpod providers and widgets |
+| `lib/settings/` | The settings page, the theme choice and the app version |
 | `lib/theme/` | The Material 3 theme, used when the device doesn't provide dynamic colour |
 
 State lives in Riverpod providers. `packetsProvider` serves the cached feed first, then refreshes it. It keeps the whole loaded list in memory across sign-in and an expired session, and drops it when the user's local data is cleared (`userDataGenerationProvider`, bumped on sign-out and when a different account signs in). `packetLiveUpdatesProvider` keeps the server-sent events stream open while the feed is visible, the user is signed in, and the app is in the foreground. Every `resync` event triggers a fresh fetch of the latest packets: immediately for the first one after the stream (re)starts, after a random delay of up to 3 seconds for later ones, and reconnects back off exponentially with full jitter (a random share of the backoff, up to a minute), so clients that lose the server together don't all come back in the same instant.
@@ -25,6 +26,14 @@ Sign-in asks Google for a token for the **web** client (`SERVER_CLIENT_ID`), whi
 ## Sharing into the app
 
 The app is an Android share target. `AndroidManifest.xml` declares an activity alias, `SendToPassel`, on `MainActivity` with intent filters for `ACTION_SEND` with `text/plain` (the share sheet) and `ACTION_PROCESS_TEXT` (the text selection menu); its label, "Send to Passel" (or "Send to Passel Dev"), comes from the flavor's `resValue`, so the launcher label is untouched. `MainActivity.kt` takes the shared text from the intent and hands it to Dart over the `passel/share` method channel: text that arrives before Dart is ready waits until `ShareIntent.takePendingText` asks for it, text that arrives while the app runs comes through `ShareIntent.sharedText`. `PacketFeedPage` opens the send sheet filled in with the text; the user sends or edits it. No share-receiving plugin is involved. Images wait for parcels.
+
+## Settings
+
+The feed page's app bar has a settings action beside the sign-in or sign-out action; it opens `SettingsPage` (`lib/settings/`), which works signed in and signed out.
+
+- **Account** shows who is signed in: the Google account's name and email (`AuthService.currentAccount`, an `AccountInfo` the repository takes from the Google sign-in and drops on sign-out) or the development user (`currentDevUser`), with a Sign out tile. Signed out it offers Sign in, through the same sheet as the feed.
+- **Appearance** chooses the theme: system default, light or dark. `themeModeProvider` (`theme_mode_setting.dart`) holds the choice, `MyApp` passes it to `MaterialApp` as the `themeMode` on top of the device's dynamic colours, and it is saved in `shared_preferences` (`settings_theme_mode`) so it survives a restart; until the saved choice has been read the app follows the device.
+- **About** shows the version and build number (`package_info_plus`, read once by `appVersionProvider`), in a development build the flavor and the API URL, and the privacy policy and terms of service at `passel.link/privacy` and `passel.link/terms`. Those two tiles stay disabled (`legalPagesPublished` in `settings_page.dart`) until roadmap package 1.E3 publishes the pages.
 
 ## Configuration
 
