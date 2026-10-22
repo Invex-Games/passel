@@ -6,12 +6,27 @@ namespace Invex.Passel.WebApi.Tests;
 
 public sealed class PacketEventHubTests
 {
-    private static PacketEventHub CreateHub(int maxStreamsPerUser = 5, int maxStreamsPerInstance = 100) =>
+    private static PacketEventHub CreateHub(
+        int maxStreamsPerUser = 5,
+        int maxStreamsPerInstance = 100,
+        Random? random = null) =>
         new(Microsoft.Extensions.Options.Options.Create(new EventStreamOptions
-        {
-            MaxStreamsPerUser = maxStreamsPerUser,
-            MaxStreamsPerInstance = maxStreamsPerInstance,
-        }));
+            {
+                MaxStreamsPerUser = maxStreamsPerUser,
+                MaxStreamsPerInstance = maxStreamsPerInstance,
+            }),
+            random);
+
+    /// <summary>
+    ///     Draws the given samples in order, so each stream of a spread publish gets a known share of the window.
+    /// </summary>
+    private sealed class SequenceRandom(params double[] samples) : Random
+    {
+        private int _next;
+
+        protected override double Sample() =>
+            samples[_next++];
+    }
 
     private static PacketEventSubscription Subscribe(PacketEventHub hub, string userId)
     {
@@ -64,6 +79,43 @@ public sealed class PacketEventHubTests
         Assert.IsType<PacketEvent.Resync>(firstEvent);
         Assert.True(other.Reader.TryRead(out var otherEvent));
         Assert.IsType<PacketEvent.Resync>(otherEvent);
+    }
+
+    [Fact]
+    public async Task A_spread_publish_delays_each_subscription_by_its_own_draw()
+    {
+        // The first stream draws the start of the window, the second its end
+        var hub = CreateHub(random: new SequenceRandom(0, 1));
+        using var first = Subscribe(hub, "user");
+        using var second = Subscribe(hub, "other");
+
+        hub.PublishToAll(new PacketEvent.Resync(), spreadOver: TimeSpan.FromMilliseconds(500));
+
+        Assert.True(first.Reader.TryRead(out var firstEvent));
+        Assert.IsType<PacketEvent.Resync>(firstEvent);
+        Assert.False(second.Reader.TryRead(out _));
+
+        Assert.True(await second.Reader.WaitToReadAsync(TestContext.Current.CancellationToken));
+        Assert.True(second.Reader.TryRead(out var secondEvent));
+        Assert.IsType<PacketEvent.Resync>(secondEvent);
+    }
+
+    [Fact]
+    public async Task A_spread_publish_reaches_every_subscription()
+    {
+        var hub = CreateHub(random: new SequenceRandom(0.4, 0.2, 0.3));
+        using var first = Subscribe(hub, "user");
+        using var second = Subscribe(hub, "user");
+        using var third = Subscribe(hub, "other");
+
+        hub.PublishToAll(new PacketEvent.Resync(), spreadOver: TimeSpan.FromMilliseconds(50));
+
+        foreach (var subscription in new[] { first, second, third })
+        {
+            Assert.True(await subscription.Reader.WaitToReadAsync(TestContext.Current.CancellationToken));
+            Assert.True(subscription.Reader.TryRead(out var packetEvent));
+            Assert.IsType<PacketEvent.Resync>(packetEvent);
+        }
     }
 
     [Fact]

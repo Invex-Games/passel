@@ -28,7 +28,12 @@ internal interface IPacketEventHub
 
     void Publish(string userId, PacketEvent packetEvent);
 
-    void PublishToAll(PacketEvent packetEvent);
+    /// <summary>
+    ///     Publishes to every open stream on this instance. Given a <paramref name="spreadOver" /> window, each
+    ///     stream gets the event after its own random delay within it, so a resync does not make every client
+    ///     re-fetch at the same moment.
+    /// </summary>
+    void PublishToAll(PacketEvent packetEvent, TimeSpan spreadOver = default);
 }
 
 internal sealed class PacketEventSubscription(ChannelReader<PacketEvent> reader, Action unsubscribe) : IDisposable
@@ -40,14 +45,16 @@ internal sealed class PacketEventSubscription(ChannelReader<PacketEvent> reader,
 }
 
 /// <summary>
-///     Fans packet events out to the open event streams of each user on this instance.
+///     Fans packet events out to the open event streams of each user on this instance. The <paramref name="random" />
+///     draws the delays of a spread publish; tests pass one of their own.
 /// </summary>
-internal sealed class PacketEventHub(IOptions<EventStreamOptions> options) : IPacketEventHub
+internal sealed class PacketEventHub(IOptions<EventStreamOptions> options, Random? random = null) : IPacketEventHub
 {
     internal const int SubscriberBufferSize = 64;
 
     private readonly int _maxStreamsPerUser = options.Value.MaxStreamsPerUser;
     private readonly int _maxStreamsPerInstance = options.Value.MaxStreamsPerInstance;
+    private readonly Random _random = random ?? Random.Shared;
     private readonly Lock _lock = new();
     private readonly Dictionary<string, List<Channel<PacketEvent>>> _subscribers = [];
     private int _count;
@@ -112,25 +119,61 @@ internal sealed class PacketEventHub(IOptions<EventStreamOptions> options) : IPa
         Write(channels, packetEvent);
     }
 
-    public void PublishToAll(PacketEvent packetEvent)
+    public void PublishToAll(PacketEvent packetEvent, TimeSpan spreadOver = default)
     {
         Channel<PacketEvent>[] channels;
 
         lock (_lock)
             channels = [.._subscribers.Values.SelectMany(userChannels => userChannels)];
 
-        Write(channels, packetEvent);
+        if (spreadOver <= TimeSpan.Zero)
+        {
+            Write(channels, packetEvent);
+
+            return;
+        }
+
+        var delays = channels
+            .Select(channel => (Channel: channel, Delay: spreadOver * _random.NextDouble()))
+            .OrderBy(pair => pair.Delay)
+            .ToArray();
+
+        // Not awaited: nothing in it throws, and a stream that ends before its turn just ignores the write
+        _ = WriteSpreadAsync(delays, packetEvent);
+    }
+
+    /// <summary>
+    ///     Writes to each channel once its delay is up, waiting on one timer at a time rather than one per stream.
+    /// </summary>
+    private static async Task WriteSpreadAsync(
+        IEnumerable<(Channel<PacketEvent> Channel, TimeSpan Delay)> delays,
+        PacketEvent packetEvent)
+    {
+        var started = Stopwatch.GetTimestamp();
+
+        foreach (var (channel, delay) in delays)
+        {
+            var remaining = delay - Stopwatch.GetElapsedTime(started);
+
+            if (remaining > TimeSpan.Zero)
+                await Task.Delay(remaining);
+
+            Write(channel, packetEvent);
+        }
     }
 
     private static void Write(IEnumerable<Channel<PacketEvent>> channels, PacketEvent packetEvent)
     {
         foreach (var channel in channels)
-        {
-            // A subscriber this far behind has stalled; ending its stream makes the client reconnect and re-fetch
-            // rather than silently dropping events
-            if (!channel.Writer.TryWrite(packetEvent))
-                channel.Writer.TryComplete();
-        }
+            Write(channel, packetEvent);
+    }
+
+    private static void Write(Channel<PacketEvent> channel, PacketEvent packetEvent)
+    {
+        // A subscriber this far behind has stalled; ending its stream makes the client reconnect and re-fetch
+        // rather than silently dropping events
+        if (!channel.Writer.TryWrite(packetEvent))
+            channel.Writer.TryComplete();
     }
 
     private void Unsubscribe(string userId, Channel<PacketEvent> channel)
