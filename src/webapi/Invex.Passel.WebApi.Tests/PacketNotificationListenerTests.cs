@@ -97,6 +97,44 @@ public sealed class PacketNotificationListenerTests
     }
 
     [Fact]
+    public async Task An_update_is_loaded_like_a_create_and_published_as_an_update()
+    {
+        var hub = CreateHub();
+        using var alice = Subscribe(hub, "alice");
+        var packet = CreatePacket("alice");
+        var loader = new FakeLoader(packet);
+
+        // Created and updated in one batch, as when the page answers before the batch is dispatched: loaded once,
+        // and both events carry the packet as it is now
+        await PacketNotificationListener.DispatchAsync([
+                new("alice", packet.Id),
+                new("alice", packet.Id, PacketChange.Updated),
+            ],
+            hub,
+            loader.Load,
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal([packet.Id], Assert.Single(loader.Calls));
+        Assert.Equal([new PacketEvent.Created(packet), new PacketEvent.Updated(packet)], Drain(alice));
+    }
+
+    [Fact]
+    public async Task An_update_of_a_packet_that_is_gone_is_not_published()
+    {
+        var hub = CreateHub();
+        using var alice = Subscribe(hub, "alice");
+        var loader = new FakeLoader();
+
+        await PacketNotificationListener.DispatchAsync([new("alice", Guid.CreateVersion7(), PacketChange.Updated)],
+            hub,
+            loader.Load,
+            TestContext.Current.CancellationToken);
+
+        Assert.Single(loader.Calls);
+        Assert.Empty(Drain(alice));
+    }
+
+    [Fact]
     public async Task Only_users_with_a_stream_open_here_are_loaded_for()
     {
         var hub = CreateHub();

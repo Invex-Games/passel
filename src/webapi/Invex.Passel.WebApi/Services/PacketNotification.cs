@@ -5,6 +5,11 @@ internal enum PacketChange
 {
     Created,
     Deleted,
+
+    /// <summary>
+    ///     The packet's content changed after it was created: a link got its preview.
+    /// </summary>
+    Updated,
 }
 
 /// <summary>

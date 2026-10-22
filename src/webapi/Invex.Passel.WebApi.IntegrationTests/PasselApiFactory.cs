@@ -1,8 +1,11 @@
 using System.Diagnostics;
+using System.Net;
 using System.Net.Http.Headers;
 using Invex.Passel.WebApi.Services;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.TestHost;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Invex.Passel.WebApi.IntegrationTests;
 
@@ -12,6 +15,12 @@ namespace Invex.Passel.WebApi.IntegrationTests;
 /// </summary>
 internal sealed class PasselApiFactory(string connectionString) : WebApplicationFactory<Program>
 {
+    /// <summary>
+    ///     The host name the tests link their pages by. The factory's resolver points it at the loopback, where
+    ///     <see cref="TestPageServer" /> listens, and the factory's address policy lets the fetcher go there.
+    /// </summary>
+    public const string TestPagesHost = "pages.test";
+
     /// <summary>
     ///     How long the live-update path may take to open once the host has started.
     /// </summary>
@@ -37,6 +46,34 @@ internal sealed class PasselApiFactory(string connectionString) : WebApplication
 
         // Only problems reach the test output
         builder.UseSetting("Logging:LogLevel:Default", "Warning");
+
+        // The link preview fetcher must never leave the test machine. Names are resolved by a stub rather than DNS:
+        // the page server's name to the loopback, which the policy here allows, and every other name (the links to
+        // example.com the other tests create) to a private address, which it refuses as the real policy would. So
+        // nothing is fetched from the internet, and a refused fetch is over before the test that created the link
+        // goes on. The fetcher takes the resolver as an optional constructor parameter, which the container fills
+        // in once the delegate type is registered
+        builder.ConfigureTestServices(services =>
+        {
+            services.AddSingleton<ILinkPreviewAddressPolicy, LoopbackAllowingAddressPolicy>();
+
+            LinkPreviewFetcher.HostResolver resolver = ResolveOfflineAsync;
+            services.AddSingleton(resolver);
+        });
+    }
+
+    private static Task<IPAddress[]> ResolveOfflineAsync(string host, CancellationToken cancellationToken) =>
+        Task.FromResult<IPAddress[]>(host == TestPagesHost
+            ? [IPAddress.Loopback]
+            : [IPAddress.Parse("10.0.0.1")]);
+
+    /// <summary>
+    ///     The real policy, plus the loopback the page server listens on.
+    /// </summary>
+    private sealed class LoopbackAllowingAddressPolicy : ILinkPreviewAddressPolicy
+    {
+        public bool Allows(IPAddress address) =>
+            IPAddress.IsLoopback(address) || LinkPreviewAddressPolicy.IsPublic(address);
     }
 
     /// <summary>

@@ -3,8 +3,31 @@ namespace Invex.Passel.WebApi.Endpoints.PacketEndpoints;
 public static partial class PacketEndpoints
 {
     /// <summary>
+    ///     What a link's page said about itself, as the API returns it on a link packet. Each of the three fields
+    ///     may be <c>null</c>, but never all three: a preview with nothing to show is not stored.
+    /// </summary>
+    [PublicAPI]
+    public sealed record LinkPreviewResponse
+    {
+        public required string? Title { get; init; }
+
+        public required string? Description { get; init; }
+
+        /// <summary>
+        ///     An absolute http or https URL, as the page gave it. The API has not fetched or checked it; clients
+        ///     load it like any third-party image.
+        /// </summary>
+        public required string? ImageUrl { get; init; }
+
+        /// <summary>
+        ///     When the page was read, in UTC.
+        /// </summary>
+        public required DateTimeOffset FetchedAt { get; init; }
+    }
+
+    /// <summary>
     ///     A packet as the API returns it: the shape of a <c>GET /api/packets</c> item, of the
-    ///     <c>POST /api/packets</c> response and of the <c>packet-created</c> event data.
+    ///     <c>POST /api/packets</c> response and of the <c>packet-created</c> and <c>packet-updated</c> event data.
     /// </summary>
     /// <remarks>
     ///     Declared once and built from the stored document by <see cref="From" /> alone. The request body
@@ -40,6 +63,13 @@ public static partial class PacketEndpoints
             public required string? Name { get; init; }
 
             public required string Url { get; init; }
+
+            /// <summary>
+            ///     The page's title, description and image, once the API has fetched them: <c>null</c> on the create
+            ///     response and the <c>packet-created</c> event, set on the <c>packet-updated</c> event and the list
+            ///     from then on, and <c>null</c> for good when the page gave nothing or could not be fetched.
+            /// </summary>
+            public required LinkPreviewResponse? Preview { get; init; }
         }
 
         [PublicAPI]
@@ -74,6 +104,15 @@ public static partial class PacketEndpoints
                     CreatedAt = packet.CreatedAt,
                     Name = link.Name,
                     Url = link.Url,
+                    Preview = link.Preview is { } preview
+                        ? new LinkPreviewResponse
+                        {
+                            Title = preview.Title,
+                            Description = preview.Description,
+                            ImageUrl = preview.ImageUrl,
+                            FetchedAt = preview.FetchedAt,
+                        }
+                        : null,
                 },
                 PacketContent.Text text => new Text
                 {

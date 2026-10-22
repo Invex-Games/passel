@@ -9,6 +9,7 @@
       "resync": "The live stream (re)connects or says events may have been missed: the client fetches the first page and merges it on top of what it has.",
       "created": "A packet-created event arrives with the packet named by `packet`.",
       "deleted": "A packet-deleted event arrives for the packet named by `id`.",
+      "updated": "A packet-updated event arrives with the packet named by `packet`, in the shape of a packet-created event: the packet changed after it was created (a link got its preview). It changes what a packet shows, never which packets are listed or in what order: a client that knows the event replaces the packet in place, one that does not ignores it, and neither fetches or adds a packet it does not list.",
       "hide": "The user deletes the packet named by `id`; it leaves the list while the deletion can still be undone.",
       "unhide": "The user undoes the deletion of the packet named by `id`."
     },
@@ -21,7 +22,21 @@
       "id": "a",
       "createdAt": "2026-10-22T11:03:08.1234567+00:00",
       "name": "Example",
-      "url": "https://example.com/page?q=1"
+      "url": "https://example.com/page?q=1",
+      "preview": null
+    },
+    "p": {
+      "$type": "Link",
+      "id": "p",
+      "createdAt": "2026-10-22T11:03:08.1234567+00:00",
+      "name": "Example",
+      "url": "https://example.com/page?q=1",
+      "preview": {
+        "title": "Example Domain",
+        "description": "This domain is for use in illustrative examples in documents.",
+        "imageUrl": "https://example.com/images/og.png",
+        "fetchedAt": "2026-10-22T11:03:10.1234567+00:00"
+      }
     },
     "b": {
       "$type": "Text",
@@ -51,7 +66,8 @@
       "id": "x",
       "createdAt": "2026-10-22T12:00:00+00:00",
       "name": null,
-      "url": "https://example.org/x"
+      "url": "https://example.org/x",
+      "preview": null
     },
     "y": {
       "$type": "Text",
@@ -72,7 +88,8 @@
       "id": "live",
       "createdAt": "2026-10-22T11:11:00+00:00",
       "name": "Arrived live",
-      "url": "https://example.com/live"
+      "url": "https://example.com/live",
+      "preview": null
     }
   },
   "scenarios": [
@@ -193,6 +210,26 @@
           "action": "resync",
           "serves": { "cursor": null, "packets": ["x", "y"], "nextCursor": "c9" },
           "expect": { "packets": ["x", "y"], "nextCursor": "c9" }
+        }
+      ]
+    },
+    {
+      "name": "A live update changes nothing in the list",
+      "steps": [
+        {
+          "action": "open",
+          "serves": { "cursor": null, "packets": ["p", "b"], "nextCursor": null },
+          "expect": { "packets": ["p", "b"] }
+        },
+        {
+          "action": "updated",
+          "packet": "p",
+          "expect": { "packets": ["p", "b"] }
+        },
+        {
+          "action": "updated",
+          "packet": "live",
+          "expect": { "packets": ["p", "b"] }
         }
       ]
     },

@@ -19,8 +19,16 @@ internal static class ContractFixtures
     public const string CreateResponse = "create-response.json";
     public const string PacketCreatedEvent = "packet-created-event.json";
     public const string PacketDeletedEvent = "packet-deleted-event.json";
+    public const string PacketUpdatedEvent = "packet-updated-event.json";
 
-    public static readonly string[] Names = [ListPage, CreateResponse, PacketCreatedEvent, PacketDeletedEvent];
+    public static readonly string[] Names =
+    [
+        ListPage,
+        CreateResponse,
+        PacketCreatedEvent,
+        PacketDeletedEvent,
+        PacketUpdatedEvent,
+    ];
 
     /// <summary>
     ///     A page smaller than the real one, so the list fixture shows a cursor without fifty packets.
@@ -34,23 +42,53 @@ internal static class ContractFixtures
     /// </summary>
     private static readonly DateTimeOffset Newest = new DateTimeOffset(2026, 10, 22, 11, 3, 8, TimeSpan.Zero).AddTicks(1234567);
 
+    private static readonly Guid LinkId = Guid.Parse("0199fd3e-5a10-7c4e-9b2a-3f6d8e1c0a04");
+
+    /// <summary>
+    ///     The link as created, before its page was fetched: what the create response and the
+    ///     <c>packet-created</c> event carry.
+    /// </summary>
+    private static readonly Packet LinkAsCreated = new()
+    {
+        Id = LinkId,
+        UserId = UserId,
+        CreatedAt = Newest,
+        Content = new PacketContent.Link
+        {
+            Name = "Example",
+            Url = "https://example.com/page?q=1",
+        },
+    };
+
+    /// <summary>
+    ///     The same link once its preview arrived: what the <c>packet-updated</c> event and the list carry.
+    /// </summary>
+    private static readonly Packet LinkWithPreview = new()
+    {
+        Id = LinkId,
+        UserId = UserId,
+        CreatedAt = Newest,
+        Content = new PacketContent.Link
+        {
+            Name = "Example",
+            Url = "https://example.com/page?q=1",
+            Preview = new()
+            {
+                Title = "Example Domain",
+                Description = "This domain is for use in illustrative examples in documents.",
+                ImageUrl = "https://example.com/images/og.png",
+                FetchedAt = Newest.AddSeconds(2),
+            },
+        },
+    };
+
     /// <summary>
     ///     Four stored packets, newest first as the feed lists them: one of each kind, and an older one that only
     ///     makes the page end with a cursor.
     /// </summary>
     private static readonly Packet[] Stored =
     [
-        new()
-        {
-            Id = Guid.Parse("0199fd3e-5a10-7c4e-9b2a-3f6d8e1c0a04"),
-            UserId = UserId,
-            CreatedAt = Newest,
-            Content = new PacketContent.Link
-            {
-                Name = "Example",
-                Url = "https://example.com/page?q=1",
-            },
-        },
+        LinkWithPreview,
         new()
         {
             Id = Guid.Parse("0199fd3e-5a10-7c4e-9b2a-3f6d8e1c0a03"),
@@ -121,7 +159,8 @@ internal static class ContractFixtures
 
         // Serialized as the union, the way the endpoints return it, so the discriminator is written
         var createResponse = PacketEndpoints.PacketResponse.From(Stored[1], encodingService);
-        var createdEvent = PacketEndpoints.PacketResponse.From(Stored[0], encodingService);
+        var createdEvent = PacketEndpoints.PacketResponse.From(LinkAsCreated, encodingService);
+        var updatedEvent = PacketEndpoints.PacketResponse.From(LinkWithPreview, encodingService);
 
         var deletedEvent = new PacketEndpoints.PacketDeletedEventData
         {
@@ -134,6 +173,7 @@ internal static class ContractFixtures
             [CreateResponse] = JsonSerializer.Serialize(createResponse, options),
             [PacketCreatedEvent] = JsonSerializer.Serialize(createdEvent, options),
             [PacketDeletedEvent] = JsonSerializer.Serialize(deletedEvent, options),
+            [PacketUpdatedEvent] = JsonSerializer.Serialize(updatedEvent, options),
         };
     }
 }

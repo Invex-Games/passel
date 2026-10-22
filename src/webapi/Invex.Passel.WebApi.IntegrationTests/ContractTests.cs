@@ -246,7 +246,7 @@ public sealed class ContractTests(PasselApiFixture fixture)
             $"{string.Join(", ", PropertyNames(expected.RootElement))}.");
     }
 
-    private static List<string> PropertyNames(JsonElement element) =>
+    internal static List<string> PropertyNames(JsonElement element) =>
         element
             .EnumerateObject()
             .Select(property => property.Name)

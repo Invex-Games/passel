@@ -24,6 +24,16 @@ public sealed class PacketNotificationTests
     }
 
     [Fact]
+    public void Updates_round_trip()
+    {
+        var notification = new PacketNotification("user", Guid.CreateVersion7(), PacketChange.Updated);
+
+        Assert.Contains("\"Updated\"", notification.ToPayload());
+        Assert.True(PacketNotification.TryParse(notification.ToPayload(), out var parsed));
+        Assert.Equal(PacketChange.Updated, parsed.Change);
+    }
+
+    [Fact]
     public void A_payload_without_a_change_is_a_creation()
     {
         // As sent before deletions existed

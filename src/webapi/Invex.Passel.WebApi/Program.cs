@@ -50,11 +50,28 @@ builder
 
 builder
     .Services
+    .AddOptions<LinkPreviewOptions>()
+    .BindConfiguration(LinkPreviewOptions.SectionName)
+    .ValidateDataAnnotations()
+    .ValidateOnStart();
+
+builder
+    .Services
     .AddSingleton<IIdEncodingService, IdEncodingService>()
     .AddScoped<IPacketStoreService, PacketStoreService>()
     .AddSingleton<IPacketQuotaService, PacketQuotaService>()
     .AddSingleton<IPacketEventHub, PacketEventHub>()
     .AddHostedService<PacketNotificationListener>();
+
+// Link previews: the page of a new link is fetched in the background, behind guards that keep the fetcher on the
+// public internet (LinkPreviewAddressPolicy), and attached to the link with a packet-updated event
+builder
+    .Services
+    .AddSingleton<ILinkPreviewAddressPolicy, LinkPreviewAddressPolicy>()
+    .AddSingleton<ILinkPreviewFetcher, LinkPreviewFetcher>()
+    .AddSingleton<LinkPreviewQueue>()
+    .AddSingleton<ILinkPreviewQueue>(services => services.GetRequiredService<LinkPreviewQueue>())
+    .AddHostedService<LinkPreviewWorker>();
 
 var app = builder.Build();
 

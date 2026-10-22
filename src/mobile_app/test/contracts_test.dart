@@ -130,6 +130,16 @@ void main() {
       expect(deleted, isA<PacketDeletedEvent>());
       expect((deleted as PacketDeletedEvent).id, raw['id']);
     },
+    'packet-updated-event.json': (json) async {
+      // A link with its preview, in the shape of a created packet.  The app
+      // ignores the event until it shows previews (roadmap 2.D1); the packet
+      // in it still parses, and the preview field is simply not read.
+      final raw = json as Map<String, dynamic>;
+      expectParsedFrom(Packet.fromJson(raw), raw);
+      final events =
+          await eventsFrom('event: packet-updated\ndata: ${jsonEncode(raw)}\n\n');
+      expect(events, isEmpty);
+    },
   };
 
   group('contract fixtures', () {
@@ -231,6 +241,16 @@ void main() {
                   .applyCreated(Packet.fromJson(wire(step['packet'] as String)));
             case 'deleted':
               await notifier().applyDeleted(step['id'] as String);
+            case 'updated':
+              // Ignored by this version of the app, so the list is left
+              // alone.  Once the app handles the event, apply it here; the
+              // scenarios then check that it changes no ids.
+              final events = await eventsFrom('event: packet-updated\n'
+                  'data: ${jsonEncode(wire(step['packet'] as String))}\n\n');
+              if (events.isNotEmpty) {
+                fail('The app now handles packet-updated; teach this '
+                    'interpreter to apply it');
+              }
             case 'hide':
               notifier().hide(step['id'] as String);
             case 'unhide':

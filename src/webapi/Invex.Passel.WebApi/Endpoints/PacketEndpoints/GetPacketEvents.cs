@@ -26,6 +26,13 @@ public static partial class PacketEndpoints
     /// </summary>
     internal const string PacketDeletedEventType = "packet-deleted";
 
+    /// <summary>
+    ///     A packet changed after it was created (a link got its preview); the data is the packet as it is now, in
+    ///     the same shape as <see cref="PacketCreatedEventType" />. A client that does not know the event loses
+    ///     nothing by ignoring it: the next list shows the change.
+    /// </summary>
+    internal const string PacketUpdatedEventType = "packet-updated";
+
     [PublicAPI]
     public sealed record PacketDeletedEventData
     {
@@ -136,6 +143,7 @@ public static partial class PacketEndpoints
                 {
                     PacketEvent.Created created => new(serializePacket(created.Packet), PacketCreatedEventType),
                     PacketEvent.Deleted deleted => new(serializeDeleted(deleted.PacketId), PacketDeletedEventType),
+                    PacketEvent.Updated updated => new(serializePacket(updated.Packet), PacketUpdatedEventType),
                     PacketEvent.Resync => new(string.Empty, ResyncEventType),
                     _ => throw new UnreachableException(),
                 };

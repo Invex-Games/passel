@@ -34,6 +34,12 @@ public partial record PacketContent
         public required string? Name { get; init; }
 
         public required string Url { get; init; }
+
+        /// <summary>
+        ///     What the page said about itself, once fetched; <c>null</c> until then, and for good when the page
+        ///     gave nothing or could not be fetched. Links stored before previews existed have none either.
+        /// </summary>
+        public LinkPreview? Preview { get; init; }
     }
 
     [PublicAPI]

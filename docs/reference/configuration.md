@@ -38,6 +38,16 @@ The AppHost reads one setting of its own:
 | `ForwardedHeaders:KnownProxies` | No | The proxy addresses to accept those headers from, as a list. |
 | `ForwardedHeaders:KnownNetworks` | No | The proxy networks to accept those headers from, in CIDR notation, as a list. With neither list set, the headers are accepted from whatever connects directly, which is only safe when the proxy is the one way to reach the API. |
 | `Kestrel:Limits:MaxConcurrentConnections` | No | The most open connections, event streams included. Default 5000. The rest of the `Kestrel` section binds too. |
+| `LinkPreviews:Enabled` | No | Whether the page of a new link is fetched for a preview. Default `true`. |
+| `LinkPreviews:Timeout` | No | How long one fetch attempt may take in all, redirects and body included. Default `00:00:05`. |
+| `LinkPreviews:MaxBodyBytes` | No | The most bytes read from a page. Default 524288 (512 KB). |
+| `LinkPreviews:MaxRedirects` | No | How many redirects a fetch follows, each checked like the first URL. Default 3. |
+| `LinkPreviews:MaxAttempts` | No | How often a fetch is attempted before the link is left without a preview; only timeouts, connection failures and 429 or 5xx answers are retried. Default 3. |
+| `LinkPreviews:RetryDelay` | No | The wait before the second attempt; each later attempt waits that much longer again. Default `00:00:05`. |
+| `LinkPreviews:MaxConcurrentFetches` | No | How many pages one instance fetches at the same time. Default 4. |
+| `LinkPreviews:QueueCapacity` | No | How many links may wait for a fetch on one instance; beyond it, new links go without a preview. Default 1000. |
+
+Link previews are fetched after a link is created, behind guards that no setting loosens: `http` and `https` only, public addresses only, checked on every redirect. See [Link previews](../components/web-api.md#link-previews).
 
 The API sends no CORS headers. Neither client needs them: the extension's host permissions bypass CORS, and the mobile app isn't a browser. The web app will add an allowlist of its own origin when it arrives. Outside Development the API also sends HSTS.
 

@@ -109,6 +109,17 @@ public sealed class GetPacketEventsTests
     }
 
     [Fact]
+    public async Task Streams_updated_packets_in_the_shape_of_created_ones()
+    {
+        var channel = Channel.CreateUnbounded<PacketEvent>();
+        channel.Writer.TryWrite(new PacketEvent.Updated(CreatePacket("with preview")));
+
+        var items = await Collect(channel, LongHeartbeat, 2);
+
+        Assert.Equal((PacketEndpoints.PacketUpdatedEventType, "with preview"), (items[1].EventType, items[1].Data));
+    }
+
+    [Fact]
     public async Task Sends_heartbeats_while_idle()
     {
         var channel = Channel.CreateUnbounded<PacketEvent>();
