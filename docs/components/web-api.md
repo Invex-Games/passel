@@ -46,6 +46,10 @@ Packet ids are never exposed as raw Guids. `IdEncodingService` encodes the Guid'
 
 Because every instance listens, events reach clients connected to any instance. The stream doesn't support resuming. Instead, clients reconnect, receive `resync`, and fetch `GET /api/packets` again. The server also sends `resync` when it may have missed events. If a stream's buffer fills, the server closes the stream rather than drop events.
 
+Streams are capped by the `EventStreams` configuration. The hub keeps at most five per user on an instance: subscribing a sixth removes the oldest from the hub and completes its channel, so that client's stream ends cleanly and it reconnects. Beyond the per-instance total, `Subscribe` returns `null` and the endpoint answers 503 with `Retry-After`. The subscription is registered for disposal with the response, so the hub releases it when the stream ends however it ends.
+
+A stream never outlives the token that opened it: the endpoint reads the `exp` claim and cancels the stream at `exp` plus the bearer handler's clock skew (`PacketEndpoints.StreamLifetime`), with a ceiling of a day for principals without an expiry. The clients already reconnect with a fresh token.
+
 ## Authentication
 
 Clients send a Google **ID token** as a bearer token. The API validates it against Google with these accepted audiences:

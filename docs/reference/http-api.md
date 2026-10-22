@@ -70,6 +70,8 @@ A `text/event-stream` of the caller's changes:
 
 There are no event ids. To recover after a disconnect, reconnect and handle the `resync`. The server may close a stream at any time, for example on shutdown or when the client falls behind. Clients should reconnect with backoff.
 
+A stream also ends when the token that opened it would stop validating (its `exp` plus five minutes of clock skew, so about an hour for a Google ID token) and after a day at most. Reconnect with a fresh token. A user may hold five streams open per API instance; opening a sixth closes the oldest. When an instance has no room for another stream at all, the request gets **503 Service Unavailable** with `Retry-After`.
+
 ## Other endpoints
 
 | Endpoint | Auth | Description |

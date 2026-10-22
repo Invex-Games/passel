@@ -25,6 +25,8 @@ The values are stored in the AppHost's user secrets as `Parameters:<name>`. The 
 | `RateLimits:StreamsPerMinute` | No | Event streams a user may open per minute. Default 10. |
 | `Quotas:MaxPacketsPerUser` | No | The most packets a user may have at once. Default 5000. |
 | `Quotas:MaxBytesPerUser` | No | The most bytes a user may have stored across their packets. Default 52428800 (50 MB). |
+| `EventStreams:MaxStreamsPerUser` | No | Event streams one user may hold open on one instance; opening another closes their oldest. Default 5. |
+| `EventStreams:MaxStreamsPerInstance` | No | Event streams one instance holds open in total; beyond it the endpoint answers 503. Default 4000. |
 
 Rate limits are sliding one-minute windows counted per signed-in user (the `sub` claim), or per remote address for requests that aren't authenticated. A request over the limit gets a 429 problem with a `Retry-After` header.
 

@@ -37,6 +37,13 @@ builder
 
 builder
     .Services
+    .AddOptions<EventStreamOptions>()
+    .BindConfiguration(EventStreamOptions.SectionName)
+    .ValidateDataAnnotations()
+    .ValidateOnStart();
+
+builder
+    .Services
     .AddSingleton<IIdEncodingService, IdEncodingService>()
     .AddScoped<IPacketStoreService, PacketStoreService>()
     .AddSingleton<IPacketQuotaService, PacketQuotaService>()
