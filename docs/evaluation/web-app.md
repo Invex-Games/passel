@@ -46,6 +46,8 @@ Serving the app under `/app` on the same host as the landing page keeps one orig
 
 The simplest path that works today: Google Identity Services issues an ID token for the web client id, which is already the API's main audience, so the web app can call the API with no API changes. The catch is the one-hour lifetime: a browser tab can't silently mint a new ID token without a One Tap prompt, so users would see a prompt roughly hourly. That is the strongest reason for first-party sessions ([Features](features.md), item 7): exchange the Google token once for a Passel access token and a rotating refresh token, keep the access token in memory and the refresh token in an `HttpOnly` cookie scoped to `api.passel.link/auth`, and the web session lasts for weeks. Build the web app against Google tokens first so it ships, and switch when sessions land; the API should accept both during the overlap.
 
+For local development the web app should also offer the API's Development-only `Dev` scheme behind a build flag, as the extension (`DEV_SIGN_IN`) and the mobile app (`DEV_USER`) do: a development build then runs without a Google client and can switch between named users, which is how per-user behaviour gets tested ([Running Locally](../getting-started/running-locally.md#run-without-google)). A production build never has the flag.
+
 ## Milestones
 
 | Milestone | Scope | Size |

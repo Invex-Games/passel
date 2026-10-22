@@ -8,7 +8,7 @@
 |---|---|
 | `lib/config/` | `AppConfig`, the compile-time configuration, and the page shown when a required value is missing |
 | `lib/api/` | The error types (`ApiException`, `NetworkException`, `SessionExpiredException`, `SignInException`) and `describeError`, which turns any of them into user-facing text |
-| `lib/auth/` | Google Sign-In (`google_sign_in` 7), ID token refresh, the API HTTP client (`ApiClient`: never follows redirects, sends the tunnel token when there is one) and helpers that retry once on a 401 |
+| `lib/auth/` | Google Sign-In (`google_sign_in` 7), ID token refresh, the `DEV_USER` sign-in through the API's `Dev` scheme (`authorization.dart` maps a token to its `Authorization` header), the API HTTP client (`ApiClient`: never follows redirects, sends the tunnel token when there is one) and helpers that retry once on a 401 |
 | `lib/packets/` | The packet model, repository (HTTP and SSE), offline cache, Riverpod providers and widgets |
 | `lib/theme/` | The Material 3 theme, used when the device doesn't provide dynamic colour |
 
@@ -29,13 +29,14 @@ Values are compiled in with `--dart-define` or `--dart-define-from-file`. Nothin
 | Key | Required | Value |
 |---|---|---|
 | `API_BASE_URL` | Yes | The API root, as the device can reach it: `http://localhost:5218` for a phone on USB (with `adb reverse`), `http://10.0.2.2:5218` for an emulator, or the dev tunnel URL. See [Running Locally](../getting-started/running-locally.md#mobile-app). |
-| `SERVER_CLIENT_ID` | Yes | The Google web client id |
+| `SERVER_CLIENT_ID` | Unless `DEV_USER` is set | The Google web client id |
 | `APP_CLIENT_ID` | No | The Android client id |
 | `TUNNEL_ACCESS_TOKEN` | No | A Dev Tunnels access token, for a tunnel that doesn't allow anonymous access. Development flavor only. |
+| `DEV_USER` | No | Signs in as this user through the API's Development-only `Dev` scheme instead of Google, so no Google client is needed. The login page can sign in as any other user, and each user is a separate account. Development flavor only. See [Run without Google](../getting-started/running-locally.md#run-without-google). |
 
 Copy `.env.example` to `.env` for local runs. If a value is passed both in the file and with `--dart-define`, the `--dart-define` value wins.
 
-`AppConfig` checks the values at start-up and shows `ConfigErrorPage` instead of the app when one is missing or can't be used in the flavor: the production flavor needs an `https://` API URL and refuses a tunnel token, and the development flavor allows an `http://` URL only to `localhost`, `127.0.0.1` and `10.0.2.2`, the hosts its network security configuration permits cleartext to.
+`AppConfig` checks the values at start-up and shows `ConfigErrorPage` instead of the app when one is missing or can't be used in the flavor: the production flavor needs an `https://` API URL and refuses a tunnel token and a development user, and the development flavor allows an `http://` URL only to `localhost`, `127.0.0.1` and `10.0.2.2`, the hosts its network security configuration permits cleartext to.
 
 ## Flavors
 

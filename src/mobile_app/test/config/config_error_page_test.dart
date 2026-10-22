@@ -17,11 +17,13 @@ void main() {
       String flavor, {
       String apiBaseUrl = 'https://api.example.com',
       String tunnelAccessToken = '',
+      String devUser = '',
     }) =>
         AppConfig.validate(
           flavor: flavor,
           apiBaseUrl: apiBaseUrl,
           tunnelAccessToken: tunnelAccessToken,
+          devUser: devUser,
         );
 
     test('accepts https in either flavor', () {
@@ -93,14 +95,35 @@ void main() {
       expect(problems['TUNNEL_ACCESS_TOKEN'], contains('production flavor'));
     });
 
+    test('allows a development user in development only', () {
+      expect(validate('development', devUser: 'alice'), isEmpty);
+
+      final problems = validate('production', devUser: 'alice');
+
+      expect(problems.keys, ['DEV_USER']);
+      expect(problems['DEV_USER'], contains('production flavor'));
+    });
+
+    test('rejects a development user the API would refuse', () {
+      for (final user in ['al ice', 'alice!', 'a' * 256]) {
+        final problems = validate('development', devUser: user);
+
+        expect(problems.keys, ['DEV_USER'], reason: user);
+        expect(problems['DEV_USER'], contains('1 to 255'), reason: user);
+      }
+      expect(validate('development', devUser: 'dec.smith+test@example.com'),
+          isEmpty);
+    });
+
     test('reports every problem at once', () {
       final problems = validate(
         'production',
         apiBaseUrl: 'http://localhost:5218',
         tunnelAccessToken: 'token',
+        devUser: 'alice',
       );
 
-      expect(problems.keys, ['API_BASE_URL', 'TUNNEL_ACCESS_TOKEN']);
+      expect(problems.keys, ['API_BASE_URL', 'TUNNEL_ACCESS_TOKEN', 'DEV_USER']);
     });
   });
 

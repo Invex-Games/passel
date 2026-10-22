@@ -36,7 +36,7 @@ To run the API on its own, outside the AppHost, use its `https` launch profile. 
 
 ## Run without Google
 
-In Development the three Google values are optional, so a fresh clone runs without a Google Cloud project. Leave them unset and the API accepts a development scheme in place of Google tokens: `Authorization: Dev <user-id>` signs the request in as that user. An id is one to 255 letters, digits or `-._@+`, and different ids are different users.
+In Development the three Google values are optional, so a fresh clone runs without a Google Cloud project. Leave them unset and the API accepts a development scheme in place of Google tokens: `Authorization: Dev <user-id>` signs the request in as that user. An id is one to 255 letters, digits or `-._@+`, and different ids are different users, each with their own packets.
 
 ```
 curl -H "Authorization: Dev alice" https://localhost:7030/api/packets
@@ -44,7 +44,14 @@ curl -H "Authorization: Dev alice" https://localhost:7030/api/packets
 
 In Scalar, open **Auth** (or the lock on a request), pick the **Dev** scheme and enter `Dev alice` as the value; Scalar then sends the header with every request. The banner at the top says when Google login isn't configured.
 
-The scheme only exists while the API runs as `Development`; outside it, only Google tokens are accepted. The extension and the mobile app still sign in with Google, so they need the real clients from [Google OAuth Clients](google-oauth.md). Setting those parameters later and restarting the AppHost turns Google sign-in on without affecting the Dev scheme.
+The clients can use the scheme too, in their development builds only:
+
+- **Chrome extension:** the AppHost builds it with `DEV_SIGN_IN=true` (for a standalone build, set it in `src/chrome-extension/.env`), and the popup then has a **Development user** field under the Google button. Type a name and sign in; the name is offered again next time. Built without a `GOOGLE_CLIENT_ID`, the popup offers only the development sign-in. `npm run build` never compiles the field in.
+- **Mobile app:** set `DEV_USER=<name>` in `src/mobile_app/.env` (or pass `--dart-define=DEV_USER=<name>`), and the development flavor signs in as that user without Google, so `SERVER_CLIENT_ID` isn't needed. The login page has a **Development user** field, prefilled with that name, for signing in as someone else, and the app comes back as whoever signed in last. The production flavor refuses to start with `DEV_USER` set.
+
+Signing in as a different user is an account change: the client drops its cached packets, so each user sees only their own. That is how per-user behaviour gets tested from one browser or one phone: sign in as `alice`, send a packet, sign out, sign in as `bob` and the feed is empty. The same id reaches the same account from every client, so `Dev alice` in curl, the extension and the app share one feed.
+
+The scheme only exists while the API runs as `Development`; outside it, only Google tokens are accepted, and a client signed in as a development user is signed out as soon as the API refuses it. Google sign-in needs the real clients from [Google OAuth Clients](google-oauth.md). Setting those parameters later and restarting the AppHost turns Google sign-in on without affecting the Dev scheme.
 
 ## Chrome extension
 
@@ -60,7 +67,7 @@ The app has the API's URL compiled in, as the device will reach it. By default t
 
 ### A phone on USB, or an emulator
 
-1. Fill in `src/mobile_app/.env` (`SetupDevEnvironment` creates it from `.env.example`): keep `API_BASE_URL=http://localhost:5218`, and set `SERVER_CLIENT_ID` (the web client id) and `APP_CLIENT_ID` (the Android client id).
+1. Fill in `src/mobile_app/.env` (`SetupDevEnvironment` creates it from `.env.example`): keep `API_BASE_URL=http://localhost:5218`, and set `SERVER_CLIENT_ID` (the web client id) and `APP_CLIENT_ID` (the Android client id), or set `DEV_USER` instead to skip Google altogether ([Run without Google](#run-without-google)).
 2. Plug the phone in with USB debugging on, and make its port 5218 reach your machine:
 
    ```

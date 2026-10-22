@@ -1,4 +1,5 @@
 import {clearFeedCache, loadFeedCache, saveFeedCache} from "./cache.js";
+import {DEV_SIGN_IN, GOOGLE_CLIENT_ID} from "./config.js";
 import {FeedRequestError, FeedStore, type FeedState} from "./feed.js";
 import {packetDataForInput, truncateTitle, tryParseHttpUrl} from "./packets.js";
 import {FEED_PORT_NAME} from "./types.js";
@@ -12,6 +13,7 @@ import type {
     Packet,
     PacketData,
     SendPacketResponse,
+    SignInMessage,
     SignInResponse,
     SignOutResponse,
 } from "./types.js";
@@ -44,6 +46,9 @@ const sendPageBtn = document.getElementById("send-page") as HTMLButtonElement;
 const sendTextBtn = document.getElementById("send-text") as HTMLButtonElement;
 const freetextEl = document.getElementById("freetext") as HTMLTextAreaElement;
 const signInBtn = document.getElementById("sign-in-btn") as HTMLButtonElement;
+const devSignInEl = document.getElementById("dev-sign-in") as HTMLElement;
+const devUserEl = document.getElementById("dev-user") as HTMLInputElement;
+const devSignInBtn = document.getElementById("dev-sign-in-btn") as HTMLButtonElement;
 const signOutBtn = document.getElementById("sign-out-btn") as HTMLButtonElement;
 const refreshBtn = document.getElementById("refresh-btn") as HTMLButtonElement;
 const syncLabelEl = document.getElementById("sync-label") as HTMLSpanElement;
@@ -60,6 +65,11 @@ const toastAction = document.getElementById("toast-action") as HTMLButtonElement
 
 let signedIn = false;
 let live = false;
+
+// A development build with DEV_SIGN_IN can sign in as a development user; built without a Google client
+// id (only possible then), that is the only way to sign in.
+devSignInEl.classList.toggle("hidden", !DEV_SIGN_IN);
+signInBtn.classList.toggle("hidden", !GOOGLE_CLIENT_ID);
 
 /** Why the first load failed, while there's nothing (not even a cache) to show instead. */
 let loadError: string | null = null;
@@ -232,6 +242,9 @@ function setAuthState(state: AuthStateResponse): void {
     freetextEl.disabled = !signedIn;
     updateSendButtons();
 
+    // Offer the development user last signed in as, unless the user has started typing another.
+    if (!signedIn && state.lastDevUser && !devUserEl.value) devUserEl.value = state.lastDevUser;
+
     if (signedIn && !wasSignedIn) {
         connectLive();
         void refreshFeed(false);
@@ -248,12 +261,24 @@ void (async () => {
     setAuthState(state ?? {signedIn: false});
 })();
 
-signInBtn.addEventListener("click", async () => {
-    setLoading(signInBtn, true);
+signInBtn.addEventListener("click", () => void runSignIn(signInBtn, {action: "signIn"}));
+
+devSignInBtn.addEventListener("click", () => void runSignIn(devSignInBtn, {action: "signIn", devUser: devUserEl.value}));
+
+devUserEl.addEventListener("keydown", e => {
+    if (e.key === "Enter" && !e.isComposing) {
+        e.preventDefault();
+        devSignInBtn.click();
+    }
+});
+
+async function runSignIn(button: HTMLButtonElement, message: SignInMessage): Promise<void> {
+    setLoading(button, true);
     try {
-        const response = await sendMessage<SignInResponse>({action: "signIn"});
+        const response = await sendMessage<SignInResponse>(message);
         if (response?.success) {
-            // The account picker may have switched accounts, so don't keep showing the previous feed.
+            // The account may have changed (the picker, or another development user), so don't keep
+            // showing the previous feed.
             await feed.clear();
             loadError = null;
             setAuthState({signedIn: true, email: response.email});
@@ -264,9 +289,9 @@ signInBtn.addEventListener("click", async () => {
     } catch (err) {
         showError(`Error: ${(err as Error).message}`);
     } finally {
-        setLoading(signInBtn, false);
+        setLoading(button, false);
     }
-});
+}
 
 signOutBtn.addEventListener("click", async () => {
     await sendMessage<SignOutResponse>({action: "signOut"});

@@ -1,4 +1,4 @@
-import {getAccountName, getToken, signIn, signOut} from "./auth.js";
+import {getAccountName, getLastDevUser, getToken, signIn, signOut} from "./auth.js";
 import {deletePacket, getPackets, sendPacket} from "./api.js";
 import {addFeedPort} from "./live.js";
 import {FEED_PORT_NAME} from "./types.js";
@@ -95,7 +95,7 @@ chrome.runtime.onMessage.addListener((message: ExtensionMessage, sender, sendRes
             return true;
 
         case "signIn":
-            signIn()
+            signIn(message.devUser)
                 .then(token => sendResponse({success: true, email: getAccountName(token)}))
                 .catch(err => sendResponse({success: false, error: (err as Error).message}));
             return true;
@@ -166,5 +166,8 @@ function cancelDelete(id: string): boolean {
 async function getAuthState(): Promise<AuthStateResponse> {
     // Not user-initiated: refresh silently if possible, but never show a sign-in window.
     const token = await getToken(false);
-    return token ? {signedIn: true, email: getAccountName(token)} : {signedIn: false};
+    if (token) return {signedIn: true, email: getAccountName(token)};
+
+    const lastDevUser = await getLastDevUser();
+    return lastDevUser ? {signedIn: false, lastDevUser} : {signedIn: false};
 }

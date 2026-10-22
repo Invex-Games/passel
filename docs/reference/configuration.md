@@ -55,6 +55,7 @@ When you run the API outside the AppHost, put these in `src/webapi/Invex.Passel.
 |---|---|
 | `API_URL` | The packets endpoint, for example `https://localhost:7030/api/packets` |
 | `GOOGLE_CLIENT_ID` | The extension's OAuth client id |
+| `DEV_SIGN_IN` | `true` lets a development build (`npm run dev`, `npm run dev:watch`) sign in as a development user through the API's Development-only `Dev` scheme, without Google; `GOOGLE_CLIENT_ID` may then be left empty. A minified build (`npm run build`) never has it. The AppHost sets it. |
 
 ## Mobile app
 
@@ -63,9 +64,10 @@ When you run the API outside the AppHost, put these in `src/webapi/Invex.Passel.
 | Key | Required | Description |
 |---|---|---|
 | `API_BASE_URL` | Yes | The API root as the device can reach it: `http://localhost:5218` for a phone on USB (with `adb reverse tcp:5218 tcp:5218`), `http://10.0.2.2:5218` for an emulator, or the dev tunnel URL. The production flavor requires `https://`; the development flavor allows `http://` only to `localhost`, `127.0.0.1` and `10.0.2.2`. |
-| `SERVER_CLIENT_ID` | Yes | The Google web client id |
+| `SERVER_CLIENT_ID` | Unless `DEV_USER` is set | The Google web client id |
 | `APP_CLIENT_ID` | No | The Android client id |
 | `TUNNEL_ACCESS_TOKEN` | No | A Dev Tunnels access token (`devtunnel token <tunnel-id> --scopes connect`), sent as `X-Tunnel-Authorization: tunnel <token>` with every request, for a tunnel that doesn't allow anonymous access. Development flavor only: the production flavor refuses to start with one. |
+| `DEV_USER` | No | Signs the development flavor in as this user through the API's Development-only `Dev` scheme (`Authorization: Dev <user>`) instead of Google, so no Google client is needed. The login page can sign in as any other user, and each user is a separate account. Development flavor only: the production flavor refuses to start with one. |
 
 ## Build
 

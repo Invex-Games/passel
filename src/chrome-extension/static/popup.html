@@ -50,6 +50,24 @@
                 Send links and text between your devices.
                 Learn more at <a href="https://passel.link" target="_blank" rel="noopener noreferrer">passel.link</a>.
             </p>
+
+            <!-- Only a development build with DEV_SIGN_IN shows this (see popup.ts): signing in through the
+                 API's Dev scheme, as any named user, without Google. -->
+            <div id="dev-sign-in" class="dev-sign-in hidden">
+                <div class="text-field">
+                    <input id="dev-user" type="text" placeholder=" " autocomplete="off" spellcheck="false" />
+                    <label for="dev-user">Development user</label>
+                </div>
+                <button id="dev-sign-in-btn" class="md-btn md-btn-tonal" type="button">
+                    <span class="spinner"></span>
+                    <span class="btn-label">Sign in as development user</span>
+                    <span class="btn-loading-label">Signing in…</span>
+                </button>
+                <p class="dev-note">
+                    Development build: signs in without Google, through the API's Dev scheme.
+                    Any name works, and a different name is a different account.
+                </p>
+            </div>
         </section>
 
         <!-- Disabled until the session is known, so a signed-in user's popup doesn't jump; hidden while signed out. -->

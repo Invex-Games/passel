@@ -1,5 +1,6 @@
 import {API_URL} from "./config.js";
 import {getToken, refreshToken, signOut} from "./auth.js";
+import {authorizationHeader, devUserOf} from "./authorization.js";
 import {parsePacket, parsePackets, toLiveEvent} from "./packets.js";
 import {ServerSentEventParser} from "./sse.js";
 import type {
@@ -47,6 +48,12 @@ async function authenticatedFetch(url: string, options: RequestInit, interactive
     let response = await fetchWithToken(url, options, token);
     if (response.status !== 401) return response;
 
+    // A development token can't be refreshed: the API refuses it when it isn't running in Development.
+    if (devUserOf(token) !== null) {
+        await signOut();
+        throw new SignedOutError("The API refused the development user. Is it running in Development?");
+    }
+
     token = await refreshToken(interactive);
     if (token) {
         response = await fetchWithToken(url, options, token);
@@ -59,7 +66,7 @@ async function authenticatedFetch(url: string, options: RequestInit, interactive
 
 function fetchWithToken(url: string, options: RequestInit, token: string): Promise<Response> {
     const headers = new Headers(options.headers);
-    headers.set("Authorization", `Bearer ${token}`);
+    headers.set("Authorization", authorizationHeader(token));
     return fetch(url, {...options, headers});
 }
 

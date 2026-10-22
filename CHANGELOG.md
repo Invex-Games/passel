@@ -15,6 +15,7 @@ All notable changes to Passel. The format follows [Keep a Changelog](https://kee
 - GitHub Actions workflows and Dependabot configuration generated from the Atom build definition, plus contributing guidelines, code owners, a pull request template and the MIT license.
 - Abuse controls in the API: rate limits per user for creates, reads and event streams, per-user packet and storage quotas, caps on open event streams per user and per instance, and streams that end when the token they were opened with expires.
 - A Development-only `Authorization: Dev <user>` scheme, so the API, Scalar and the tests run without Google credentials; the AppHost's Google parameters are optional in Development.
+- Sign-in without Google in the clients' development builds: the mobile app's `DEV_USER` dart-define and the extension's `DEV_SIGN_IN` build flag (set by the AppHost) sign in through that scheme as any named user, with a field for switching users, so per-user behaviour can be tested from one device. Production builds refuse the define and never compile the flag in.
 - A USB path for mobile development: the development flavor of the app may use plain HTTP to `localhost` and the emulator host, so a phone reaches the local API through `adb reverse` without a tunnel; the production flavor refuses an `http://` API URL. A `TUNNEL_ACCESS_TOKEN` dart-define and a `DevTunnel:AllowAnonymous` AppHost setting for running the dev tunnel without anonymous access.
 
 ### Changed

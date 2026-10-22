@@ -4,6 +4,7 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../api/errors.dart';
+import 'authorization.dart';
 import 'jwt.dart';
 
 /// Encapsulates all Google Sign-In interactions.
@@ -16,22 +17,40 @@ import 'jwt.dart';
 /// be discarded — on explicit [signOut] and when a *different* account signs
 /// in than the one that last used the app.  It runs before the auth-state
 /// change is emitted, so listeners never observe the previous user's data.
+///
+/// With a non-empty [devUser] (the `DEV_USER` dart-define, development
+/// flavor only) Google is never called: the repository signs in through the
+/// API's `Dev` scheme instead, see [authorizationHeader].  [devUser] is the
+/// user signed in by default; [signIn] can name any other, and the one last
+/// used is remembered across restarts.  Each user is its own account, with
+/// the same cached-data bookkeeping as a Google account change.
 class AuthRepository {
   AuthRepository({
     GoogleSignIn? googleSignIn,
     DateTime Function()? clock,
     Future<void> Function()? onUserDataInvalidated,
+    String devUser = '',
   })  : _googleSignIn = googleSignIn ?? GoogleSignIn.instance,
         _clock = clock ?? DateTime.now,
-        _onUserDataInvalidated = onUserDataInvalidated;
+        _onUserDataInvalidated = onUserDataInvalidated,
+        _defaultDevUser = devUser;
 
   /// SharedPreferences key holding the id of the last signed-in account, so
   /// an account change can be detected across app restarts.
   static const String lastUserIdKey = 'auth_last_user_id';
 
+  /// SharedPreferences key holding the development user last signed in as,
+  /// so a restart signs in as the same one.
+  static const String devUserKey = 'auth_dev_user';
+
   final GoogleSignIn _googleSignIn;
   final DateTime Function() _clock;
   final Future<void> Function()? _onUserDataInvalidated;
+
+  /// The development user signed in by default, or empty for Google sign-in.
+  final String _defaultDevUser;
+
+  bool get _devMode => _defaultDevUser.isNotEmpty;
 
   String? _idToken;
   StreamSubscription<GoogleSignInAuthenticationEvent>? _authSub;
@@ -58,6 +77,13 @@ class AuthRepository {
   /// [getIdToken], which refreshes expired tokens.
   String? get idToken => _idToken;
 
+  /// The development user signed in right now, or `null` when signed out or
+  /// signed in through Google.
+  String? get currentDevUser {
+    final token = _idToken;
+    return token == null ? null : devUserOf(token);
+  }
+
   // ── Lifecycle ──────────────────────────────────────────────────────────────
 
   /// Initializes the Google Sign-In SDK and starts listening to auth events.
@@ -69,6 +95,11 @@ class AuthRepository {
     required String? clientId,
     required String serverClientId,
   }) async {
+    if (_devMode) {
+      await _applyDevSignIn(await _readDevUser() ?? _defaultDevUser);
+      return true;
+    }
+
     try {
       await _googleSignIn.initialize(
         clientId: clientId,
@@ -102,9 +133,22 @@ class AuthRepository {
 
   /// Interactive sign-in. Returns `true` on success, `false` if cancelled.
   ///
+  /// With a development user configured, signs in as [devUser] (any name the
+  /// API accepts), else as the user last signed in, else the default; Google
+  /// is never involved and [devUser] is ignored otherwise.
+  ///
   /// Throws [SignInException], whose message is written for the user, for
   /// other failures.
-  Future<bool> signIn() async {
+  Future<bool> signIn({String? devUser}) async {
+    if (_devMode) {
+      final user = devUser?.trim() ?? await _readDevUser() ?? _defaultDevUser;
+      if (!isValidDevUser(user)) {
+        throw const SignInException('A development user $devUserRule.');
+      }
+      await _applyDevSignIn(user);
+      return true;
+    }
+
     if (!_googleSignIn.supportsAuthenticate()) {
       throw const SignInException(
         'Google Sign-In is not available on this device.',
@@ -144,9 +188,13 @@ class AuthRepository {
   Future<void> signOut() async {
     await _invalidateUserData();
     await _writeLastUserId(null);
-    try {
-      await _googleSignIn.signOut();
-    } catch (_) {}
+    if (_devMode) {
+      await _writeDevUser(null);
+    } else {
+      try {
+        await _googleSignIn.signOut();
+      } catch (_) {}
+    }
     _setSignedOut();
   }
 
@@ -159,6 +207,15 @@ class AuthRepository {
   /// Returns `null` — and emits a signed-out state — if no valid token can be
   /// obtained, so the UI can prompt the user to sign in again.
   Future<String?> getIdToken({bool forceRefresh = false}) async {
+    // A development token never expires and can't be refreshed; a rejection
+    // means the API isn't running in Development, which a refresh won't fix.
+    if (_devMode) {
+      if (_idToken == null) {
+        await _applyDevSignIn(await _readDevUser() ?? _defaultDevUser);
+      }
+      return _idToken;
+    }
+
     final current = _idToken;
     if (forceRefresh) {
       _idToken = null;
@@ -226,18 +283,34 @@ class AuthRepository {
     final token = account.authentication.idToken;
     if (token == null) return;
 
+    await _applyAccount(account.id);
+    _idToken = token;
+    _emit(true);
+  }
+
+  /// Signs in as the development user [user]: no Google call, a token the
+  /// API's `Dev` scheme accepts, and the same account-change bookkeeping as
+  /// a Google sign-in, so a different user never sees the previous one's
+  /// data.  The user is remembered for the next start.
+  Future<void> _applyDevSignIn(String user) async {
+    await _applyAccount('dev:$user');
+    await _writeDevUser(user);
+    _idToken = devToken(user);
+    _emit(true);
+  }
+
+  /// Records that [userId] is signing in, clearing the previous account's
+  /// data first when it is a different one.
+  Future<void> _applyAccount(String userId) async {
     final lastUserId = await _readLastUserId();
-    final accountChanged = lastUserId != null && lastUserId != account.id;
+    final accountChanged = lastUserId != null && lastUserId != userId;
     if (accountChanged) {
       await _invalidateUserData();
       // Make sure listeners observe a transition even if they only track the
       // signed-in flag, so per-user state is rebuilt for the new account.
       if (_idToken != null) _emit(false);
     }
-    if (lastUserId != account.id) await _writeLastUserId(account.id);
-
-    _idToken = token;
-    _emit(true);
+    if (lastUserId != userId) await _writeLastUserId(userId);
   }
 
   void _setSignedOut() {
@@ -257,22 +330,31 @@ class AuthRepository {
     }
   }
 
-  Future<String?> _readLastUserId() async {
+  Future<String?> _readLastUserId() => _readString(lastUserIdKey);
+
+  Future<void> _writeLastUserId(String? userId) =>
+      _writeString(lastUserIdKey, userId);
+
+  Future<String?> _readDevUser() => _readString(devUserKey);
+
+  Future<void> _writeDevUser(String? user) => _writeString(devUserKey, user);
+
+  Future<String?> _readString(String key) async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      return prefs.getString(lastUserIdKey);
+      return prefs.getString(key);
     } catch (_) {
       return null;
     }
   }
 
-  Future<void> _writeLastUserId(String? userId) async {
+  Future<void> _writeString(String key, String? value) async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      if (userId == null) {
-        await prefs.remove(lastUserIdKey);
+      if (value == null) {
+        await prefs.remove(key);
       } else {
-        await prefs.setString(lastUserIdKey, userId);
+        await prefs.setString(key, value);
       }
     } catch (_) {}
   }

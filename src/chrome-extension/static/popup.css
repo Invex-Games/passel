@@ -605,7 +605,8 @@ main {
     position: relative;
 }
 
-.text-field textarea {
+.text-field textarea,
+.text-field input {
     display: block;
     width: 100%;
     padding: 16px;
@@ -621,11 +622,13 @@ main {
     transition: border-color 0.15s;
 }
 
-.text-field textarea:hover {
+.text-field textarea:hover,
+.text-field input:hover {
     border-color: var(--md-sys-color-on-surface);
 }
 
-.text-field textarea:focus {
+.text-field textarea:focus,
+.text-field input:focus {
     border-color: var(--md-sys-color-primary);
     border-width: 2px;
     padding: 15px;
@@ -645,13 +648,16 @@ main {
 }
 
 .text-field textarea:focus+label,
-.text-field textarea:not(:placeholder-shown)+label {
+.text-field input:focus+label,
+.text-field textarea:not(:placeholder-shown)+label,
+.text-field input:not(:placeholder-shown)+label {
     top: -8px;
     font-size: 12px;
     color: var(--md-sys-color-primary);
 }
 
-.text-field textarea:not(:focus):not(:placeholder-shown)+label {
+.text-field textarea:not(:focus):not(:placeholder-shown)+label,
+.text-field input:not(:focus):not(:placeholder-shown)+label {
     color: var(--md-sys-color-on-surface-variant);
 }
 
@@ -764,4 +770,21 @@ main {
         opacity: 1;
         transform: translateY(0);
     }
+}
+
+/* ── Development sign-in (DEV_SIGN_IN builds only) ────── */
+.dev-sign-in {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 8px;
+    padding-top: 16px;
+    border-top: 1px solid var(--md-sys-color-outline-variant);
+}
+
+.dev-note {
+    font-size: 12px;
+    line-height: 1.45;
+    text-align: center;
+    color: var(--md-sys-color-on-surface-variant);
 }

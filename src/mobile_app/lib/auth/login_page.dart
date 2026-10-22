@@ -2,7 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../api/errors.dart';
+import '../config/app_config.dart';
 import 'auth_service.dart';
+
+/// The sign-in button label: Google, or the development user about to sign
+/// in (the typed [devUser], else the build's default).
+String signInLabel([String devUser = '']) {
+  if (!AppConfig.usesDevUser) return 'Sign in with Google';
+  final user = devUser.trim().isEmpty ? AppConfig.devUser : devUser.trim();
+  return 'Sign in as $user';
+}
 
 // ─── Full-screen login page (first launch, no cached data) ──────────────────
 
@@ -16,6 +25,13 @@ class LoginPage extends ConsumerStatefulWidget {
 class _LoginPageState extends ConsumerState<LoginPage> {
   bool _loading = false;
   String? _error;
+  final _devUser = TextEditingController(text: AppConfig.devUser);
+
+  @override
+  void dispose() {
+    _devUser.dispose();
+    super.dispose();
+  }
 
   Future<void> _signIn() async {
     setState(() {
@@ -23,7 +39,9 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       _error = null;
     });
     try {
-      final success = await ref.read(authServiceProvider.notifier).signIn();
+      final success = await ref.read(authServiceProvider.notifier).signIn(
+            devUser: AppConfig.usesDevUser ? _devUser.text : null,
+          );
       if (!success && mounted) {
         setState(() => _error = 'Sign-in was cancelled.');
       }
@@ -59,6 +77,15 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 40),
+              if (AppConfig.usesDevUser) ...[
+                DevUserField(
+                  controller: _devUser,
+                  enabled: !_loading,
+                  onChanged: () => setState(() {}),
+                  onSubmitted: _signIn,
+                ),
+                const SizedBox(height: 16),
+              ],
               FilledButton.icon(
                 onPressed: _loading ? null : _signIn,
                 icon: _loading
@@ -68,7 +95,9 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
                     : const Icon(Icons.login),
-                label: Text(_loading ? 'Signing in…' : 'Sign in with Google'),
+                label: Text(
+                  _loading ? 'Signing in…' : signInLabel(_devUser.text),
+                ),
               ),
               if (_error != null) ...[
                 const SizedBox(height: 16),
@@ -86,6 +115,45 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   }
 }
 
+// ─── Development user field ─────────────────────────────────────────────────
+
+/// Names the development user to sign in as; only built with `DEV_USER`.
+///
+/// Any name the API accepts works, and a different name is a different
+/// account, which is how per-user behaviour gets tested on one device.
+class DevUserField extends StatelessWidget {
+  const DevUserField({
+    super.key,
+    required this.controller,
+    required this.onChanged,
+    required this.onSubmitted,
+    this.enabled = true,
+  });
+
+  final TextEditingController controller;
+  final VoidCallback onChanged;
+  final VoidCallback onSubmitted;
+  final bool enabled;
+
+  @override
+  Widget build(BuildContext context) {
+    return TextField(
+      controller: controller,
+      enabled: enabled,
+      autocorrect: false,
+      enableSuggestions: false,
+      textInputAction: TextInputAction.go,
+      decoration: const InputDecoration(
+        labelText: 'Development user',
+        helperText: 'Any name; a different name is a different account.',
+        border: OutlineInputBorder(),
+      ),
+      onChanged: (_) => onChanged(),
+      onSubmitted: (_) => onSubmitted(),
+    );
+  }
+}
+
 // ─── Bottom-sheet login (signed-out but has cached data) ────────────────────
 
 /// Shows a modal bottom sheet prompting the user to sign in.
@@ -95,6 +163,8 @@ class _LoginPageState extends ConsumerState<LoginPage> {
 Future<void> showLoginSheet(BuildContext context) {
   return showModalBottomSheet<void>(
     context: context,
+    // The development user field needs room above the keyboard.
+    isScrollControlled: AppConfig.usesDevUser,
     builder: (_) => const _LoginSheet(),
   );
 }
@@ -109,6 +179,13 @@ class _LoginSheet extends ConsumerStatefulWidget {
 class _LoginSheetState extends ConsumerState<_LoginSheet> {
   bool _loading = false;
   String? _error;
+  final _devUser = TextEditingController(text: AppConfig.devUser);
+
+  @override
+  void dispose() {
+    _devUser.dispose();
+    super.dispose();
+  }
 
   Future<void> _signIn() async {
     setState(() {
@@ -116,7 +193,9 @@ class _LoginSheetState extends ConsumerState<_LoginSheet> {
       _error = null;
     });
     try {
-      final success = await ref.read(authServiceProvider.notifier).signIn();
+      final success = await ref.read(authServiceProvider.notifier).signIn(
+            devUser: AppConfig.usesDevUser ? _devUser.text : null,
+          );
       if (!success && mounted) {
         setState(() => _error = 'Sign-in was cancelled.');
       }
@@ -139,7 +218,12 @@ class _LoginSheetState extends ConsumerState<_LoginSheet> {
     final cs = Theme.of(context).colorScheme;
     return SafeArea(
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
+        padding: EdgeInsets.fromLTRB(
+          24,
+          12,
+          24,
+          24 + MediaQuery.of(context).viewInsets.bottom,
+        ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -170,6 +254,15 @@ class _LoginSheetState extends ConsumerState<_LoginSheet> {
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 24),
+            if (AppConfig.usesDevUser) ...[
+              DevUserField(
+                controller: _devUser,
+                enabled: !_loading,
+                onChanged: () => setState(() {}),
+                onSubmitted: _signIn,
+              ),
+              const SizedBox(height: 16),
+            ],
             FilledButton.icon(
               onPressed: _loading ? null : _signIn,
               icon: _loading
@@ -179,7 +272,9 @@ class _LoginSheetState extends ConsumerState<_LoginSheet> {
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
                   : const Icon(Icons.login),
-              label: Text(_loading ? 'Signing in…' : 'Sign in with Google'),
+              label: Text(
+                _loading ? 'Signing in…' : signInLabel(_devUser.text),
+              ),
             ),
             if (_error != null) ...[
               const SizedBox(height: 12),

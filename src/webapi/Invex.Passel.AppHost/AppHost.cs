@@ -42,7 +42,9 @@ var webApi = builder
 builder
     .AddJavaScriptApp("chrome-extension", "../../chrome-extension", "dev:watch")
     .WithEnvironment("API_URL", ReferenceExpression.Create($"{webApi.GetEndpoint("https")}/api/packets"))
-    .WithEnvironment("GOOGLE_CLIENT_ID", extensionClientId);
+    .WithEnvironment("GOOGLE_CLIENT_ID", extensionClientId)
+    // The popup of this development build can also sign in as a development user (the API's Dev scheme)
+    .WithEnvironment("DEV_SIGN_IN", "true");
 
 // Gives a phone that is not on USB a stable public URL for the API, to use as the mobile app's API_BASE_URL.
 // It only runs when started from the dashboard: while it runs, anyone with the URL can reach the Development

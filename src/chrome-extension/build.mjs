@@ -49,8 +49,16 @@ function required(key) {
 
 // ── Config values to inject ──────────────────────────────────
 
+const isDev = process.argv.includes("--dev");
+const isWatch = process.argv.includes("--watch");
+
 const apiUrl = required("API_URL");
-const googleClientId = required("GOOGLE_CLIENT_ID");
+
+// Signing in as a development user (the API's Dev scheme, Development only) is compiled in for
+// development builds that ask for it, and never for a minified build. Such a build can do without a
+// Google client id; the popup then offers only the development sign-in.
+const devSignIn = isDev && env.DEV_SIGN_IN === "true";
+const googleClientId = devSignIn ? env.GOOGLE_CLIENT_ID ?? "" : required("GOOGLE_CLIENT_ID");
 
 let apiOrigin;
 try {
@@ -63,6 +71,7 @@ try {
 const define = {
     "__CONFIG__.API_URL": JSON.stringify(apiUrl),
     "__CONFIG__.GOOGLE_CLIENT_ID": JSON.stringify(googleClientId),
+    "__CONFIG__.DEV_SIGN_IN": JSON.stringify(devSignIn),
 };
 
 // ── Static files ─────────────────────────────────────────────
@@ -95,9 +104,6 @@ const copyStaticPlugin = {
 };
 
 // ── Build options ────────────────────────────────────────────
-
-const isDev = process.argv.includes("--dev");
-const isWatch = process.argv.includes("--watch");
 
 const options = {
     entryPoints: ["src/background.ts", "src/popup.ts"],

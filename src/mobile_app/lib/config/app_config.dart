@@ -1,5 +1,7 @@
 import 'package:flutter/services.dart';
 
+import '../auth/data/authorization.dart';
+
 /// Compile-time app configuration.
 ///
 /// All values come from `--dart-define` (CI) or `--dart-define-from-file`
@@ -53,6 +55,17 @@ class AppConfig {
   static const String tunnelAccessToken =
       String.fromEnvironment('TUNNEL_ACCESS_TOKEN');
 
+  /// Turns on signing in without Google, through the API's `Dev` scheme
+  /// (`Authorization: Dev <user>`), which the API only accepts in
+  /// Development, and names the user signed in by default. The login page
+  /// then lets you sign in as any other user, and different users are
+  /// different accounts. Development flavor only; empty when unset. With it
+  /// set, `SERVER_CLIENT_ID` isn't needed and Google sign-in never runs.
+  static const String devUser = String.fromEnvironment('DEV_USER');
+
+  /// Whether this build signs in through the `Dev` scheme instead of Google.
+  static bool get usesDevUser => isDev && devUser.isNotEmpty;
+
   /// The hosts the development flavor may reach over plain `http://`: the
   /// developer's machine as seen through `adb reverse` or from an emulator.
   /// Mirrors `android/app/src/development/res/xml/network_security_config.xml`,
@@ -91,7 +104,8 @@ class AppConfig {
   /// the app was run without `--dart-define-from-file=.env`).
   static List<String> get missingKeys => [
         if (apiBaseUrl.isEmpty) 'API_BASE_URL',
-        if (serverClientId.isEmpty) 'SERVER_CLIENT_ID',
+        // A development user signs in without Google, so no client id then.
+        if (serverClientId.isEmpty && !usesDevUser) 'SERVER_CLIENT_ID',
       ];
 
   /// Values that were passed at build time but can't be used in this flavor,
@@ -100,6 +114,7 @@ class AppConfig {
         flavor: flavor,
         apiBaseUrl: apiBaseUrl,
         tunnelAccessToken: tunnelAccessToken,
+        devUser: devUser,
       );
 
   /// Whether the build carries everything the app needs. When it doesn't,
@@ -110,14 +125,16 @@ class AppConfig {
   /// can be exercised for either flavor.
   ///
   /// The production flavor only talks to the API over `https://`, and never
-  /// carries a tunnel token (a development credential that would otherwise be
-  /// compiled into a store build). The development flavor may use `http://`
-  /// for [cleartextHosts] only, since Android blocks cleartext to anything
-  /// else and the failure would otherwise look like a network error.
+  /// carries a tunnel token or a development user (development credentials
+  /// that would otherwise be compiled into a store build). The development
+  /// flavor may use `http://` for [cleartextHosts] only, since Android blocks
+  /// cleartext to anything else and the failure would otherwise look like a
+  /// network error.
   static Map<String, String> validate({
     required String flavor,
     required String apiBaseUrl,
     required String tunnelAccessToken,
+    String devUser = '',
   }) {
     final production = flavor == 'production';
     final apiBaseUrlProblem = apiBaseUrl.isEmpty
@@ -130,6 +147,11 @@ class AppConfig {
         'TUNNEL_ACCESS_TOKEN':
             'must not be set in the production flavor; it is a development '
                 'tunnel credential',
+      if (production && devUser.isNotEmpty)
+        'DEV_USER': 'must not be set in the production flavor; it signs in '
+            'through the development scheme of the API without Google',
+      if (!production && devUser.isNotEmpty && !isValidDevUser(devUser))
+        'DEV_USER': devUserRule,
     };
   }
 

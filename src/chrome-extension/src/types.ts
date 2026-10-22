@@ -47,7 +47,9 @@ export interface ProblemDetails {
 // run in the worker so they survive the popup closing (e.g. when a sign-in window opens).
 
 export interface SignInMessage {
-    action: "signIn"
+    action: "signIn";
+    /** Signs in as this development user instead of through Google (DEV_SIGN_IN builds only). */
+    devUser?: string
 }
 
 export interface SignOutMessage {
@@ -91,7 +93,10 @@ export type ExtensionMessage =
 
 export interface AuthStateResponse {
     signedIn: boolean;
-    email?: string
+    /** The signed-in account as shown to the user: an email, or "<user> (dev)" for a development user. */
+    email?: string;
+    /** Signed out, in a DEV_SIGN_IN build: the development user last signed in as, to offer again. */
+    lastDevUser?: string
 }
 
 export interface SignInResponse {

@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import '../../auth/auth_helpers.dart';
+import '../../auth/data/authorization.dart';
 import '../../config/app_config.dart';
 import 'packet.dart';
 import 'packet_cache.dart';
@@ -81,7 +82,7 @@ class PacketRepository {
 
     final response = await sendWithAuthRetry(
       _tokenProvider,
-      (token) => _client.get(uri, headers: {'Authorization': 'Bearer $token'}),
+      (token) => _client.get(uri, headers: {'Authorization': authorizationHeader(token)}),
     );
 
     validateResponse(response, context: 'Fetch packets');
@@ -121,7 +122,7 @@ class PacketRepository {
           (token) => _client.send(
             http.AbortableRequest('GET', uri, abortTrigger: abort.future)
               ..headers.addAll({
-                'Authorization': 'Bearer $token',
+                'Authorization': authorizationHeader(token),
                 'Accept': 'text/event-stream',
               }),
           ),
@@ -238,7 +239,7 @@ class PacketRepository {
       (token) => _client.post(
         uri,
         headers: {
-          'Authorization': 'Bearer $token',
+          'Authorization': authorizationHeader(token),
           'Content-Type': 'application/json',
         },
         body: body,
@@ -267,7 +268,7 @@ class PacketRepository {
     final response = await sendWithAuthRetry(
       _tokenProvider,
       (token) =>
-          _client.delete(uri, headers: {'Authorization': 'Bearer $token'}),
+          _client.delete(uri, headers: {'Authorization': authorizationHeader(token)}),
     );
 
     if (response.statusCode == 404) return;

@@ -26,7 +26,7 @@ class FakeAuthService extends AsyncNotifier<bool> implements AuthService {
   Future<bool> build() async => signedIn;
 
   @override
-  Future<bool> signIn() async {
+  Future<bool> signIn({String? devUser}) async {
     state = const AsyncData(true);
     return true;
   }
@@ -35,6 +35,9 @@ class FakeAuthService extends AsyncNotifier<bool> implements AuthService {
   Future<void> signOut() async {
     state = const AsyncData(false);
   }
+
+  @override
+  String? get currentDevUser => null;
 
   @override
   Future<String?> getIdToken({bool forceRefresh = false}) async =>
@@ -53,7 +56,7 @@ class PendingAuthService extends AsyncNotifier<bool> implements AuthService {
   void complete(bool signedIn) => _initialised.complete(signedIn);
 
   @override
-  Future<bool> signIn() async {
+  Future<bool> signIn({String? devUser}) async {
     state = const AsyncData(true);
     return true;
   }
@@ -62,6 +65,9 @@ class PendingAuthService extends AsyncNotifier<bool> implements AuthService {
   Future<void> signOut() async {
     state = const AsyncData(false);
   }
+
+  @override
+  String? get currentDevUser => null;
 
   @override
   Future<String?> getIdToken({bool forceRefresh = false}) async =>
@@ -77,10 +83,13 @@ class SlowAuthService extends AsyncNotifier<bool> implements AuthService {
   Future<bool> build() async => false;
 
   @override
-  Future<bool> signIn() => _signInFuture;
+  Future<bool> signIn({String? devUser}) => _signInFuture;
 
   @override
   Future<void> signOut() async {}
+
+  @override
+  String? get currentDevUser => null;
 
   @override
   Future<String?> getIdToken({bool forceRefresh = false}) async => 'fake-token';

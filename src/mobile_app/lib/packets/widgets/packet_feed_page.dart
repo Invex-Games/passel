@@ -148,7 +148,10 @@ class _PacketFeedPageState extends ConsumerState<PacketFeedPage> {
               Padding(
                 padding: const EdgeInsets.only(top: 8),
                 child: Text(
-                  AppConfig.packetsEndpoint,
+                  switch (ref.read(authServiceProvider.notifier).currentDevUser) {
+                    final user? => '${AppConfig.packetsEndpoint} as $user',
+                    null => AppConfig.packetsEndpoint,
+                  },
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
               ),

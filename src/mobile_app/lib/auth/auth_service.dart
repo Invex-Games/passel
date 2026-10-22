@@ -20,6 +20,8 @@ final userDataGenerationProvider = StateProvider<int>((_) => 0);
 
 final authRepositoryProvider = Provider<AuthRepository>((ref) {
   final repo = AuthRepository(
+    // A development build may sign in as a fixed user without Google.
+    devUser: AppConfig.usesDevUser ? AppConfig.devUser : '',
     // Per-user data must not outlive the session (sign-out) or leak to a
     // different account signing in on the same device.
     onUserDataInvalidated: () async {
@@ -58,7 +60,15 @@ class AuthService extends AsyncNotifier<bool> {
   // ── Public API ──────────────────────────────────────────────────────────────
 
   /// Interactive sign-in. Returns `true` on success, `false` if cancelled.
-  Future<bool> signIn() => ref.read(authRepositoryProvider).signIn();
+  ///
+  /// [devUser] picks the development user in a build with `DEV_USER` set and
+  /// is ignored otherwise; see [AuthRepository.signIn].
+  Future<bool> signIn({String? devUser}) =>
+      ref.read(authRepositoryProvider).signIn(devUser: devUser);
+
+  /// The development user signed in right now, or `null`.
+  String? get currentDevUser =>
+      ref.read(authRepositoryProvider).currentDevUser;
 
   /// Signs out and clears the user's locally cached data.
   ///

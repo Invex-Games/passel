@@ -1,11 +1,19 @@
-import {GOOGLE_CLIENT_ID} from "./config.js";
+import {DEV_SIGN_IN, GOOGLE_CLIENT_ID} from "./config.js";
 import {clearFeedCache} from "./cache.js";
+import {DEV_USER_RULE, devToken, devUserOf, isValidDevUser} from "./authorization.js";
 
 // Only the service worker uses this module. The ID token lives in session storage (memory only,
 // cleared when the browser closes); the login hint lives in local storage so a signed-in user can
 // be re-authenticated silently after a restart. A missing hint means the user is signed out.
 const TOKEN_KEY = "idToken";
 const LOGIN_HINT_KEY = "loginHint";
+
+// A development build with DEV_SIGN_IN can instead sign in as a development user (the API's Dev
+// scheme, see authorization.ts). The user's name is the whole session: it lives in local storage
+// until sign-out, and the token is made from it. The name last signed in with is kept after
+// sign-out, so the popup can offer it again.
+const DEV_USER_KEY = "devUser";
+const LAST_DEV_USER_KEY = "lastDevUser";
 
 // Tokens with less than this much lifetime left are treated as expired.
 const EXPIRY_MARGIN_SECONDS = 5 * 60;
@@ -29,6 +37,9 @@ let pendingAuth: Promise<string> | null = null;
 
 /** Returns the stored token if it isn't (nearly) expired. Never prompts. */
 export async function getStoredToken(): Promise<string | null> {
+    const devUser = await getDevUser();
+    if (devUser) return devToken(devUser);
+
     const result = await chrome.storage.session.get(TOKEN_KEY);
     const token = result[TOKEN_KEY] as string | undefined;
     return token && !isExpired(token) ? token : null;
@@ -64,21 +75,59 @@ export async function refreshToken(interactive: boolean): Promise<string | null>
     }
 }
 
-/** Explicit, user-initiated sign-in. Always shows the Google account picker. */
-export async function signIn(): Promise<string> {
+/**
+ * Explicit, user-initiated sign-in. Always shows the Google account picker, unless `devUser` names a
+ * development user to sign in as instead (only in a build with DEV_SIGN_IN).
+ */
+export async function signIn(devUser?: string): Promise<string> {
+    if (devUser !== undefined) return signInAsDevUser(devUser);
     return authorize("selectAccount");
 }
 
 /** Signs out and clears the signed-in user's cached packets. */
 export async function signOut(): Promise<void> {
     await chrome.storage.session.remove(TOKEN_KEY);
-    await chrome.storage.local.remove(LOGIN_HINT_KEY);
+    await chrome.storage.local.remove([LOGIN_HINT_KEY, DEV_USER_KEY]);
     await clearFeedCache();
 }
 
 async function getLoginHint(): Promise<string | null> {
     const result = await chrome.storage.local.get(LOGIN_HINT_KEY);
     return (result[LOGIN_HINT_KEY] as string | undefined) || null;
+}
+
+// ── Development user ──────────────────────────────────────
+
+async function signInAsDevUser(devUser: string): Promise<string> {
+    if (!DEV_SIGN_IN) throw new Error("This build can't sign in as a development user.");
+
+    const user = devUser.trim();
+    if (!isValidDevUser(user)) throw new Error(`A development user ${DEV_USER_RULE}.`);
+
+    // Cached packets must not be shown to a different account: another development user, or
+    // whoever was signed in with Google.
+    const previous = await getDevUser();
+    const accountChanged = previous ? previous !== user : (await getLoginHint()) !== null;
+    if (accountChanged) await clearFeedCache();
+
+    await chrome.storage.session.remove(TOKEN_KEY);
+    await chrome.storage.local.remove(LOGIN_HINT_KEY);
+    await chrome.storage.local.set({[DEV_USER_KEY]: user, [LAST_DEV_USER_KEY]: user});
+    return devToken(user);
+}
+
+/** The development user signed in right now, or null (always, outside a DEV_SIGN_IN build). */
+async function getDevUser(): Promise<string | null> {
+    if (!DEV_SIGN_IN) return null;
+    const result = await chrome.storage.local.get(DEV_USER_KEY);
+    return (result[DEV_USER_KEY] as string | undefined) || null;
+}
+
+/** The development user last signed in as, for the popup to offer again; null outside a DEV_SIGN_IN build. */
+export async function getLastDevUser(): Promise<string | null> {
+    if (!DEV_SIGN_IN) return null;
+    const result = await chrome.storage.local.get(LAST_DEV_USER_KEY);
+    return (result[LAST_DEV_USER_KEY] as string | undefined) || null;
 }
 
 // ── OAuth flow ────────────────────────────────────────────
@@ -92,6 +141,9 @@ function authorize(mode: AuthMode): Promise<string> {
 }
 
 async function runAuthFlow(mode: AuthMode): Promise<string> {
+    // Only a DEV_SIGN_IN build can be built without a client id.
+    if (!GOOGLE_CLIENT_ID) throw new Error("Google sign-in isn't configured in this build.");
+
     const redirectUri = chrome.identity.getRedirectURL();
     const nonce = crypto.randomUUID();
     const state = crypto.randomUUID();
@@ -147,12 +199,18 @@ function audienceMatches(aud: JwtClaims["aud"]): boolean {
 // ── JWT helpers ───────────────────────────────────────────
 
 export function isExpired(token: string): boolean {
+    // A development token has no lifetime; the API decides whether it still takes it.
+    if (devUserOf(token) !== null) return false;
+
     const exp = parseJwtPayload(token)?.exp;
     if (typeof exp !== "number") return true;
     return exp - EXPIRY_MARGIN_SECONDS <= Date.now() / 1000;
 }
 
 export function getAccountName(token: string): string | undefined {
+    const devUser = devUserOf(token);
+    if (devUser !== null) return `${devUser} (dev)`;
+
     const claims = parseJwtPayload(token);
     return claims?.email || claims?.name || undefined;
 }
