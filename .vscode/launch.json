@@ -2,8 +2,6 @@
   "version": "0.2.0",
   "configurations": [
     {
-      // Compiles in API_BASE_URL / SERVER_CLIENT_ID / APP_CLIENT_ID from the
-      // git-ignored src/mobile_app/.env (copy .env.example to create it).
       "name": "Mobile app (development)",
       "type": "dart",
       "request": "launch",
