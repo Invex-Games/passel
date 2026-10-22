@@ -6,4 +6,5 @@
   </Folder>
   <Project Path="src/webapi/Invex.Passel.WebApi/Invex.Passel.WebApi.csproj" />
   <Project Path="src/webapi/Invex.Passel.WebApi.Tests/Invex.Passel.WebApi.Tests.csproj" />
+  <Project Path="src/webapi/Invex.Passel.WebApi.IntegrationTests/Invex.Passel.WebApi.IntegrationTests.csproj" />
 </Solution>

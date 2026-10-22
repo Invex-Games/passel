@@ -13,10 +13,17 @@ internal interface ITestTargets : IChromeExtensionHelper, IFlutterHelper, IMobil
     // global.json) parses as a verbosity
     Target TestWebApi =>
         t => t
-            .DescribedAs("Runs the Web API tests")
-            .Executes(async cancellationToken => await ProcessRunner.RunAsync(new("dotnet",
-                    ["test", "--project", Projects.Invex_Passel_WebApi_Tests.Path(RootedFileSystem)]),
-                cancellationToken));
+            .DescribedAs("Runs the Web API unit tests, then its integration tests, which need Docker")
+            .Executes(async cancellationToken =>
+            {
+                // The unit tests first: they are quick and need nothing. The integration tests then start PostgreSQL
+                // in a container (GitHub-hosted runners have Docker)
+                await RunTests(Projects.Invex_Passel_WebApi_Tests.Path(RootedFileSystem));
+                await RunTests(Projects.Invex_Passel_WebApi_IntegrationTests.Path(RootedFileSystem));
+
+                Task RunTests(string project) =>
+                    ProcessRunner.RunAsync(new("dotnet", ["test", "--project", project]), cancellationToken);
+            });
 
     Target TestChromeExtension =>
         t => t
