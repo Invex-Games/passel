@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_sign_in/google_sign_in.dart';
@@ -278,6 +279,23 @@ class FakePacketRepository extends PacketRepository {
     connections.add(connection);
     return connection.stream;
   }
+}
+
+/// [Random] whose [nextDouble] always returns [value], so delays with jitter
+/// become exact: `1.0` is the longest possible delay, `0.0` none.
+class FakeRandom implements Random {
+  FakeRandom([this.value = 1.0]);
+
+  double value;
+
+  @override
+  double nextDouble() => value;
+
+  @override
+  bool nextBool() => throw UnimplementedError();
+
+  @override
+  int nextInt(int max) => throw UnimplementedError();
 }
 
 // ─── Lifecycle fakes ─────────────────────────────────────────────────────────

@@ -560,18 +560,31 @@ class PacketsNotifier extends AsyncNotifier<PacketsState> {
 /// foreground.  Coming back to the foreground reconnects, and every
 /// (re)connection catches up on what was missed with
 /// [PacketsNotifier.syncLatest].
+///
+/// Many clients lose the server at the same moment (a restart, its
+/// database connection dropping), so both the reconnect delay and the
+/// catch-up fetch are spread out at random; only the first catch-up after
+/// the stream (re)starts is immediate, so opening or returning to the app
+/// shows fresh data straight away.
 final packetLiveUpdatesProvider =
     NotifierProvider.autoDispose<PacketLiveUpdates, bool>(
         PacketLiveUpdates.new);
 
 class PacketLiveUpdates extends AutoDisposeNotifier<bool> {
+  /// [random] drives the jitter; tests pass a scripted one.
+  PacketLiveUpdates({Random? random}) : _random = random ?? Random();
+
   /// Upper bound for the delay between reconnection attempts.
   static const maxRetryDelay = Duration(minutes: 1);
 
-  final _random = Random();
+  /// Upper bound for the delay before the fetch a later resync triggers.
+  static const maxResyncDelay = Duration(seconds: 3);
+
+  final Random _random;
 
   StreamSubscription<PacketEvent>? _connection;
   Timer? _retryTimer;
+  Timer? _syncTimer;
 
   /// Consecutive connection failures, for the retry backoff.
   int _failures = 0;
@@ -581,6 +594,12 @@ class PacketLiveUpdates extends AutoDisposeNotifier<bool> {
   /// feed is synced directly instead (so it still refreshes on resume when
   /// the stream is unavailable).
   bool _needsSync = true;
+
+  /// Whether a resync has arrived since the stream was (re)started.  The
+  /// first is acted on at once; later ones (the server restarted or lost
+  /// its own listener, and told every client at the same time) are delayed
+  /// by up to [maxResyncDelay] so the fetches don't all land together.
+  bool _resynced = false;
 
   PacketsNotifier get _packets => ref.read(packetsProvider.notifier);
 
@@ -592,6 +611,7 @@ class PacketLiveUpdates extends AutoDisposeNotifier<bool> {
 
     _failures = 0;
     _needsSync = true;
+    _resynced = false;
     if (active) _connect();
     return false;
   }
@@ -614,12 +634,28 @@ class PacketLiveUpdates extends AutoDisposeNotifier<bool> {
         _failures = 0;
         _needsSync = false;
         state = true;
-        unawaited(_sync(connection));
+        _scheduleSync(connection);
       case PacketCreatedEvent(:final packet):
         unawaited(_packets.applyCreated(packet));
       case PacketDeletedEvent(:final id):
         unawaited(_packets.applyDeleted(id));
     }
+  }
+
+  /// Catches up after a resync: at once for the first one since the stream
+  /// (re)started, otherwise after a random share of [maxResyncDelay].
+  void _scheduleSync(StreamSubscription<PacketEvent> connection) {
+    _syncTimer?.cancel();
+    _syncTimer = null;
+    if (!_resynced) {
+      _resynced = true;
+      unawaited(_sync(connection));
+      return;
+    }
+    _syncTimer = Timer(maxResyncDelay * _random.nextDouble(), () {
+      _syncTimer = null;
+      unawaited(_sync(connection));
+    });
   }
 
   /// Catches up after a resync.  If that fails, packets may have been
@@ -655,17 +691,21 @@ class PacketLiveUpdates extends AutoDisposeNotifier<bool> {
     _retryTimer = Timer(_retryDelay(_failures++), _connect);
   }
 
-  /// Exponential backoff from 1 second up to [maxRetryDelay], with jitter so
-  /// clients don't all reconnect at once after a server restart.
+  /// Exponential backoff from 1 second up to [maxRetryDelay], with full
+  /// jitter: anywhere from zero up to the backoff, so clients that lost the
+  /// server at the same moment spread their reconnects over the whole
+  /// window instead of bunching at the end of it.
   Duration _retryDelay(int failures) {
     final base = Duration(seconds: 1 << min(failures, 6));
     final capped = base < maxRetryDelay ? base : maxRetryDelay;
-    return capped * (0.75 + _random.nextDouble() * 0.25);
+    return capped * _random.nextDouble();
   }
 
   void _stop() {
     _retryTimer?.cancel();
     _retryTimer = null;
+    _syncTimer?.cancel();
+    _syncTimer = null;
     final connection = _connection;
     _connection = null;
     unawaited(connection?.cancel());
