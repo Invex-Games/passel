@@ -16,11 +16,23 @@ Packets are a tagged union with a `$type` discriminator. `$type` doesn't have to
 
 | `$type` | Fields |
 |---|---|
-| `Link` | `id`, `createdAt`, `name` (nullable), `url` |
+| `Link` | `id`, `createdAt`, `name` (nullable), `url`, `preview` (nullable; see [Link previews](#link-previews)) |
 | `Text` | `id`, `createdAt`, `title` (nullable), `body` |
 | `File` | `id`, `createdAt`, `fileName`, `contentType`, `parcelId`, `isImage`. Returned only; creating file packets isn't supported yet. |
 
 `id` is an opaque string (a Sqids-encoded Guid). `createdAt` is when the packet was created, as an ISO 8601 timestamp in UTC (for example `2026-10-22T11:03:08.1234567+00:00`); it is returned, never sent.
+
+### Link previews
+
+After a link is created, the API fetches its page in the background and reads what the page says about itself: the Open Graph tags first (`og:title`, `og:description`, `og:image`), the Twitter card tags next, and the `<title>` and `<meta name="description">` last. What it finds is stored on the link and returned as its `preview`:
+
+```json
+{ "title": "Example Domain", "description": "This domain is for use in illustrative examples in documents.", "imageUrl": "https://example.com/images/og.png", "fetchedAt": "2026-10-22T11:03:10.1234567+00:00" }
+```
+
+`title`, `description` and `imageUrl` are each nullable, but never all three at once; `fetchedAt` is when the page was read. The title keeps at most 256 characters and the description 512. `imageUrl` is the page's image as an absolute `http` or `https` URL; the API has not fetched it, so clients load it as they would any third-party image.
+
+`preview` is `null` on the create response and in the `packet-created` event, because the page is fetched after the create has returned. When the fetch finds something, the link is announced again as a `packet-updated` event, and the list shows the preview from then on. When the page gives nothing, is not HTML, cannot be reached within a few attempts, or is on a private network the API refuses to fetch from, `preview` stays `null` for good: nothing is stored or announced about the failure. Links created before previews existed have none.
 
 ### `GET /api/packets`
 
@@ -65,6 +77,7 @@ A `text/event-stream` of the caller's changes:
 |---|---|
 | `resync` | Empty. Sent first, and whenever events may have been missed. Fetch the list again. |
 | `packet-created` | The packet, in the same shape as a list item |
+| `packet-updated` | The packet, in the same shape as `packet-created`, after a change to it: today, a link whose [preview](#link-previews) arrived. A client that doesn't handle the event loses nothing by ignoring it; the next list shows the change. |
 | `packet-deleted` | `{ "id": "…" }` |
 | `ping` | Heartbeat, after 20 seconds without other events |
 
