@@ -17,6 +17,7 @@ internal static class HostWebExtensions
         builder.Services.AddProblemDetails();
         builder.Services.AddHttpContextAccessor();
         builder.Services.AddResponseCompression(options => options.EnableForHttps = true);
+        builder.AddPacketRateLimiting();
 
         builder.Services.AddCors(options => options.AddDefaultPolicy(policy => policy
             .AllowAnyOrigin()
@@ -98,6 +99,9 @@ internal static class HostWebExtensions
         app.UseResponseCompression();
         app.UseCors();
         app.UseAuthentication();
+
+        // After authentication, so limits are counted per user rather than per address
+        app.UseRateLimiter();
         app.UseAuthorization();
     }
 }

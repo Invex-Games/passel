@@ -180,5 +180,6 @@ public static partial class PacketEndpoints
                     Title = "Packet title",
                     Body = "Packet body"
                 })
-            .WithMetadata(new RequestSizeLimitAttribute(MaxRequestBodySize));
+            .WithMetadata(new RequestSizeLimitAttribute(MaxRequestBodySize))
+            .RequireRateLimiting(RateLimitPolicies.Creates);
 }

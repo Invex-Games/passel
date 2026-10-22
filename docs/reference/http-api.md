@@ -4,6 +4,10 @@ When the API runs locally in development, the interactive reference is at `https
 
 Every endpoint below requires `Authorization: Bearer <Google ID token>`. Requests may pass `?api-version=1`; when it's omitted, version 1 is assumed. Errors use `application/problem+json`.
 
+## Limits
+
+Each endpoint is rate limited per user, over a sliding window of one minute. The defaults are 30 creates, 120 list or delete requests, and 10 event-stream connections per minute; see [Configuration](configuration.md#web-api). A request over the limit gets **429 Too Many Requests** with a `Retry-After` header (in seconds) and a problem body.
+
 ## Packets
 
 Packets are a tagged union with a `$type` discriminator. `$type` doesn't have to be the first property.
