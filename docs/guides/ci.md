@@ -2,6 +2,8 @@
 
 The workflows under `.github/workflows/` and the Dependabot configuration in `.github/dependabot.yml` are generated from `_atom/IBuild.cs` by the [Atom GitHub workflows module](https://github.com/Invex-Games/atom). Don't edit the YAML by hand: change the definitions and run `dotnet atom Gen`. Running any target locally in interactive mode regenerates the files too, and a headless run (CI) fails early if the committed files are out of date.
 
+On Windows the generator writes CRLF line endings, so after an interactive run git lists the files under `.github/` as modified although only the line endings differ. `git checkout -- .github` puts them back, and a headless run never rewrites them.
+
 ## Workflows
 
 | Workflow | Runs on | Jobs |
