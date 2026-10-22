@@ -57,7 +57,8 @@ internal static class HostDevExtensions
             .MapOpenApi()
             .WithDocumentPerVersion();
 
-        dev.MapScalarApiReference(options =>
+        // Configured per request: what the page sends depends on whether the visitor is logged in
+        dev.MapScalarApiReference((options, httpContext) =>
         {
             var descriptions = app.DescribeApiVersions();
 
@@ -69,10 +70,13 @@ internal static class HostDevExtensions
                 options.AddDocument(description.GroupName, description.GroupName, isDefault: isDefault);
             }
 
-            // The Dev scheme is declared in the document by AddDevSecurityScheme; Scalar offers it first, with a
-            // value ready to send
-            options.AddPreferredSecuritySchemes([DevAuthenticationHandler.SchemeName]);
-            options.AddApiKeyAuthentication(DevAuthenticationHandler.SchemeName, scheme => scheme.WithValue("Dev alice"));
+            // The Dev scheme is declared in the document by AddDevSecurityScheme, so Scalar always offers it. The
+            // visitor is logged in only through the Google login cookie (a browser sends no Authorization header
+            // to this page), and then the scheme is left empty so the page sends the cookie, since a Dev header
+            // would win over it (HostWebExtensions.SelectDevelopmentScheme)
+            var loggedIn = httpContext.User.Identity?.IsAuthenticated is true;
+
+            PrefillDevScheme(options, prefill: !loggedIn);
 
             options.CustomCss = """
                                 .login-banner {
@@ -94,8 +98,12 @@ internal static class HostDevExtensions
                                 """;
 
             var signedOutBanner = googleLoginConfigured
-                ? """<a href="/auth/login">Login with Google</a> to use authenticated endpoints, or authorize with the <strong>Dev</strong> scheme (<code>Dev alice</code>)"""
-                : """Google login is not configured (set <code>Authentication:Google:ClientId</code> and <code>ClientSecret</code>); authorize with the <strong>Dev</strong> scheme instead (<code>Dev alice</code>)""";
+                ? $"""<a href="/auth/login">Login with Google</a> to use authenticated endpoints, or authorize with the <strong>Dev</strong> scheme (<code>{DevSchemeExample}</code>)"""
+                : $"""Google login is not configured (set <code>Authentication:Google:ClientId</code> and <code>ClientSecret</code>); authorize with the <strong>Dev</strong> scheme instead (<code>{DevSchemeExample}</code>)""";
+
+            // Requests go as the login unless the developer fills the Dev scheme in on purpose
+            var signedInBanner =
+                $"""Requests go as that account; to act as a development user instead, authorize with the <strong>Dev</strong> scheme (<code>{DevSchemeExample}</code>). <a href="/auth/logout">Logout</a>""";
 
             options.AddHeadContent($$"""
                                      <script>
@@ -105,7 +113,7 @@ internal static class HostDevExtensions
                                              fetch('/auth/me').then(r => {
                                                  if (r.ok) {
                                                      r.json().then(u => {
-                                                         banner.innerHTML = 'Logged in as <strong>' + (u.email || u.name) + '</strong> &mdash; <a href="/auth/logout">Logout</a>';
+                                                         banner.innerHTML = 'Logged in as <strong>' + (u.email || u.name) + '</strong>. {{signedInBanner}}';
                                                      });
                                                  } else {
                                                      banner.innerHTML = '{{signedOutBanner}}';
@@ -116,6 +124,24 @@ internal static class HostDevExtensions
                                      </script>
                                      """);
         });
+    }
+
+    /// <summary>
+    ///     The Dev scheme value Scalar sends for a visitor who is not logged in, and the example the banner shows.
+    /// </summary>
+    internal const string DevSchemeExample = "Dev alice";
+
+    /// <summary>
+    ///     Selects the Dev scheme in Scalar with <see cref="DevSchemeExample" /> ready to send, or leaves it empty
+    ///     so the page sends nothing of its own and the login cookie authenticates its requests.
+    /// </summary>
+    internal static void PrefillDevScheme(ScalarOptions options, bool prefill)
+    {
+        if (!prefill)
+            return;
+
+        options.AddPreferredSecuritySchemes([DevAuthenticationHandler.SchemeName]);
+        options.AddApiKeyAuthentication(DevAuthenticationHandler.SchemeName, scheme => scheme.WithValue(DevSchemeExample));
     }
 
     /// <summary>
