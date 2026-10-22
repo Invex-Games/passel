@@ -48,18 +48,18 @@ class _PacketFeedPageState extends ConsumerState<PacketFeedPage> {
   /// Distance scrolled in the current direction; restarts when it changes.
   double _scrollTravel = 0;
 
-  /// Hides the app bar while the user scrolls back through older packets and
-  /// shows it again on the way back, so the feed gets the room.
+  /// Hides the app bar while the user scrolls down through older packets and
+  /// shows it again on the way back up, so the feed gets the room.
   ///
   /// Decided from the distance the list actually moves, not from the drag
-  /// direction: a pull to refresh at the newest end only overscrolls, and
-  /// there the slightest finger movement flips the reported direction while
-  /// nothing scrolls.
+  /// direction: a pull to refresh at the top only overscrolls, and there the
+  /// slightest finger movement flips the reported direction while nothing
+  /// scrolls.
   bool _handleScrollNotification(ScrollNotification notification) {
     // Only the feed list itself, not a scrollable inside a tile.
     if (notification.depth != 0) return false;
 
-    // At the newest end the bar always shows.
+    // At the top, the newest end, the bar always shows.
     if (notification.metrics.extentBefore == 0) {
       _scrollTravel = 0;
       _setAppBarShown(true);
@@ -71,7 +71,7 @@ class _PacketFeedPageState extends ConsumerState<PacketFeedPage> {
       if (delta == 0) return false;
       if (_scrollTravel.sign != delta.sign) _scrollTravel = 0;
       _scrollTravel += delta;
-      // The list is reversed: a positive delta moves toward older packets.
+      // A positive delta scrolls down, toward the older packets.
       if (_scrollTravel.abs() >= _appBarScrollThreshold) {
         _setAppBarShown(_scrollTravel < 0);
       }
@@ -190,7 +190,7 @@ class _PacketFeedPageState extends ConsumerState<PacketFeedPage> {
       floatingActionButton: isSignedIn
           ? FloatingActionButton(
               onPressed: () => showPushPacketSheet(context, ref),
-              tooltip: 'Push packet',
+              tooltip: 'Send',
               child: const Icon(Icons.add),
             )
           : null,

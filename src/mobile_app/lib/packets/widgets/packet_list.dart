@@ -12,8 +12,9 @@ import 'delete_packet.dart';
 import 'packet_tile.dart';
 import 'refresh_overlay.dart';
 
-/// Displays the packet list with reverse scrolling, infinite scroll for older
-/// packets, and a bottom-pull-to-refresh using [CustomRefreshIndicator].
+/// Displays the packet list, newest at the top (ADR 0002), with infinite
+/// scroll for older packets at the end and pull-to-refresh at the top using
+/// [CustomRefreshIndicator].
 class PacketList extends ConsumerStatefulWidget {
   const PacketList({super.key});
 
@@ -178,7 +179,6 @@ class _PacketListState extends ConsumerState<PacketList> {
         child: packets.isEmpty
             ? ListView(
                 key: const PageStorageKey<String>('packet-list-view'),
-                reverse: true,
                 physics: const AlwaysScrollableScrollPhysics(),
                 children: [
                   const SizedBox(height: 200),
@@ -198,7 +198,7 @@ class _PacketListState extends ConsumerState<PacketList> {
                               ),
                               const SizedBox(height: 16),
                               const Text(
-                                'Sign in to load your packets',
+                                'Sign in to see your links and notes',
                                 textAlign: TextAlign.center,
                               ),
                               const SizedBox(height: 12),
@@ -210,9 +210,8 @@ class _PacketListState extends ConsumerState<PacketList> {
                             ],
                           )
                         : const Text(
-                            // The list is reversed: its start, where the
-                            // refresh gesture lives, is at the bottom.
-                            'No packets yet.\nPull up to refresh.',
+                            'Nothing here yet.\n'
+                            'Send a link or a note from any device.',
                             textAlign: TextAlign.center,
                           ),
                   ),
@@ -221,11 +220,10 @@ class _PacketListState extends ConsumerState<PacketList> {
             : ListView.separated(
                 key: const PageStorageKey<String>('packet-list-view'),
                 controller: _scrollController,
-                reverse: true,
                 physics: const AlwaysScrollableScrollPhysics(),
                 // Bottom padding clears the FAB
                 padding: const EdgeInsets.only(bottom: 124),
-                // +1 for the top slot: "loading more" spinner, retry row,
+                // +1 for the end slot: "loading more" spinner, retry row,
                 // sign-in prompt, or "all caught up".
                 itemCount: packets.length + 1,
                 // Tiles are keyed by packet id; the end-of-list slot has no
@@ -285,8 +283,7 @@ class _PacketListState extends ConsumerState<PacketList> {
     );
   }
 
-  /// The slot after the oldest packet (rendered at the top of the reversed
-  /// list).
+  /// The slot after the oldest packet, at the end of the list.
   Widget _buildEndOfList(
     BuildContext context,
     PacketsState? packetsState,
@@ -310,7 +307,7 @@ class _PacketListState extends ConsumerState<PacketList> {
                 Icon(Icons.refresh, color: cs.error),
                 const SizedBox(height: 8),
                 Text(
-                  'Couldn\'t load older packets. Tap to retry.',
+                  'Couldn\'t load older items. Tap to retry.',
                   textAlign: TextAlign.center,
                   style: TextStyle(color: cs.error),
                 ),
@@ -327,7 +324,7 @@ class _PacketListState extends ConsumerState<PacketList> {
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
-                'Sign in to load older packets',
+                'Sign in to load older items',
                 textAlign: TextAlign.center,
                 style: mutedStyle,
               ),

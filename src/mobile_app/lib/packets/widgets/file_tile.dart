@@ -29,7 +29,7 @@ class FileTile extends StatelessWidget {
         Padding(
           padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
           child: Text(
-            'File packets aren\'t supported yet.',
+            'Files aren\'t supported yet.',
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
                   color: cs.onSurface.withValues(alpha: 0.6),
                   fontStyle: FontStyle.italic,

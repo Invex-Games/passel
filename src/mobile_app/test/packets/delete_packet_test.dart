@@ -52,7 +52,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('body a'), findsNothing);
-    expect(find.text('Packet deleted'), findsOneWidget);
+    expect(find.text('Note deleted'), findsOneWidget);
 
     await tester.tap(find.text('Undo'));
     await tester.pumpAndSettle();
@@ -72,7 +72,7 @@ void main() {
     await tester.pump(undoDeleteDuration + const Duration(seconds: 1));
     await tester.pumpAndSettle();
 
-    expect(find.text('Packet deleted'), findsNothing);
+    expect(find.text('Note deleted'), findsNothing);
     expect(repo.deletedIds, ['a']);
     expect(find.text('body a'), findsNothing);
   });
@@ -96,7 +96,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('body b'), findsNothing);
-    expect(find.text('Packet deleted'), findsOneWidget);
+    expect(find.text('Note deleted'), findsOneWidget);
   });
 
   testWidgets('shows the failure in plain words and restores the packet',
@@ -110,7 +110,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(
-      find.text('Couldn\'t delete packet: Could not reach Passel. Check your '
+      find.text('Couldn\'t delete the note: Could not reach Passel. Check your '
           'connection and try again.'),
       findsOneWidget,
     );

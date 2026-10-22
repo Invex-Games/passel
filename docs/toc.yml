@@ -39,6 +39,8 @@
     items:
         -   name: 0001 Packets as documents
             href: decisions/0001-packets-as-documents.md
+        -   name: 0002 Product decisions
+            href: decisions/0002-product-decisions.md
 -   name: Evaluation
     href: evaluation/index.md
     items:

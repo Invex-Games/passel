@@ -34,7 +34,7 @@ Future<void> showPushPacketSheet(BuildContext context, WidgetRef ref) async {
     if (context.mounted) await showLoginSheet(context);
   } catch (e) {
     messenger.showSnackBar(
-      SnackBar(content: Text('Push failed: ${describeError(e)}')),
+      SnackBar(content: Text('Send failed: ${describeError(e)}')),
     );
   }
 }
@@ -74,7 +74,7 @@ class _PushPacketSheetState extends State<_PushPacketSheet> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text('Push a packet', style: Theme.of(context).textTheme.titleMedium),
+          Text('Send a link or note', style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 12),
           TextField(
             controller: _controller,
@@ -91,7 +91,7 @@ class _PushPacketSheetState extends State<_PushPacketSheet> {
           const SizedBox(height: 12),
           FilledButton.icon(
             icon: const Icon(Icons.send),
-            label: const Text('Push'),
+            label: const Text('Send'),
             onPressed: _submit,
           ),
         ],

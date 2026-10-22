@@ -46,7 +46,7 @@ void main() {
     await tester.tap(find.text('Open sheet'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField), text);
-    await tester.tap(find.text('Push'));
+    await tester.tap(find.text('Send'));
     await tester.pumpAndSettle();
   }
 
@@ -67,7 +67,7 @@ void main() {
     await push(tester, 'hello');
 
     expect(
-      find.text('Push failed: Body must be non-empty and at most 65536 '
+      find.text('Send failed: Body must be non-empty and at most 65536 '
           'characters.'),
       findsOneWidget,
     );
@@ -82,7 +82,7 @@ void main() {
     await push(tester, 'hello');
 
     expect(
-      find.text('Push failed: Could not reach Passel. Check your connection '
+      find.text('Send failed: Could not reach Passel. Check your connection '
           'and try again.'),
       findsOneWidget,
     );
@@ -95,6 +95,6 @@ void main() {
     await push(tester, 'hello');
 
     expect(find.text('Sign in to sync'), findsOneWidget);
-    expect(find.textContaining('Push failed'), findsNothing);
+    expect(find.textContaining('Send failed'), findsNothing);
   });
 }

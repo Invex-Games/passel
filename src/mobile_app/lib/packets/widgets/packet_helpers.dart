@@ -4,6 +4,17 @@ import 'package:share_plus/share_plus.dart';
 
 import '../data/packet.dart';
 
+/// What the UI calls a [packet]: a link, a note or a file (ADR 0002). Users
+/// think in those; "packet" stays a code and API term.
+String packetNoun(Packet packet, {bool capitalised = false}) {
+  final noun = switch (packet.type) {
+    PacketType.link => 'link',
+    PacketType.text => 'note',
+    PacketType.file => 'file',
+  };
+  return capitalised ? '${noun[0].toUpperCase()}${noun.substring(1)}' : noun;
+}
+
 /// Copies the most relevant text from a text or link [Packet] to the
 /// clipboard.
 ///

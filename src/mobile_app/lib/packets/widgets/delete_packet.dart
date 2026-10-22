@@ -5,6 +5,7 @@ import '../../api/errors.dart';
 import '../../auth/login_page.dart';
 import '../data/packet.dart';
 import '../packets_provider.dart';
+import 'packet_helpers.dart';
 
 /// How long the "Undo" snackbar is shown before the deletion is sent.
 const undoDeleteDuration = Duration(seconds: 4);
@@ -25,7 +26,7 @@ void deletePacketWithUndo(BuildContext context, WidgetRef ref, Packet packet) {
 
   final controller = messenger.showSnackBar(
     SnackBar(
-      content: const Text('Packet deleted'),
+      content: Text('${packetNoun(packet, capitalised: true)} deleted'),
       action: SnackBarAction(label: 'Undo', onPressed: () {}),
       duration: undoDeleteDuration,
       // A snackbar with an action otherwise stays until it's dismissed,
@@ -48,7 +49,9 @@ void deletePacketWithUndo(BuildContext context, WidgetRef ref, Packet packet) {
     } catch (e) {
       messenger.showSnackBar(
         SnackBar(
-          content: Text('Couldn\'t delete packet: ${describeError(e)}'),
+          content: Text(
+            'Couldn\'t delete the ${packetNoun(packet)}: ${describeError(e)}',
+          ),
         ),
       );
     }

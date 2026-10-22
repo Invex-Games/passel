@@ -249,7 +249,7 @@ class _LoginSheetState extends ConsumerState<_LoginSheet> {
             const SizedBox(height: 8),
             Text(
               'You can browse cached data offline, but sign in to refresh '
-              'and push new packets.',
+              'and send new links and notes.',
               style: Theme.of(context).textTheme.bodySmall,
               textAlign: TextAlign.center,
             ),

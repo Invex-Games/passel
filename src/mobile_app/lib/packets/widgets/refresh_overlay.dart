@@ -20,10 +20,11 @@ class RefreshOverlay extends StatelessWidget {
         final isLoading = controller.state == IndicatorState.loading;
         final isComplete = controller.state == IndicatorState.complete;
 
+        // At the top, where the pull happens: the newest end of the feed.
         return Positioned(
           left: 0,
           right: 0,
-          bottom: 16 + (20 * progress),
+          top: 16 + (20 * progress),
           child: Center(
             child: AnimatedOpacity(
               duration: const Duration(milliseconds: 150),

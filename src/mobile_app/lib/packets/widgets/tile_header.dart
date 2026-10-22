@@ -46,7 +46,7 @@ class TileHeader extends StatelessWidget {
             const SizedBox(width: 12),
             Expanded(
               child: Text(
-                packet.title ?? (isFile ? 'File' : 'Packet'),
+                packet.title ?? packetNoun(packet, capitalised: true),
                 style: Theme.of(context).textTheme.titleMedium,
                 overflow: TextOverflow.ellipsis,
               ),
