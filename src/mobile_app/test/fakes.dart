@@ -10,6 +10,7 @@ import 'package:http/testing.dart';
 
 import 'package:passel_mobileapp/app_lifecycle.dart';
 import 'package:passel_mobileapp/auth/auth_service.dart';
+import 'package:passel_mobileapp/auth/data/account_info.dart';
 import 'package:passel_mobileapp/packets/data/packet.dart';
 import 'package:passel_mobileapp/packets/data/packet_repository.dart';
 import 'package:passel_mobileapp/packets/packets_provider.dart';
@@ -20,8 +21,12 @@ import 'package:passel_mobileapp/packets/packets_provider.dart';
 ///
 /// Pass [signedIn] to control whether [build] returns signed-in or signed-out.
 class FakeAuthService extends AsyncNotifier<bool> implements AuthService {
-  FakeAuthService({this.signedIn = false});
+  FakeAuthService({this.signedIn = false, this.account, this.devUser});
   final bool signedIn;
+
+  /// What [currentAccount] and [currentDevUser] report while signed in.
+  final AccountInfo? account;
+  final String? devUser;
 
   /// How often [signIn] and [signOut] were called.
   int signInCalls = 0;
@@ -44,7 +49,10 @@ class FakeAuthService extends AsyncNotifier<bool> implements AuthService {
   }
 
   @override
-  String? get currentDevUser => null;
+  String? get currentDevUser => state.value == true ? devUser : null;
+
+  @override
+  AccountInfo? get currentAccount => state.value == true ? account : null;
 
   @override
   Future<String?> getIdToken({bool forceRefresh = false}) async =>
@@ -77,6 +85,9 @@ class PendingAuthService extends AsyncNotifier<bool> implements AuthService {
   String? get currentDevUser => null;
 
   @override
+  AccountInfo? get currentAccount => null;
+
+  @override
   Future<String?> getIdToken({bool forceRefresh = false}) async =>
       state.value == true ? 'fake-token' : null;
 }
@@ -99,6 +110,9 @@ class SlowAuthService extends AsyncNotifier<bool> implements AuthService {
   String? get currentDevUser => null;
 
   @override
+  AccountInfo? get currentAccount => null;
+
+  @override
   Future<String?> getIdToken({bool forceRefresh = false}) async => 'fake-token';
 }
 
@@ -118,7 +132,11 @@ String fakeJwt(DateTime exp, {Map<String, Object?> extraClaims = const {}}) {
 
 /// Minimal [GoogleSignInAccount] carrying an [id] and [idToken].
 class FakeGoogleAccount implements GoogleSignInAccount {
-  FakeGoogleAccount({required this.id, required this.idToken});
+  FakeGoogleAccount({
+    required this.id,
+    required this.idToken,
+    this.displayName,
+  });
 
   @override
   final String id;
@@ -129,7 +147,7 @@ class FakeGoogleAccount implements GoogleSignInAccount {
   String get email => '$id@example.com';
 
   @override
-  String? get displayName => null;
+  final String? displayName;
 
   @override
   String? get photoUrl => null;

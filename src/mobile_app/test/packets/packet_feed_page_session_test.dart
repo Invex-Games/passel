@@ -8,6 +8,7 @@ import 'package:passel_mobileapp/packets/data/packet.dart';
 import 'package:passel_mobileapp/packets/packets_provider.dart';
 import 'package:passel_mobileapp/packets/widgets/packet_feed_page.dart';
 import 'package:passel_mobileapp/packets/widgets/packet_list.dart';
+import 'package:passel_mobileapp/settings/settings_page.dart';
 
 import '../fakes.dart';
 
@@ -39,6 +40,7 @@ void main() {
   final fab = find.byType(FloatingActionButton);
   final signIn = find.byTooltip('Sign in');
   final signOut = find.byTooltip('Sign out');
+  final settings = find.byTooltip('Settings');
 
   setUp(() {
     repo = FakePacketRepository()..onFetch = (_) async => feed();
@@ -161,6 +163,38 @@ void main() {
 
       expect(find.textContaining('Synced'), findsNothing);
       expect(find.text('Live'), findsNothing);
+    });
+  });
+
+  group('the Settings action', () {
+    testWidgets('opens the settings page, which mirrors Sign out',
+        (tester) async {
+      await pumpFeed(tester);
+      expect(settings, findsOneWidget);
+
+      await tester.tap(settings);
+      await tester.pumpAndSettle();
+
+      expect(find.byType(SettingsPage), findsOneWidget);
+      expect(find.text('Sign out'), findsOneWidget);
+
+      await tester.tap(find.text('Sign out'));
+      await tester.pumpAndSettle();
+
+      expect(auth.signOutCalls, 1);
+      expect(find.text('Not signed in'), findsOneWidget);
+    });
+
+    testWidgets('is there signed out too', (tester) async {
+      repo.cache.state = feed(syncedAt: DateTime(2026, 10, 21));
+      await pumpFeed(tester, signedIn: false);
+
+      await tester.tap(settings);
+      await tester.pumpAndSettle();
+
+      expect(find.byType(SettingsPage), findsOneWidget);
+      expect(find.text('Not signed in'), findsOneWidget);
+      expect(find.text('Sign in'), findsOneWidget);
     });
   });
 }

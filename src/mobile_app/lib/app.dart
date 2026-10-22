@@ -9,20 +9,24 @@ import 'config/app_config.dart';
 import 'config/config_error_page.dart';
 import 'packets/packets_provider.dart';
 import 'packets/widgets/packet_feed_page.dart';
+import 'settings/theme_mode_setting.dart';
 import 'theme/theme.dart';
 
-class MyApp extends StatelessWidget {
+class MyApp extends ConsumerWidget {
   const MyApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final textTheme = Theme.of(context).textTheme;
     final fallbackTheme = MaterialTheme(textTheme);
+    // Chosen in Settings; follows the device until the user chooses.
+    final themeMode = ref.watch(themeModeProvider);
 
     return DynamicColorBuilder(
       builder: (ColorScheme? lightDynamic, ColorScheme? darkDynamic) {
         return MaterialApp(
           title: 'Passel',
+          themeMode: themeMode,
           theme: lightDynamic != null
               ? fallbackTheme.theme(lightDynamic)
               : fallbackTheme.light(),

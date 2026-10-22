@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../auth/auth_service.dart';
 import '../../auth/login_page.dart';
 import '../../config/app_config.dart';
+import '../../settings/settings_page.dart';
 import '../../share/share_intent.dart';
 import '../packets_provider.dart';
 import 'packet_list.dart';
@@ -183,19 +184,34 @@ class _PacketFeedPageState extends ConsumerState<PacketFeedPage> {
                   AnimatedOpacity(
                     duration: const Duration(milliseconds: 200),
                     opacity: _showAppBar ? 1.0 : 0.0,
-                    child: isSignedIn
-                        ? IconButton(
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (isSignedIn)
+                          IconButton(
                             icon: const Icon(Icons.logout),
                             tooltip: 'Sign out',
                             onPressed: () => ref
                                 .read(authServiceProvider.notifier)
                                 .signOut(),
                           )
-                        : IconButton(
+                        else
+                          IconButton(
                             icon: const Icon(Icons.login),
                             tooltip: 'Sign in',
                             onPressed: () => showLoginSheet(context),
                           ),
+                        IconButton(
+                          icon: const Icon(Icons.settings_outlined),
+                          tooltip: 'Settings',
+                          onPressed: () => Navigator.of(context).push(
+                            MaterialPageRoute<void>(
+                              builder: (_) => const SettingsPage(),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ],
               ),

@@ -21,6 +21,7 @@ All notable changes to Passel. The format follows [Keep a Changelog](https://kee
 - Integration tests for the API against PostgreSQL in Docker (Testcontainers): ownership isolation, paging, delete semantics, live updates end to end and the schema on an empty database. `dotnet atom TestWebApi` and the workflows run them after the unit tests.
 - Widget tests for the mobile app's screens: the feed page signed in and out with its sync label, the list's loading, failure and empty states and its loading of older items, the send sheet, the tiles and delete with undo. `dotnet atom TestMobileApp` runs the suite with coverage and keeps the lcov report as a build artifact.
 - One wire shape for packets in the API, shared by the list, the create response and the `packet-created` event, with the OpenAPI document and sample payloads committed under `contracts/` and checked against the running API, and feed scenarios that the extension and mobile app test suites both run, so the three sides can't drift apart unnoticed.
+- A settings page in the mobile app, opened from the feed's app bar: the signed-in account with Sign out (or Sign in), a theme choice of system, light or dark that is kept across restarts, the app version and build number, and the privacy policy and terms links, disabled until those pages exist.
 
 ### Changed
 

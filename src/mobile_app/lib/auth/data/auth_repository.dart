@@ -4,6 +4,7 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../api/errors.dart';
+import 'account_info.dart';
 import 'authorization.dart';
 import 'jwt.dart';
 
@@ -53,6 +54,7 @@ class AuthRepository {
   bool get _devMode => _defaultDevUser.isNotEmpty;
 
   String? _idToken;
+  AccountInfo? _account;
   StreamSubscription<GoogleSignInAuthenticationEvent>? _authSub;
 
   /// In-flight silent refresh, shared by concurrent [getIdToken] callers.
@@ -83,6 +85,10 @@ class AuthRepository {
     final token = _idToken;
     return token == null ? null : devUserOf(token);
   }
+
+  /// The Google account signed in right now, or `null` when signed out or
+  /// signed in as a development user.
+  AccountInfo? get currentAccount => _account;
 
   // ── Lifecycle ──────────────────────────────────────────────────────────────
 
@@ -285,7 +291,17 @@ class AuthRepository {
 
     await _applyAccount(account.id);
     _idToken = token;
+    _account = AccountInfo(
+      email: account.email,
+      displayName: _nameOrNull(account.displayName),
+    );
     _emit(true);
+  }
+
+  /// [name], unless it is blank: Google has no name for some accounts.
+  static String? _nameOrNull(String? name) {
+    final trimmed = name?.trim();
+    return trimmed == null || trimmed.isEmpty ? null : trimmed;
   }
 
   /// Signs in as the development user [user]: no Google call, a token the
@@ -315,6 +331,7 @@ class AuthRepository {
 
   void _setSignedOut() {
     _idToken = null;
+    _account = null;
     _emit(false);
   }
 

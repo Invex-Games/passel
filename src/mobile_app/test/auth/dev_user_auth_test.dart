@@ -52,6 +52,7 @@ void main() {
 
       expect(repo.isSignedIn, isTrue);
       expect(repo.currentDevUser, 'alice');
+      expect(repo.currentAccount, isNull);
       expect(await repo.getIdToken(), devToken('alice'));
       expect(authorizationHeader((await repo.getIdToken())!), 'Dev alice');
       expect(google.lightweightCalls, 0);
