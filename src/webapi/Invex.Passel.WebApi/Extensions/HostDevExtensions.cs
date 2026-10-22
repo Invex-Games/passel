@@ -4,12 +4,24 @@ namespace Invex.Passel.WebApi.Extensions;
 
 internal static class HostDevExtensions
 {
+    /// <summary>
+    ///     The only host the development endpoints answer to, on any port. Through the dev tunnel the API is
+    ///     addressed by the tunnel's host, so Scalar, the OpenAPI document and the browser login are not served to
+    ///     the internet while the tunnel runs; the packet endpoints are, which is what the tunnel is for.
+    /// </summary>
+    internal const string DevelopmentHost = "localhost";
+
     [PublicAPI]
     public static void MapDevApi(this WebApplication app)
     {
         var googleLoginConfigured = HostWebExtensions.GoogleLoginConfigured(app.Configuration);
 
-        app
+        // One group, so every development endpoint carries the host restriction
+        var dev = app
+            .MapGroup(string.Empty)
+            .RequireHost(DevelopmentHost);
+
+        dev
             .MapGet("/auth/login",
                 () => googleLoginConfigured
                     ? Results.Challenge(new()
@@ -20,7 +32,7 @@ internal static class HostDevExtensions
                     : GoogleLoginNotConfigured())
             .ExcludeFromDescription();
 
-        app
+        dev
             .MapGet("/auth/logout",
                 async (HttpContext ctx) =>
                 {
@@ -30,7 +42,7 @@ internal static class HostDevExtensions
                 })
             .ExcludeFromDescription();
 
-        app
+        dev
             .MapGet("/auth/me",
                 (HttpContext ctx) => ctx.User.Identity?.IsAuthenticated is true
                     ? Results.Ok(new
@@ -41,11 +53,11 @@ internal static class HostDevExtensions
                     : Results.Unauthorized())
             .ExcludeFromDescription();
 
-        app
+        dev
             .MapOpenApi()
             .WithDocumentPerVersion();
 
-        app.MapScalarApiReference(options =>
+        dev.MapScalarApiReference(options =>
         {
             var descriptions = app.DescribeApiVersions();
 
