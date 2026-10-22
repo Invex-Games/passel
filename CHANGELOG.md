@@ -30,6 +30,7 @@ All notable changes to Passel. The format follows [Keep a Changelog](https://kee
 - The extension caches only the first page of the feed, lays the feed out in one pass and animates only packets that arrive live, shows every piece of feedback in one snackbar, hides the composer while signed out, truncates long tab titles, caps its event-stream buffer, and spreads reconnects and resync fetches.
 - The mobile app caches only the first page with debounced writes and a single parse, shows the cached feed before Google Sign-In has initialised, keeps tile state across inserts, clamps long notes to eight lines with a "Show more" toggle, spreads reconnects and resync fetches, and keeps its app bar while the feed is pulled to refresh, with the empty feed saying which way to pull.
 - Query and live-update tuning in the API: the feed is served by one composite index on user and packet id (with the DDL and measured plans in the Web API docs), live updates are dispatched in batches with one query per batch, stream heartbeats are timed without exceptions, event streams are left out of request tracing, resyncs after a listener reconnect are spread over a few seconds, and each stream sends its own `retry` value.
+- The mobile app runs on Riverpod 3 (`flutter_riverpod` 3.3) and `share_plus` 13, with its providers opted out of the automatic retry Riverpod 3 adds so failures still surface at once; `dynamic_color` stays on 1.x until the Flutter SDK ships Dart 3.12.
 
 ### Fixed
 

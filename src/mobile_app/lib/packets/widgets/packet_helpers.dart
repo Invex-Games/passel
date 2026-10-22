@@ -88,7 +88,7 @@ void _copyAndConfirm(BuildContext context, String text) {
 void sharePacket(BuildContext context, Packet packet) {
   // No title → share payload directly.
   if (packet.title == null || packet.title!.isEmpty) {
-    Share.share(packet.payload);
+    SharePlus.instance.share(ShareParams(text: packet.payload));
     return;
   }
 
@@ -110,7 +110,7 @@ void sharePacket(BuildContext context, Packet packet) {
               ),
               onTap: () {
                 Navigator.pop(ctx);
-                Share.share(packet.title!);
+                SharePlus.instance.share(ShareParams(text: packet.title!));
               },
             ),
             ListTile(
@@ -123,7 +123,7 @@ void sharePacket(BuildContext context, Packet packet) {
               ),
               onTap: () {
                 Navigator.pop(ctx);
-                Share.share(packet.payload);
+                SharePlus.instance.share(ShareParams(text: packet.payload));
               },
             ),
             ListTile(
@@ -131,7 +131,9 @@ void sharePacket(BuildContext context, Packet packet) {
               title: const Text('Share both'),
               onTap: () {
                 Navigator.pop(ctx);
-                Share.share('${packet.title!}\n${packet.payload}');
+                SharePlus.instance.share(
+                  ShareParams(text: '${packet.title!}\n${packet.payload}'),
+                );
               },
             ),
           ],

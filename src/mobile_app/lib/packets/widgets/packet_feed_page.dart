@@ -102,9 +102,8 @@ class _PacketFeedPageState extends ConsumerState<PacketFeedPage> {
 
   @override
   Widget build(BuildContext context) {
-    final isSignedIn =
-        ref.watch(authServiceProvider).valueOrNull == true;
-    final packetsState = ref.watch(packetsProvider).valueOrNull;
+    final isSignedIn = ref.watch(authServiceProvider).value == true;
+    final packetsState = ref.watch(packetsProvider).value;
 
     // Watching keeps the live connection open while the feed is shown; it
     // also reconnects and catches up whenever the app returns to the

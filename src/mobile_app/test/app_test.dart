@@ -120,7 +120,7 @@ void main() {
       final container = ProviderScope.containerOf(
         tester.element(find.byType(StartupRouter)),
       );
-      container.read(userDataGenerationProvider.notifier).state++;
+      container.read(userDataGenerationProvider.notifier).bump();
       await repo.clearCache();
       await auth.signOut();
       await tester.pumpAndSettle();

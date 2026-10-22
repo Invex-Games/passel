@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'data/auth_repository.dart';
 import '../config/app_config.dart';
 import '../packets/data/packet_cache.dart';
+import '../provider_retry.dart';
 
 // ─── Repository provider ─────────────────────────────────────────────────────
 
@@ -16,7 +17,16 @@ import '../packets/data/packet_cache.dart';
 /// the cleared cache to find out.  It is bumped *before* the cache is
 /// cleared and before the auth state flips, so by the time they rebuild the
 /// signal is already there.
-final userDataGenerationProvider = StateProvider<int>((_) => 0);
+final userDataGenerationProvider =
+    NotifierProvider<UserDataGeneration, int>(UserDataGeneration.new);
+
+class UserDataGeneration extends Notifier<int> {
+  @override
+  int build() => 0;
+
+  /// Records that the signed-in user's locally stored data was cleared.
+  void bump() => state++;
+}
 
 final authRepositoryProvider = Provider<AuthRepository>((ref) {
   final repo = AuthRepository(
@@ -25,7 +35,7 @@ final authRepositoryProvider = Provider<AuthRepository>((ref) {
     // Per-user data must not outlive the session (sign-out) or leak to a
     // different account signing in on the same device.
     onUserDataInvalidated: () async {
-      ref.read(userDataGenerationProvider.notifier).state++;
+      ref.read(userDataGenerationProvider.notifier).bump();
       await PacketCache.clear();
     },
   );
@@ -35,8 +45,10 @@ final authRepositoryProvider = Provider<AuthRepository>((ref) {
 
 // ─── Auth provider ───────────────────────────────────────────────────────────
 
-final authServiceProvider =
-    AsyncNotifierProvider<AuthService, bool>(AuthService.new);
+final authServiceProvider = AsyncNotifierProvider<AuthService, bool>(
+  AuthService.new,
+  retry: noRetry,
+);
 
 // ─── Auth service (thin Riverpod adapter) ────────────────────────────────────
 

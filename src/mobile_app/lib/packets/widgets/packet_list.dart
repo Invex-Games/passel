@@ -40,7 +40,7 @@ class _PacketListState extends ConsumerState<PacketList> {
     super.initState();
     // If packets are already cached in the provider, avoid replaying entrance
     // animations when this widget is recreated (prevents reload-like flicker).
-    final cachedState = ref.read(packetsProvider).valueOrNull;
+    final cachedState = ref.read(packetsProvider).value;
     if (cachedState != null) {
       _animatedIds.addAll(cachedState.packets.map((packet) => packet.id));
     }
@@ -67,7 +67,7 @@ class _PacketListState extends ConsumerState<PacketList> {
         notification.metrics.maxScrollExtent - 200) {
       return;
     }
-    final packetsState = ref.read(packetsProvider).valueOrNull;
+    final packetsState = ref.read(packetsProvider).value;
     if (packetsState == null ||
         !packetsState.hasMore ||
         packetsState.isLoadingMore ||
@@ -75,7 +75,7 @@ class _PacketListState extends ConsumerState<PacketList> {
       return;
     }
 
-    final isSignedIn = ref.read(authServiceProvider).valueOrNull == true;
+    final isSignedIn = ref.read(authServiceProvider).value == true;
     if (!isSignedIn) {
       // Prompt at most once per signed-out period; the end-of-list row offers
       // a sign-in button after that.
@@ -113,16 +113,15 @@ class _PacketListState extends ConsumerState<PacketList> {
   @override
   Widget build(BuildContext context) {
     final asyncState = ref.watch(packetsProvider);
-    final isSignedIn =
-        ref.watch(authServiceProvider).valueOrNull == true;
+    final isSignedIn = ref.watch(authServiceProvider).value == true;
 
     // A new auth state means a new chance to prompt on scroll.
     ref.listen(
-      authServiceProvider.select((auth) => auth.valueOrNull == true),
+      authServiceProvider.select((auth) => auth.value == true),
       (_, __) => _scrollLoginPromptShown = false,
     );
 
-    final packetsState = asyncState.valueOrNull;
+    final packetsState = asyncState.value;
     if (asyncState.isLoading && packetsState == null) {
       return const Center(child: CircularProgressIndicator());
     }

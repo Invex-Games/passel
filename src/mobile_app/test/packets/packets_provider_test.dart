@@ -671,7 +671,7 @@ void main() {
       expect(cachedIds(), ['a']);
 
       // What AuthRepository does on sign-out, in this order.
-      c.read(userDataGenerationProvider.notifier).state++;
+      c.read(userDataGenerationProvider.notifier).bump();
       await repo.clearCache();
       await auth.signOut();
       await c.read(packetsProvider.future);
@@ -765,7 +765,7 @@ void main() {
 
         // Sign-out: the generation is bumped, the cache cleared, the state
         // flipped.  The write scheduled for `x` must not resurrect the cache.
-        c.read(userDataGenerationProvider.notifier).state++;
+        c.read(userDataGenerationProvider.notifier).bump();
         unawaited(repo.clearCache());
         unawaited(auth.signOut());
         async.elapse(const Duration(seconds: 1));
