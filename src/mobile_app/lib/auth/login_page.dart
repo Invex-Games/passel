@@ -210,7 +210,7 @@ class _LoginSheetState extends ConsumerState<_LoginSheet> {
   Widget build(BuildContext context) {
     // Auto-dismiss on successful sign-in.
     ref.listen(authServiceProvider, (prev, next) {
-      if (next.valueOrNull == true && mounted) {
+      if (next.value == true && mounted) {
         Navigator.of(context).pop();
       }
     });

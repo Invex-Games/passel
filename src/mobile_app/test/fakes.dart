@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:math';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/misc.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -71,7 +72,7 @@ class PendingAuthService extends AsyncNotifier<bool> implements AuthService {
 
   @override
   Future<String?> getIdToken({bool forceRefresh = false}) async =>
-      state.valueOrNull == true ? 'fake-token' : null;
+      state.value == true ? 'fake-token' : null;
 }
 
 /// Auth service whose [signIn] completes only when the caller completes the future.

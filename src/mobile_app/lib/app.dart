@@ -79,7 +79,7 @@ class StartupRouter extends ConsumerWidget {
     if (feedHasPackets != null) {
       hasCache = feedHasPackets;
     } else if (cacheState.hasValue || cacheState.hasError) {
-      hasCache = cacheState.valueOrNull?.packets.isNotEmpty ?? false;
+      hasCache = cacheState.value?.packets.isNotEmpty ?? false;
     } else {
       hasCache = null;
     }
@@ -111,8 +111,6 @@ class StartupRouter extends ConsumerWidget {
     }
 
     // Signed out AND no cached data → full-screen login; otherwise the feed.
-    return authState.valueOrNull == true
-        ? const PacketFeedPage()
-        : const LoginPage();
+    return authState.value == true ? const PacketFeedPage() : const LoginPage();
   }
 }

@@ -7,6 +7,7 @@ import '../api/errors.dart';
 import '../app_lifecycle.dart';
 import '../auth/auth_helpers.dart';
 import '../auth/auth_service.dart';
+import '../provider_retry.dart';
 import 'data/packet.dart';
 import 'data/packet_cache.dart';
 import 'data/packet_repository.dart';
@@ -26,7 +27,7 @@ final packetRepositoryProvider = Provider<PacketRepository>((ref) {
 /// Per-user providers watch this rather than [authServiceProvider] directly
 /// so they only rebuild when the signed-in flag actually flips.
 final _isSignedInProvider = Provider<bool>((ref) {
-  return ref.watch(authServiceProvider.select((auth) => auth.valueOrNull == true));
+  return ref.watch(authServiceProvider.select((auth) => auth.value == true));
 });
 
 // ─── Cached packets ──────────────────────────────────────────────────────────
@@ -42,7 +43,7 @@ final _isSignedInProvider = Provider<bool>((ref) {
 final cachedPacketsProvider = FutureProvider<PacketsState?>((ref) {
   ref.watch(userDataGenerationProvider);
   return ref.read(packetRepositoryProvider).loadCached();
-});
+}, retry: noRetry);
 
 /// How long [PacketsNotifier] waits after a change before writing the cache,
 /// so a burst of changes (a resync, a run of live events, a delete and its
@@ -52,13 +53,15 @@ final packetCacheWriteDelayProvider =
 
 // ─── Packets provider ────────────────────────────────────────────────────────
 
-final packetsProvider =
-    AsyncNotifierProvider<PacketsNotifier, PacketsState>(PacketsNotifier.new);
+final packetsProvider = AsyncNotifierProvider<PacketsNotifier, PacketsState>(
+  PacketsNotifier.new,
+  retry: noRetry,
+);
 
 class PacketsNotifier extends AsyncNotifier<PacketsState> {
   PacketRepository get _repo => ref.read(packetRepositoryProvider);
 
-  bool get _isSignedIn => ref.read(authServiceProvider).valueOrNull == true;
+  bool get _isSignedIn => ref.read(authServiceProvider).value == true;
 
   /// Bumped on every [build] (i.e. auth change).  Results of requests started
   /// under an older epoch belong to a previous session and are dropped.
@@ -132,7 +135,7 @@ class PacketsNotifier extends AsyncNotifier<PacketsState> {
     PacketsState? kept;
     if (userData == _userDataGeneration) {
       _flushWrite(_repo);
-      final previous = state.valueOrNull;
+      final previous = state.value;
       if (previous != null && previous.packets.isNotEmpty) {
         kept = previous.copyWith(isLoadingMore: false, loadMoreError: () => null);
       }
@@ -292,7 +295,7 @@ class PacketsNotifier extends AsyncNotifier<PacketsState> {
   Future<bool> loadMore({bool retry = false}) async {
     if (!_isSignedIn) return false;
 
-    final current = state.valueOrNull;
+    final current = state.value;
     if (current == null || !current.hasMore || current.isLoadingMore) {
       return true;
     }
@@ -309,7 +312,7 @@ class PacketsNotifier extends AsyncNotifier<PacketsState> {
       // The list was replaced while we were loading — this page is stale.
       if (generation != _generation) return true;
 
-      final latest = state.valueOrNull ?? current;
+      final latest = state.value ?? current;
       final merged = latest.copyWith(
         packets:
             mergePackets(latest.packets, _withoutDeleted(nextPage.packets)),
@@ -323,7 +326,7 @@ class PacketsNotifier extends AsyncNotifier<PacketsState> {
       return true;
     } catch (e) {
       if (generation == _generation) {
-        final latest = state.valueOrNull ?? current;
+        final latest = state.value ?? current;
         // Keep existing data visible; remember the error so the list shows
         // a "tap to retry" row instead of retrying on every scroll.
         state = AsyncData(
@@ -355,7 +358,7 @@ class PacketsNotifier extends AsyncNotifier<PacketsState> {
     // session's data.
     if (epoch != _epoch) return true;
 
-    final latest = state.valueOrNull;
+    final latest = state.value;
     if (created == null || latest == null) {
       // Can't merge locally (unparseable response or no list yet) — fetch.
       await _replaceFromNetwork();
@@ -378,7 +381,7 @@ class PacketsNotifier extends AsyncNotifier<PacketsState> {
 
     // While (re)building, the build merges [_arrivals] into its result.
     if (state.isLoading) return;
-    final latest = state.valueOrNull;
+    final latest = state.value;
     if (latest == null) return;
 
     // Usually this device's own push, echoed back.
@@ -401,7 +404,7 @@ class PacketsNotifier extends AsyncNotifier<PacketsState> {
 
     // While (re)building, the build filters [_deletedIds] out of its result.
     if (state.isLoading) return;
-    final latest = state.valueOrNull;
+    final latest = state.value;
     if (latest == null || !latest.packets.any((p) => p.id == id)) return;
 
     final updated = latest.copyWith(
@@ -416,7 +419,7 @@ class PacketsNotifier extends AsyncNotifier<PacketsState> {
   ///
   /// Returns `false` if the packet isn't listed.
   bool hide(String id) {
-    final latest = state.valueOrNull;
+    final latest = state.value;
     final index = latest?.packets.indexWhere((p) => p.id == id) ?? -1;
     if (latest == null || index == -1) return false;
 
@@ -443,7 +446,7 @@ class PacketsNotifier extends AsyncNotifier<PacketsState> {
     if (hidden == null) return;
     _deletedIds.remove(id);
 
-    final latest = state.valueOrNull;
+    final latest = state.value;
     if (latest == null || latest.packets.any((p) => p.id == id)) return;
 
     // Packets may have arrived or been loaded since, so prefer going back
@@ -517,7 +520,7 @@ class PacketsNotifier extends AsyncNotifier<PacketsState> {
     if (seq != _replaceSeq) return;
 
     final page = _reconcile(arrivalsMark, fresh);
-    final latest = state.valueOrNull;
+    final latest = state.value;
     final listedIds = {...?latest?.packets.map((p) => p.id)};
 
     // Either way the list now starts with this page, so the cached first
@@ -570,7 +573,7 @@ final packetLiveUpdatesProvider =
     NotifierProvider.autoDispose<PacketLiveUpdates, bool>(
         PacketLiveUpdates.new);
 
-class PacketLiveUpdates extends AutoDisposeNotifier<bool> {
+class PacketLiveUpdates extends Notifier<bool> {
   /// [random] drives the jitter; tests pass a scripted one.
   PacketLiveUpdates({Random? random}) : _random = random ?? Random();
 
