@@ -6,8 +6,25 @@ using System.Text.Json.Nodes;
 namespace Invex.Passel.WebApi.IntegrationTests;
 
 /// <summary>
-///     A packet as the API returns it, read straight from the JSON: the discriminator, the id, the creation time and
-///     whichever content fields the kind of packet has.
+///     A link's preview as the API returns it, read straight from the JSON.
+/// </summary>
+internal sealed record PreviewJson(string? Title, string? Description, string? ImageUrl, DateTimeOffset FetchedAt)
+{
+    /// <summary>
+    ///     The packet's preview, or <c>null</c> when it has none (or is not a link).
+    /// </summary>
+    public static PreviewJson? Parse(JsonElement packet) =>
+        packet.TryGetProperty("preview", out var preview) && preview.ValueKind == JsonValueKind.Object
+            ? new(PacketJson.OptionalString(preview, "title"),
+                PacketJson.OptionalString(preview, "description"),
+                PacketJson.OptionalString(preview, "imageUrl"),
+                preview.GetProperty("fetchedAt").GetDateTimeOffset())
+            : null;
+}
+
+/// <summary>
+///     A packet as the API returns it, read straight from the JSON: the discriminator, the id, the creation time,
+///     whichever content fields the kind of packet has, and a link's preview once it has one.
 /// </summary>
 internal sealed record PacketJson(
     string Type,
@@ -16,7 +33,8 @@ internal sealed record PacketJson(
     string? Title,
     string? Body,
     string? Name,
-    string? Url)
+    string? Url,
+    PreviewJson? Preview)
 {
     public static PacketJson Parse(JsonElement packet) =>
         new(packet.GetProperty("$type").GetString()!,
@@ -25,7 +43,8 @@ internal sealed record PacketJson(
             OptionalString(packet, "title"),
             OptionalString(packet, "body"),
             OptionalString(packet, "name"),
-            OptionalString(packet, "url"));
+            OptionalString(packet, "url"),
+            PreviewJson.Parse(packet));
 
     public static PacketJson Parse(string json)
     {
@@ -34,8 +53,8 @@ internal sealed record PacketJson(
         return Parse(document.RootElement);
     }
 
-    private static string? OptionalString(JsonElement packet, string name) =>
-        packet.TryGetProperty(name, out var property) && property.ValueKind == JsonValueKind.String
+    internal static string? OptionalString(JsonElement element, string name) =>
+        element.TryGetProperty(name, out var property) && property.ValueKind == JsonValueKind.String
             ? property.GetString()
             : null;
 }

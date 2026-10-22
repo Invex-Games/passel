@@ -18,6 +18,7 @@ internal sealed class EventStream : IAsyncDisposable
     public const string ResyncEventType = "resync";
     public const string PacketCreatedEventType = "packet-created";
     public const string PacketDeletedEventType = "packet-deleted";
+    public const string PacketUpdatedEventType = "packet-updated";
     public const string HeartbeatEventType = "ping";
 
     /// <summary>
