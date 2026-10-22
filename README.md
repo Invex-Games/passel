@@ -37,3 +37,7 @@ Start with [Prerequisites](docs/getting-started/prerequisites.md), [Google OAuth
 | `dotnet atom Test` | Runs the Web API, extension and mobile test suites |
 | `dotnet atom BuildWebApi` / `BuildChromeExtension` / `BuildMobileAppAndroid` | Release builds into `atom-publish/` |
 | `dotnet run --project _atom -- --help` | Lists every target and its parameters |
+
+## Contributing
+
+Branch and commit conventions, the pull request checklist and what CI runs are in [CONTRIBUTING.md](CONTRIBUTING.md). Notable changes are listed in [CHANGELOG.md](CHANGELOG.md).
