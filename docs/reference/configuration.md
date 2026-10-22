@@ -8,15 +8,15 @@
 | `google-client-secret` | Yes | The API's `Authentication:Google:ClientSecret` |
 | `google-extension-client-id` | No | The API's `Authentication:Google:AdditionalAudiences:0`, and the extension's `GOOGLE_CLIENT_ID` |
 
-The values are stored in the AppHost's user secrets as `Parameters:<name>`. The dashboard prompts for any that are missing. The AppHost also gives the extension `API_URL` (`<API https endpoint>/api/packets`) and gives the API its `passel-db` connection string.
+The values are stored in the AppHost's user secrets as `Parameters:<name>`. In Development all three are optional and default to empty, so the dashboard doesn't prompt for them; the API then works through the Dev scheme described in [Run without Google](../getting-started/running-locally.md#run-without-google). Outside Development they're required. The AppHost also gives the extension `API_URL` (`<API https endpoint>/api/packets`) and gives the API its `passel-db` connection string.
 
 ## Web API
 
 | Key | Required | Description |
 |---|---|---|
 | `ConnectionStrings:passel-db` | Yes | PostgreSQL connection string. The AppHost provides it. |
-| `Authentication:Google:ClientId` | Yes | The web client id: the main accepted token audience, and the client for development login |
-| `Authentication:Google:ClientSecret` | Development | The web client secret, for the development-only Scalar login |
+| `Authentication:Google:ClientId` | Outside Development | The web client id: the main accepted token audience, and the client for development login. Without it every Google token is rejected; in Development the Dev scheme still works. |
+| `Authentication:Google:ClientSecret` | No | The web client secret. With it and the client id both set, Development offers the Scalar **Login with Google** banner. |
 | `Authentication:Google:AdditionalAudiences` | No | Other accepted audiences, for example the extension's client id |
 | `Encoding:Alphabet` | No | The Sqids alphabet for public ids. Changing it invalidates existing ids. |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | No | Turns on OTLP export of logs, traces and metrics. The AppHost points it at the dashboard. |

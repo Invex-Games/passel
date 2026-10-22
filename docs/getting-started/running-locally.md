@@ -21,18 +21,30 @@ The Aspire dashboard opens at `https://localhost:17106`. It asks for a login tok
 | `chrome-extension` | The extension's watch build. It rebuilds `src/chrome-extension/dist` on every change. |
 | `passel-api-tunnel` | A dev tunnel giving the API a public HTTPS URL that physical devices can reach. |
 
-If the dashboard shows unresolved parameters, enter the Google client values; see [Google OAuth Clients](google-oauth.md).
+The Google client values are optional in Development. Without them, use the Dev scheme described in [Run without Google](#run-without-google); to sign in with Google, set them in the AppHost's user secrets, see [Google OAuth Clients](google-oauth.md).
 
 ## Web API
 
-- Scalar API reference: `https://localhost:7030/scalar`. Use the **Login with Google** banner to call authenticated endpoints from the browser.
+- Scalar API reference: `https://localhost:7030/scalar`. Use the **Login with Google** banner, or the **Dev** security scheme, to call authenticated endpoints from the browser.
 - Health checks: `/health` (every check, including the database) and `/alive` (liveness only).
 - Logs, traces and metrics: the dashboard.
 
 > [!WARNING]
 > In development, Marten recreates any table whose schema doesn't match the code (`AutoCreate.All`). Expect local data to be dropped when you change the document model.
 
-To run the API on its own, outside the AppHost, use its `https` launch profile. You then need to supply a `passel-db` connection string, and the `Authentication:Google:*` settings in `src/webapi/Invex.Passel.WebApi/appsettings.Development.json` (git-ignored). See [Configuration](../reference/configuration.md#web-api).
+To run the API on its own, outside the AppHost, use its `https` launch profile. You then need to supply a `passel-db` connection string, and any `Authentication:Google:*` settings you want, in `src/webapi/Invex.Passel.WebApi/appsettings.Development.json` (git-ignored). See [Configuration](../reference/configuration.md#web-api).
+
+## Run without Google
+
+In Development the three Google values are optional, so a fresh clone runs without a Google Cloud project. Leave them unset and the API accepts a development scheme in place of Google tokens: `Authorization: Dev <user-id>` signs the request in as that user. An id is one to 255 letters, digits or `-._@+`, and different ids are different users.
+
+```
+curl -H "Authorization: Dev alice" https://localhost:7030/api/packets
+```
+
+In Scalar, open **Auth** (or the lock on a request), pick the **Dev** scheme and enter `Dev alice` as the value; Scalar then sends the header with every request. The banner at the top says when Google login isn't configured.
+
+The scheme only exists while the API runs as `Development`; outside it, only Google tokens are accepted. The extension and the mobile app still sign in with Google, so they need the real clients from [Google OAuth Clients](google-oauth.md). Setting those parameters later and restarting the AppHost turns Google sign-in on without affecting the Dev scheme.
 
 ## Chrome extension
 

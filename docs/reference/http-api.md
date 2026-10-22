@@ -2,7 +2,7 @@
 
 When the API runs locally in development, the interactive reference is at `https://localhost:7030/scalar`. This page summarises the contract.
 
-Every endpoint below requires `Authorization: Bearer <Google ID token>`. Requests may pass `?api-version=1`; when it's omitted, version 1 is assumed. Errors use `application/problem+json`.
+Every endpoint below requires `Authorization: Bearer <Google ID token>`. When the API runs in Development it also accepts `Authorization: Dev <user-id>`; see [Run without Google](../getting-started/running-locally.md#run-without-google). Requests may pass `?api-version=1`; when it's omitted, version 1 is assumed. Errors use `application/problem+json`.
 
 ## Limits
 
@@ -78,4 +78,4 @@ A stream also ends when the token that opened it would stop validating (its `exp
 |---|---|---|
 | `GET /health` | None | Readiness: every health check |
 | `GET /alive` | None | Liveness |
-| `GET /auth/login`, `/auth/logout`, `/auth/me` | Development only | Cookie login for Scalar |
+| `GET /auth/login`, `/auth/logout`, `/auth/me` | Development only | Cookie login for Scalar. `/auth/login` answers 503 when the Google client isn't configured. |

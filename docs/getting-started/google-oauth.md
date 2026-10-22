@@ -26,7 +26,7 @@ The AppHost declares three parameters:
 | `google-client-secret` | The web client secret (secret parameter) |
 | `google-extension-client-id` | The extension client id |
 
-The first time you run the AppHost, the dashboard asks for any of these that aren't set. Tick the option to save them, and they're stored in the AppHost's user secrets. You can also set them up front:
+The AppHost reads them from its user secrets. In Development they're optional, so the dashboard doesn't ask for them: without them the API runs with the Dev scheme described in [Run without Google](running-locally.md#run-without-google). Set the ones you have with:
 
 ```
 dotnet user-secrets --project src/webapi/Invex.Passel.AppHost set Parameters:google-client-id <web client id>
