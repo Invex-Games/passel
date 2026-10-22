@@ -25,6 +25,12 @@ const UNDO_DELETE_MS = 4000;
 /** How often the popup pings the service worker so it stays alive to forward live updates. */
 const KEEP_ALIVE_INTERVAL_MS = 20_000;
 
+/**
+ * A resync after the stream reconnects waits up to this long before refetching, so popups that all lost the
+ * stream at the same moment (a server restart) don't all hit the API at once.
+ */
+const MAX_RESYNC_DELAY_MS = 3000;
+
 /** Older packets start loading once the end of the feed is this close to being scrolled into view. */
 const LOAD_MORE_THRESHOLD_PX = 200;
 
@@ -126,6 +132,10 @@ refreshBtn.addEventListener("click", () => void refreshFeed(true));
 let port: chrome.runtime.Port | null = null;
 let keepAliveTimer: ReturnType<typeof setInterval> | undefined;
 let reconnectTimer: ReturnType<typeof setTimeout> | undefined;
+let resyncTimer: ReturnType<typeof setTimeout> | undefined;
+
+/** Whether a resync has happened since the popup opened: the first one is immediate, later ones are spread out. */
+let resynced = false;
 
 function connectLive(): void {
     if (port) return;
@@ -147,6 +157,7 @@ function connectLive(): void {
 
 function disconnectLive(): void {
     clearTimeout(reconnectTimer);
+    clearTimeout(resyncTimer);
     clearInterval(keepAliveTimer);
     const connected = port;
     port = null;
@@ -167,8 +178,7 @@ function onPortMessage(message: FeedPortMessage): void {
         case "event":
             switch (message.event.kind) {
                 case "resync":
-                    // Catch up on anything created or deleted while not connected.
-                    feed.syncLatest().catch(err => handleFeedError(err, null));
+                    scheduleResync();
                     break;
                 case "created":
                     applyArrived(message.event.packet);
@@ -179,6 +189,24 @@ function onPortMessage(message: FeedPortMessage): void {
             }
             break;
     }
+}
+
+/**
+ * Catches up on anything created or deleted while the stream was down. The first resync after the popup
+ * opens runs at once, so the feed is fresh when the user looks at it; later ones (reconnects) are spread out.
+ */
+function scheduleResync(): void {
+    clearTimeout(resyncTimer);
+    if (!resynced) {
+        resynced = true;
+        syncLatest();
+        return;
+    }
+    resyncTimer = setTimeout(syncLatest, Math.random() * MAX_RESYNC_DELAY_MS);
+}
+
+function syncLatest(): void {
+    feed.syncLatest().catch(err => handleFeedError(err, null));
 }
 
 function setLive(value: boolean): void {

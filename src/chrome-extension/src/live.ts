@@ -69,10 +69,13 @@ function stop(): void {
     setLive(false);
 }
 
-/** Exponential backoff from 1 second up to a minute, with jitter so clients don't all reconnect at once. */
+/**
+ * Exponential backoff from 1 second up to a minute, with full jitter (anywhere from zero to the backoff), so
+ * clients that all lost the stream at the same moment, as after a server restart, don't all reconnect at once.
+ */
 function retryDelay(failures: number): number {
     const base = Math.min(1000 * 2 ** Math.min(failures, 6), MAX_RETRY_DELAY_MS);
-    return base * (0.75 + Math.random() * 0.25);
+    return Math.random() * base;
 }
 
 function setLive(value: boolean): void {
