@@ -73,6 +73,8 @@ android {
             dimension = "environment"
             applicationIdSuffix = ".dev"
             resValue("string", "app_name", "Passel Dev")
+            // The share sheet and text selection entry (the SendToPassel alias in the manifest)
+            resValue("string", "send_to_passel", "Send to Passel Dev")
             // Dev builds may fall back to debug keys when no keystore is set.
             signingConfig = if (hasReleaseSigningConfig) {
                 signingConfigs.getByName("release")
@@ -83,6 +85,7 @@ android {
         create("production") {
             dimension = "environment"
             resValue("string", "app_name", "Passel")
+            resValue("string", "send_to_passel", "Send to Passel")
             // Never debug-signed: without a keystore productionRelease fails
             // (see the preProductionReleaseBuild check below).
             signingConfig = if (hasReleaseSigningConfig) {

@@ -338,7 +338,7 @@ sendTextBtn.addEventListener("click", async () => {
     setLoading(sendTextBtn, true);
     try {
         const data = packetDataForInput(text);
-        if (await send(data, data.$type === "Link" ? "Link sent!" : "Text sent!")) {
+        if (await send(data, data.$type === "Link" ? "Link sent!" : "Note sent!")) {
             freetextEl.value = "";
         }
     } catch (err) {
@@ -436,7 +436,7 @@ function renderFeedEnd(state: FeedState): void {
         } else if (signedIn) {
             feedEnd.append(spinner());
         } else {
-            feedEnd.append(textEl("span", "", "Sign in to load your packets"));
+            feedEnd.append(textEl("span", "", "Sign in to see your links and notes"));
         }
         return;
     }
@@ -445,11 +445,11 @@ function renderFeedEnd(state: FeedState): void {
         if (state.loadMoreError && !state.loadingMore) {
             feedEnd.classList.add("error");
             feedEnd.append(
-                textEl("span", "", "Couldn't load older packets."),
+                textEl("span", "", "Couldn't load older items."),
                 textButton("Retry", () => void loadMore(true)),
             );
         } else if (!signedIn) {
-            feedEnd.append(textEl("span", "", "Sign in to load older packets"));
+            feedEnd.append(textEl("span", "", "Sign in to load older items"));
         } else {
             feedEnd.append(spinner());
         }
@@ -458,8 +458,8 @@ function renderFeedEnd(state: FeedState): void {
 
     if (state.packets.length === 0) {
         feedEnd.append(textEl("span", "", signedIn
-            ? "No packets yet. Send one above, or from another device."
-            : "Sign in to load your packets"));
+            ? "Nothing here yet. Send a link or a note above, or from another device."
+            : "Sign in to see your links and notes"));
         return;
     }
 
@@ -496,7 +496,7 @@ function createTile(packet: Packet, arrived: boolean): HTMLElement {
     body.className = "packet-body";
 
     if (packet.type === "file") {
-        body.append(textEl("span", "packet-note", "File packets aren't supported yet."));
+        body.append(textEl("span", "packet-note", "Files aren't supported yet."));
     } else if (link) {
         // Only http(s) links are clickable; anything else is shown as plain text.
         const anchor = document.createElement("a");
@@ -540,7 +540,19 @@ function measureClampedTiles(): void {
 }
 
 function packetTitle(packet: Packet): string {
-    return packet.title || (packet.type === "file" ? "File" : "Packet");
+    return packet.title || packetNoun(packet);
+}
+
+/** What the UI calls a packet: a link, a note or a file (ADR 0002). "Packet" stays a code and API term. */
+function packetNoun(packet: Packet): string {
+    switch (packet.type) {
+        case "link":
+            return "Link";
+        case "text":
+            return "Note";
+        case "file":
+            return "File";
+    }
 }
 
 function typeIcon(packet: Packet): IconName {
@@ -635,7 +647,7 @@ async function copyText(text: string): Promise<void> {
 async function deleteWithUndo(packet: Packet): Promise<void> {
     if (!feed.hide(packet.id)) return;
 
-    showToast("Packet deleted", {
+    showToast(`${packetNoun(packet)} deleted`, {
         action: {
             label: "Undo",
             onClick: async () => {
@@ -659,7 +671,7 @@ async function deleteWithUndo(packet: Packet): Promise<void> {
 
     feed.unhide(packet.id);
     if (response?.signedOut) setAuthState({signedIn: false});
-    showToast(`Couldn't delete packet: ${response?.error || "please try again."}`);
+    showToast(`Couldn't delete the ${packetNoun(packet).toLowerCase()}: ${response?.error || "please try again."}`);
 }
 
 // ── UI helpers ────────────────────────────────────────────

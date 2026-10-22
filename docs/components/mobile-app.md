@@ -22,6 +22,10 @@ Sign-in asks Google for a token for the **web** client (`SERVER_CLIENT_ID`), whi
 
 `validateResponse` (in `lib/auth/auth_helpers.dart`) turns a failure response into an `ApiException` with the status and, when the server sent `application/problem+json`, its `title`, `detail` and the validation messages keyed by field. Transport failures thrown by `package:http` and `dart:io` (no connection, timeouts) become a `NetworkException`, a 401 that survives the token retry a `SessionExpiredException`, and Google Sign-In failures a `SignInException` whose message is already written for the user. Every snackbar and error row (push, refresh, delete, the feed's error state, the login page and sheet, the start-up auth error) shows `describeError(error)`: client errors (4xx) use the server's `detail` or field messages, everything else a short generic sentence, so no exception text reaches the screen.
 
+## Sharing into the app
+
+The app is an Android share target. `AndroidManifest.xml` declares an activity alias, `SendToPassel`, on `MainActivity` with intent filters for `ACTION_SEND` with `text/plain` (the share sheet) and `ACTION_PROCESS_TEXT` (the text selection menu); its label, "Send to Passel" (or "Send to Passel Dev"), comes from the flavor's `resValue`, so the launcher label is untouched. `MainActivity.kt` takes the shared text from the intent and hands it to Dart over the `passel/share` method channel: text that arrives before Dart is ready waits until `ShareIntent.takePendingText` asks for it, text that arrives while the app runs comes through `ShareIntent.sharedText`. `PacketFeedPage` opens the send sheet filled in with the text; the user sends or edits it. No share-receiving plugin is involved. Images wait for parcels.
+
 ## Configuration
 
 Values are compiled in with `--dart-define` or `--dart-define-from-file`. Nothing is bundled as an asset.

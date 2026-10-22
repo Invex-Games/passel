@@ -6,12 +6,17 @@ import '../../auth/login_page.dart';
 import '../data/link_utils.dart';
 import '../packets_provider.dart';
 
-/// Shows a bottom sheet for pushing a new text or link packet.
+/// Shows a bottom sheet for sending a new note or link.
 ///
 /// [context] must be the *page* context (not one inside the sheet): the
-/// sheet is closed before the push runs, so feedback (failure snackbar, login
-/// prompt) is shown from the page.
-Future<void> showPushPacketSheet(BuildContext context, WidgetRef ref) async {
+/// sheet is closed before the send runs, so feedback (failure snackbar, login
+/// prompt) is shown from the page. [initialText] fills the field in, for text
+/// shared into the app from elsewhere.
+Future<void> showPushPacketSheet(
+  BuildContext context,
+  WidgetRef ref, {
+  String? initialText,
+}) async {
   // Capture page-level handles before opening the sheet.
   final messenger = ScaffoldMessenger.of(context);
   final notifier = ref.read(packetsProvider.notifier);
@@ -19,7 +24,7 @@ Future<void> showPushPacketSheet(BuildContext context, WidgetRef ref) async {
   final text = await showModalBottomSheet<String>(
     context: context,
     isScrollControlled: true,
-    builder: (_) => const _PushPacketSheet(),
+    builder: (_) => _PushPacketSheet(initialText: initialText),
   );
   if (text == null || text.trim().isEmpty) return;
 
@@ -41,14 +46,16 @@ Future<void> showPushPacketSheet(BuildContext context, WidgetRef ref) async {
 
 /// Sheet content; pops with the entered text when the user submits.
 class _PushPacketSheet extends StatefulWidget {
-  const _PushPacketSheet();
+  const _PushPacketSheet({this.initialText});
+
+  final String? initialText;
 
   @override
   State<_PushPacketSheet> createState() => _PushPacketSheetState();
 }
 
 class _PushPacketSheetState extends State<_PushPacketSheet> {
-  final _controller = TextEditingController();
+  late final _controller = TextEditingController(text: widget.initialText);
 
   @override
   void dispose() {

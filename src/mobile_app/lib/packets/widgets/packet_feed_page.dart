@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../auth/auth_service.dart';
 import '../../auth/login_page.dart';
 import '../../config/app_config.dart';
+import '../../share/share_intent.dart';
 import '../packets_provider.dart';
 import 'packet_list.dart';
 import 'push_packet_sheet.dart';
@@ -24,6 +25,13 @@ class _PacketFeedPageState extends ConsumerState<PacketFeedPage> {
   /// Timer that rebuilds the "Synced X ago" label every 60 seconds.
   Timer? _syncLabelTimer;
 
+  /// Text shared into the app while this page is shown.
+  StreamSubscription<String>? _sharedText;
+
+  /// Whether the send sheet is open for shared text, so a second share
+  /// while it is up does not open another.
+  bool _sendingShared = false;
+
   @override
   void initState() {
     super.initState();
@@ -33,12 +41,32 @@ class _PacketFeedPageState extends ConsumerState<PacketFeedPage> {
         if (mounted) setState(() {});
       },
     );
+
+    final shareIntent = ref.read(shareIntentProvider);
+    _sharedText = shareIntent.sharedText.listen(_sendShared);
+    // Text shared before the app was ready, once the page can show a sheet.
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final text = await shareIntent.takePendingText();
+      if (text != null && mounted) await _sendShared(text);
+    });
   }
 
   @override
   void dispose() {
+    _sharedText?.cancel();
     _syncLabelTimer?.cancel();
     super.dispose();
+  }
+
+  /// Opens the send sheet filled in with [text] shared from another app.
+  Future<void> _sendShared(String text) async {
+    if (_sendingShared || !mounted) return;
+    _sendingShared = true;
+    try {
+      await showPushPacketSheet(context, ref, initialText: text);
+    } finally {
+      _sendingShared = false;
+    }
   }
 
   /// How far the list must move one way before the app bar follows, so a

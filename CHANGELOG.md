@@ -6,6 +6,7 @@ All notable changes to Passel. The format follows [Keep a Changelog](https://kee
 
 ### Added
 
+- The Android app is a share target: "Send to Passel" appears in the share sheet for text and links and in the text selection menu, and opens the send sheet filled in. The extension's screens use the same Send, link and note wording as the app.
 - Real-time packet updates: the API streams server-sent events backed by PostgreSQL notifications, and the mobile app and extension keep a live connection open while visible.
 - Deleting packets, with a four-second undo, in the mobile app and the extension; deletions are announced live.
 - The extension popup shows the packet feed, with paging, caching and copy actions.
