@@ -5,7 +5,13 @@
       "id": "s3lQ7vopAEf78w5ep9yBm2c",
       "createdAt": "2026-10-22T11:03:08.1234567+00:00",
       "name": "Example",
-      "url": "https://example.com/page?q=1"
+      "url": "https://example.com/page?q=1",
+      "preview": {
+        "title": "Example Domain",
+        "description": "This domain is for use in illustrative examples in documents.",
+        "imageUrl": "https://example.com/images/og.png",
+        "fetchedAt": "2026-10-22T11:03:10.1234567+00:00"
+      }
     },
     {
       "$type": "Text",

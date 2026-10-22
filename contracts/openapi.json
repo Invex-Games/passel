@@ -318,6 +318,42 @@
           }
         }
       },
+      "LinkPreviewResponse": {
+        "required": [
+          "title",
+          "description",
+          "imageUrl",
+          "fetchedAt"
+        ],
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "description": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "imageUrl": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "An absolute http or https URL, as the page gave it. The API has not fetched or checked it; clients\nload it like any third-party image."
+          },
+          "fetchedAt": {
+            "type": "string",
+            "description": "When the page was read, in UTC.",
+            "format": "date-time"
+          }
+        },
+        "description": "What a link's page said about itself, as the API returns it on a link packet. Each of the three fields\nmay be `null`, but never all three: a preview with nothing to show is not stored."
+      },
       "PacketResponse": {
         "required": [
           "$type"
@@ -334,7 +370,7 @@
             "$ref": "#/components/schemas/PacketResponseFile"
           }
         ],
-        "description": "A packet as the API returns it: the shape of a `GET /api/packets` item, of the\n`POST /api/packets` response and of the `packet-created` event data.",
+        "description": "A packet as the API returns it: the shape of a `GET /api/packets` item, of the\n`POST /api/packets` response and of the `packet-created` and `packet-updated` event data.",
         "discriminator": {
           "propertyName": "$type",
           "mapping": {
@@ -391,7 +427,8 @@
           "id",
           "createdAt",
           "name",
-          "url"
+          "url",
+          "preview"
         ],
         "properties": {
           "$type": {
@@ -417,6 +454,17 @@
           },
           "url": {
             "type": "string"
+          },
+          "preview": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/LinkPreviewResponse"
+              }
+            ],
+            "description": "The page's title, description and image, once the API has fetched them: `null` on the create\nresponse and the `packet-created` event, set on the `packet-updated` event and the list\nfrom then on, and `null` for good when the page gave nothing or could not be fetched."
           }
         }
       },

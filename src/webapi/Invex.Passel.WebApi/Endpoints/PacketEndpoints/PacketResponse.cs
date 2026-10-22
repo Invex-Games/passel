@@ -3,9 +3,8 @@ namespace Invex.Passel.WebApi.Endpoints.PacketEndpoints;
 public static partial class PacketEndpoints
 {
     /// <summary>
-    ///     What a link's page said about itself, as the API returns it on a <see cref="PacketResponse.Link" />.
-    ///     Each of the three fields may be <c>null</c>, but never all three: a preview with nothing to show is not
-    ///     stored.
+    ///     What a link's page said about itself, as the API returns it on a link packet. Each of the three fields
+    ///     may be <c>null</c>, but never all three: a preview with nothing to show is not stored.
     /// </summary>
     [PublicAPI]
     public sealed record LinkPreviewResponse

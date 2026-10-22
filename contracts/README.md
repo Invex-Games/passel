@@ -5,8 +5,8 @@ What the API puts on the wire, committed so that every side is checked against t
 | File | What it is | Written by | Read by |
 |---|---|---|---|
 | `openapi.json` | The OpenAPI document the Development host serves at `/openapi/v1.json`, without its `servers` entry | `ContractTests` in the Web API integration tests, which also fail when it is stale | People and tools |
-| `fixtures/*.json` | Sample payloads serialized by the API with its real JSON options: a list page with every packet type, a create response, a `packet-created` and a `packet-deleted` event | `ContractTests`, which also fail when one is stale or an endpoint answers in another shape | `test/contracts.test.ts` in the extension and `test/contracts_test.dart` in the mobile app, with their real parsers |
-| `feed-scenarios.json` | Feed sequences with the list each must leave behind: first page, cursor page, live create, live delete, resync, undo | By hand; the file explains its format | Both client suites, through their feed stores; the API tests check that every packet in it is a valid wire packet |
+| `fixtures/*.json` | Sample payloads serialized by the API with its real JSON options: a list page with every packet type (the link with its preview), a create response, a `packet-created`, a `packet-updated` and a `packet-deleted` event | `ContractTests`, which also fail when one is stale or an endpoint answers in another shape | `test/contracts.test.ts` in the extension and `test/contracts_test.dart` in the mobile app, with their real parsers |
+| `feed-scenarios.json` | Feed sequences with the list each must leave behind: first page, cursor page, live create, live delete, live update, resync, undo | By hand; the file explains its format | Both client suites, through their feed stores; the API tests check that every packet in it is a valid wire packet |
 
 ## Regenerating
 

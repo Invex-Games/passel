@@ -65,6 +65,12 @@ const fixtureChecks: Record<string, (json: unknown) => void> = {
         expect(typeof id).toBe("string");
         expect(toLiveEvent("packet-deleted", JSON.stringify(json))).toEqual({kind: "deleted", id});
     },
+    "packet-updated-event.json": json => {
+        // A link with its preview, in the shape of a created packet. The feed ignores the event until it shows
+        // previews (roadmap 2.C1); the packet in it still parses, and the preview field is simply not read.
+        expect(toLiveEvent("packet-updated", JSON.stringify(json))).toBeNull();
+        expect(parsePacket(json)).toEqual(expectedPacket(json as WirePacket));
+    },
 };
 
 describe("contract fixtures", () => {
@@ -154,6 +160,13 @@ async function run(feed: FeedStore, step: Step): Promise<void> {
             const event = toLiveEvent("packet-deleted", JSON.stringify({id: named(step, "id")}));
             if (event?.kind !== "deleted") throw new Error(`The packet-deleted event for ${step.id} did not parse`);
             feed.applyDeleted(event.id);
+            return;
+        }
+        case "updated": {
+            // Ignored by this version of the feed, so the list is left alone. Once the feed store handles the
+            // event, apply it here; the scenarios then check that it changes no ids.
+            const event = toLiveEvent("packet-updated", JSON.stringify(wire(named(step, "packet"))));
+            if (event !== null) throw new Error("The feed store now handles packet-updated; teach this interpreter to apply it");
             return;
         }
         case "hide":
