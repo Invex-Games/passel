@@ -211,7 +211,9 @@ class _PacketListState extends ConsumerState<PacketList> {
                             ],
                           )
                         : const Text(
-                            'No packets yet.\nPull down to refresh.',
+                            // The list is reversed: its start, where the
+                            // refresh gesture lives, is at the bottom.
+                            'No packets yet.\nPull up to refresh.',
                             textAlign: TextAlign.center,
                           ),
                   ),

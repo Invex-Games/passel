@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../auth/auth_service.dart';
@@ -42,16 +41,46 @@ class _PacketFeedPageState extends ConsumerState<PacketFeedPage> {
     super.dispose();
   }
 
+  /// How far the list must move one way before the app bar follows, so a
+  /// wobble of the finger does not flip it.
+  static const double _appBarScrollThreshold = 12;
+
+  /// Distance scrolled in the current direction; restarts when it changes.
+  double _scrollTravel = 0;
+
+  /// Hides the app bar while the user scrolls back through older packets and
+  /// shows it again on the way back, so the feed gets the room.
+  ///
+  /// Decided from the distance the list actually moves, not from the drag
+  /// direction: a pull to refresh at the newest end only overscrolls, and
+  /// there the slightest finger movement flips the reported direction while
+  /// nothing scrolls.
   bool _handleScrollNotification(ScrollNotification notification) {
-    if (notification is UserScrollNotification) {
-      final direction = notification.direction;
-      if (direction == ScrollDirection.reverse) {
-        if (_showAppBar) setState(() => _showAppBar = false);
-      } else if (direction == ScrollDirection.forward) {
-        if (!_showAppBar) setState(() => _showAppBar = true);
+    // Only the feed list itself, not a scrollable inside a tile.
+    if (notification.depth != 0) return false;
+
+    // At the newest end the bar always shows.
+    if (notification.metrics.extentBefore == 0) {
+      _scrollTravel = 0;
+      _setAppBarShown(true);
+      return false;
+    }
+
+    if (notification is ScrollUpdateNotification) {
+      final delta = notification.scrollDelta ?? 0;
+      if (delta == 0) return false;
+      if (_scrollTravel.sign != delta.sign) _scrollTravel = 0;
+      _scrollTravel += delta;
+      // The list is reversed: a positive delta moves toward older packets.
+      if (_scrollTravel.abs() >= _appBarScrollThreshold) {
+        _setAppBarShown(_scrollTravel < 0);
       }
     }
     return false;
+  }
+
+  void _setAppBarShown(bool shown) {
+    if (_showAppBar != shown) setState(() => _showAppBar = shown);
   }
 
   /// Formats [lastSyncedAt] as a relative "Synced X ago" string.
