@@ -10,6 +10,7 @@ import 'package:passel_mobileapp/app_lifecycle.dart';
 import 'package:passel_mobileapp/auth/auth_service.dart';
 import 'package:passel_mobileapp/packets/data/packet.dart';
 import 'package:passel_mobileapp/packets/data/packet_repository.dart';
+import 'package:passel_mobileapp/packets/packets_provider.dart';
 
 // ─── Auth fakes ──────────────────────────────────────────────────────────────
 
@@ -166,11 +167,21 @@ class InMemoryPacketCache implements PacketCacheStrategy {
 
   PacketsState? state;
 
-  @override
-  Future<PacketsState?> load() async => state;
+  /// How often [load] and [save] were called.
+  int loadCalls = 0;
+  int saveCalls = 0;
 
   @override
-  Future<void> save(PacketsState state) async => this.state = state;
+  Future<PacketsState?> load() async {
+    loadCalls++;
+    return state;
+  }
+
+  @override
+  Future<void> save(PacketsState state) async {
+    saveCalls++;
+    this.state = state;
+  }
 
   @override
   Future<void> clear() async => state = null;
@@ -257,3 +268,9 @@ class FakeAppForeground extends AppForegroundNotifier {
 /// Shorthand for a text packet with the given [id].
 Packet textPacket(String id) =>
     Packet(id: id, type: PacketType.text, payload: 'body $id');
+
+/// Makes [PacketsNotifier] write its cache on the next event-loop turn
+/// instead of after its debounce, so tests can `await pumpEventQueue()` and
+/// then inspect the cache.
+Override immediateCacheWrites() =>
+    packetCacheWriteDelayProvider.overrideWithValue(Duration.zero);

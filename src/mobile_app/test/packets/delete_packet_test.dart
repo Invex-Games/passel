@@ -20,6 +20,7 @@ void main() {
         authServiceProvider
             .overrideWith(() => FakeAuthService(signedIn: signedIn)),
         packetRepositoryProvider.overrideWithValue(repo),
+        immediateCacheWrites(),
       ],
       child: const MaterialApp(home: Scaffold(body: PacketList())),
     ));

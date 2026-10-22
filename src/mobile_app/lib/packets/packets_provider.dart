@@ -7,6 +7,7 @@ import '../app_lifecycle.dart';
 import '../auth/auth_helpers.dart';
 import '../auth/auth_service.dart';
 import 'data/packet.dart';
+import 'data/packet_cache.dart';
 import 'data/packet_repository.dart';
 
 // ─── Repository provider ─────────────────────────────────────────────────────
@@ -27,19 +28,26 @@ final _isSignedInProvider = Provider<bool>((ref) {
   return ref.watch(authServiceProvider.select((auth) => auth.valueOrNull == true));
 });
 
-// ─── Lightweight cache-check provider (startup routing only) ─────────────────
+// ─── Cached packets ──────────────────────────────────────────────────────────
 
-/// Returns `true` if the on-disk packet cache contains data.
+/// The feed as last saved to disk, parsed once at start-up.
 ///
-/// Used by [StartupRouter] to decide between the full-screen [LoginPage]
-/// (signed out, no cache) and [PacketFeedPage] (has cache, can browse
-/// offline).  Re-evaluated whenever the signed-in state changes (sign-out and
-/// account changes clear the cache) and whenever [PacketsNotifier] saves.
-final hasCachedPacketsProvider = FutureProvider<bool>((ref) async {
-  ref.watch(_isSignedInProvider);
-  final cached = await ref.read(packetRepositoryProvider).loadCached();
-  return cached != null && cached.packets.isNotEmpty;
+/// [StartupRouter] reads it to show the feed before Google Sign-In has
+/// initialised, and [PacketsNotifier] serves it before refreshing, so the
+/// cache is parsed once rather than once per reader.  It is only re-read
+/// after the signed-in user's data was cleared (sign-out, account change),
+/// which is cheap because there is nothing left to parse; from then on the
+/// notifier keeps the list in memory and never needs the disk again.
+final cachedPacketsProvider = FutureProvider<PacketsState?>((ref) {
+  ref.watch(userDataGenerationProvider);
+  return ref.read(packetRepositoryProvider).loadCached();
 });
+
+/// How long [PacketsNotifier] waits after a change before writing the cache,
+/// so a burst of changes (a resync, a run of live events, a delete and its
+/// echo) is written once.  Tests override it with [Duration.zero].
+final packetCacheWriteDelayProvider =
+    Provider<Duration>((_) => const Duration(milliseconds: 300));
 
 // ─── Packets provider ────────────────────────────────────────────────────────
 
@@ -81,6 +89,23 @@ class PacketsNotifier extends AsyncNotifier<PacketsState> {
   final _hidden = <String,
       ({Packet packet, int index, String? newerId, String? olderId})>{};
 
+  /// The cursor the server returned with the first page the list is built
+  /// on, i.e. where the second page starts.  The cache holds the first page
+  /// only, so this (rather than [PacketsState.nextCursor], which follows the
+  /// last page loaded) is the cursor saved with it.  Remembered explicitly
+  /// whenever the list is replaced or synced; cursors are opaque, so it can't
+  /// be derived from the packets.
+  String? _firstPageCursor;
+
+  /// The [userDataGenerationProvider] value the list was built under.  A
+  /// newer one means the user's data was cleared since, so the list in memory
+  /// belongs to a previous session and must be neither kept nor written.
+  int? _userDataGeneration;
+
+  Duration _writeDelay = Duration.zero;
+  Timer? _writeTimer;
+  PacketsState? _pendingWrite;
+
   @override
   Future<PacketsState> build() async {
     // Rebuild from scratch whenever the user signs in / out or the account
@@ -92,9 +117,31 @@ class PacketsNotifier extends AsyncNotifier<PacketsState> {
     _deletedIds.clear();
     _hidden.clear();
     final seq = ++_replaceSeq;
+    _writeDelay = ref.read(packetCacheWriteDelayProvider);
+
+    // A pending cache write must not land after the cache was cleared: the
+    // generation is bumped before the clear and before the auth state flips,
+    // so dropping it here is in time.
+    ref.listen(userDataGenerationProvider, (_, __) => _dropWrite());
+
+    // The list already in memory survives a rebuild (sign-in from the cached
+    // feed, an expired session) unless the user's data was cleared meanwhile:
+    // it is at least as fresh as the disk, which is never re-read.
+    final userData = ref.read(userDataGenerationProvider);
+    PacketsState? kept;
+    if (userData == _userDataGeneration) {
+      _flushWrite(_repo);
+      final previous = state.valueOrNull;
+      if (previous != null && previous.packets.isNotEmpty) {
+        kept = previous.copyWith(isLoadingMore: false, loadMoreError: () => null);
+      }
+    } else {
+      _userDataGeneration = userData;
+      _dropWrite();
+    }
 
     // Always serve cached data first so the feed appears instantly.
-    final cached = await _repo.loadCached();
+    final cached = kept ?? await _loadCached();
 
     // If signed in, try to fetch fresh data in the background.
     if (signedIn) {
@@ -105,7 +152,10 @@ class PacketsNotifier extends AsyncNotifier<PacketsState> {
       }
       // No cache — must fetch from network.
       final fresh = _reconcile(0, await _repo.fetchPackets());
-      if (seq == _replaceSeq) unawaited(_persist(fresh));
+      if (seq == _replaceSeq) {
+        _firstPageCursor = fresh.nextCursor;
+        _persist(fresh);
+      }
       return fresh;
     }
 
@@ -113,8 +163,28 @@ class PacketsNotifier extends AsyncNotifier<PacketsState> {
     return cached ?? const PacketsState();
   }
 
+  /// The cache parsed at start-up (see [cachedPacketsProvider]); it holds a
+  /// first page, so its cursor is the first-page cursor.
+  Future<PacketsState?> _loadCached() async {
+    final cached = await ref.read(cachedPacketsProvider.future);
+    if (cached != null) _firstPageCursor = cached.nextCursor;
+    return cached;
+  }
+
   /// Fetches fresh data without flipping state to [AsyncLoading].
+  ///
+  /// Started from [build], so it first lets the build's own result land: a
+  /// state set while the build is still pending is overwritten when the
+  /// build completes.
   Future<void> _backgroundRefresh() async {
+    final epoch = _epoch;
+    try {
+      await future;
+    } catch (_) {
+      return;
+    }
+    if (epoch != _epoch) return;
+
     try {
       await _replaceFromNetwork();
     } catch (_) {
@@ -131,9 +201,10 @@ class PacketsNotifier extends AsyncNotifier<PacketsState> {
     if (seq != _replaceSeq) return;
 
     _generation++;
+    _firstPageCursor = fresh.nextCursor;
     final replaced = _reconcile(arrivalsMark, fresh);
     state = AsyncData(replaced);
-    await _persist(replaced);
+    _persist(replaced);
   }
 
   /// Brings a fetched [page] up to date with what happened while it was in
@@ -155,13 +226,59 @@ class PacketsNotifier extends AsyncNotifier<PacketsState> {
         packets.where((p) => !_deletedIds.contains(p.id)));
   }
 
-  /// Saves [packetsState] to disk; failures are non-fatal.
-  Future<void> _persist(PacketsState packetsState) async {
-    try {
-      await _repo.saveCache(packetsState);
-    } catch (_) {}
-    ref.invalidate(hasCachedPacketsProvider);
+  // ── Cache writes ───────────────────────────────────────────────────────────
+
+  /// Saves the first page of [packetsState] to disk once things settle: the
+  /// write is delayed by [packetCacheWriteDelayProvider] and a newer call
+  /// replaces it, so a burst of changes is written once, with the latest
+  /// list.  Failures are non-fatal.
+  void _persist(PacketsState packetsState) {
+    _pendingWrite = packetsState;
+    _writeTimer?.cancel();
+    // Captured now: when the timer fires, `ref` may be unusable (between a
+    // dependency change and the rebuild, or after disposal).
+    final repo = _repo;
+    _writeTimer = Timer(_writeDelay, () => _flushWrite(repo));
   }
+
+  /// Writes the pending snapshot now, if there is one.
+  void _flushWrite(PacketRepository repo) {
+    _writeTimer?.cancel();
+    _writeTimer = null;
+    final pending = _pendingWrite;
+    _pendingWrite = null;
+    if (pending == null) return;
+    unawaited(_write(repo, pending));
+  }
+
+  void _dropWrite() {
+    _writeTimer?.cancel();
+    _writeTimer = null;
+    _pendingWrite = null;
+  }
+
+  Future<void> _write(PacketRepository repo, PacketsState packetsState) async {
+    try {
+      await repo.saveCache(_cacheSnapshot(packetsState));
+    } catch (_) {}
+  }
+
+  /// The part of [packetsState] worth caching: the first page (at most
+  /// [PacketCache.maxPackets] packets) and the cursor to fetch the rest with.
+  ///
+  /// The cache exists to show something instantly on the next start; older
+  /// pages are fetched again when the user scrolls to them.  A list that fits
+  /// is saved whole, with its own cursor.
+  PacketsState _cacheSnapshot(PacketsState packetsState) {
+    final packets = packetsState.packets;
+    if (packets.length <= PacketCache.maxPackets) return packetsState;
+    return packetsState.copyWith(
+      packets: List.unmodifiable(packets.sublist(0, PacketCache.maxPackets)),
+      nextCursor: () => _firstPageCursor,
+    );
+  }
+
+  // ── Loading and changes ────────────────────────────────────────────────────
 
   /// Loads the next page and appends it to the current list.
   ///
@@ -201,7 +318,7 @@ class PacketsNotifier extends AsyncNotifier<PacketsState> {
         isLoadingMore: false,
       );
       state = AsyncData(merged);
-      await _persist(merged);
+      _persist(merged);
       return true;
     } catch (e) {
       if (generation == _generation) {
@@ -249,7 +366,7 @@ class PacketsNotifier extends AsyncNotifier<PacketsState> {
       packets: mergePackets([created], latest.packets),
     );
     state = AsyncData(updated);
-    await _persist(updated);
+    _persist(updated);
     return true;
   }
 
@@ -270,7 +387,7 @@ class PacketsNotifier extends AsyncNotifier<PacketsState> {
       packets: mergePackets([packet], latest.packets),
     );
     state = AsyncData(updated);
-    await _persist(updated);
+    _persist(updated);
   }
 
   /// Removes a packet deleted on another device (or echoed back after this
@@ -290,7 +407,7 @@ class PacketsNotifier extends AsyncNotifier<PacketsState> {
       packets: List.unmodifiable(latest.packets.where((p) => p.id != id)),
     );
     state = AsyncData(updated);
-    await _persist(updated);
+    _persist(updated);
   }
 
   /// Removes a packet from the list without deleting it yet, so the deletion
@@ -314,7 +431,7 @@ class PacketsNotifier extends AsyncNotifier<PacketsState> {
       packets: List.unmodifiable(latest.packets.where((p) => p.id != id)),
     );
     state = AsyncData(updated);
-    unawaited(_persist(updated));
+    _persist(updated);
     return true;
   }
 
@@ -342,7 +459,7 @@ class PacketsNotifier extends AsyncNotifier<PacketsState> {
     final packets = [...latest.packets]..insert(index, hidden.packet);
     final updated = latest.copyWith(packets: List.unmodifiable(packets));
     state = AsyncData(updated);
-    unawaited(_persist(updated));
+    _persist(updated);
   }
 
   /// Deletes a packet on the server, hiding it first if it's still listed.
@@ -402,6 +519,9 @@ class PacketsNotifier extends AsyncNotifier<PacketsState> {
     final latest = state.valueOrNull;
     final listedIds = {...?latest?.packets.map((p) => p.id)};
 
+    // Either way the list now starts with this page, so the cached first
+    // page continues from its cursor.
+    _firstPageCursor = fresh.nextCursor;
     final PacketsState synced;
     if (latest == null || !page.packets.any((p) => listedIds.contains(p.id))) {
       _generation++;
@@ -413,7 +533,7 @@ class PacketsNotifier extends AsyncNotifier<PacketsState> {
       );
     }
     state = AsyncData(synced);
-    await _persist(synced);
+    _persist(synced);
   }
 
   /// Manually refresh the packets list (pull-to-refresh).

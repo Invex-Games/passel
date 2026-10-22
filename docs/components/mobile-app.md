@@ -11,7 +11,9 @@
 | `lib/packets/` | The packet model, repository (HTTP and SSE), offline cache, Riverpod providers and widgets |
 | `lib/theme/` | The Material 3 theme, used when the device doesn't provide dynamic colour |
 
-State lives in Riverpod providers. `packetsProvider` serves the cached feed first, then refreshes it. `packetLiveUpdatesProvider` keeps the server-sent events stream open while the feed is visible, the user is signed in, and the app is in the foreground. Every `resync` event triggers a fresh fetch of the latest packets. The feed is cached in `shared_preferences`, so it can still be browsed offline.
+State lives in Riverpod providers. `packetsProvider` serves the cached feed first, then refreshes it. It keeps the whole loaded list in memory across sign-in and an expired session, and drops it when the user's local data is cleared (`userDataGenerationProvider`, bumped on sign-out and when a different account signs in). `packetLiveUpdatesProvider` keeps the server-sent events stream open while the feed is visible, the user is signed in, and the app is in the foreground. Every `resync` event triggers a fresh fetch of the latest packets.
+
+The feed is cached in `shared_preferences`, so it can still be browsed offline. The cache holds the first page only: at most 50 packets (`PacketCache.maxPackets`) and the cursor that followed the first page, so older pages are fetched again when the user scrolls to them. Writes are debounced by 300 ms (`packetCacheWriteDelayProvider`), so a burst of live events is written once, and the cache is parsed once at start-up by `cachedPacketsProvider`, which the start-up router and the feed share.
 
 Sign-in asks Google for a token for the **web** client (`SERVER_CLIENT_ID`), which the API accepts as its main audience. The token is kept in memory only.
 
