@@ -8,14 +8,13 @@
     "dev:watch": "node build.mjs --dev --watch",
     "build": "tsc --noEmit && vitest run && node build.mjs",
     "typecheck": "tsc --noEmit",
-    "clean": "powershell -Command \"Remove-Item dist,out -Recurse -Force -ErrorAction SilentlyContinue; exit 0\"",
-    "package": "npm run clean && npm run build && powershell -Command \"New-Item -ItemType Directory -Path out -Force | Out-Null; Compress-Archive -Path dist/* -DestinationPath out/passel.zip -Force\"",
+    "clean": "node -e \"for (const dir of ['dist', 'out']) require('fs').rmSync(dir, {recursive: true, force: true})\"",
     "test": "vitest run"
   },
   "devDependencies": {
     "@types/chrome": "^0.0.304",
-    "esbuild": "^0.28.0",
+    "esbuild": "^0.28.2",
     "typescript": "^5.8.3",
-    "vitest": "^3.2.7"
+    "vitest": "^5.0.5"
   }
 }
