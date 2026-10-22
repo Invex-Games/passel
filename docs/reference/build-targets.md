@@ -12,7 +12,7 @@ Parameters can be passed on the command line (`--mobile-app-flavor production`),
 | `Test` | Runs `TestWebApi`, `TestChromeExtension` and `TestMobileApp` |
 | `TestWebApi` | `dotnet test` on the Web API unit tests, then on the integration tests, which start PostgreSQL in a Docker container |
 | `TestChromeExtension` | Type-checks the extension and runs Vitest |
-| `TestMobileApp` | `flutter analyze` and `flutter test` |
+| `TestMobileApp` | `flutter analyze` and `flutter test --coverage`; keeps the lcov report in `atom-publish/MobileAppCoverage` |
 | `BuildDocs` | Builds this site into `_site/` and `atom-publish/GeneratedDocs` |
 | `ServeDocs` | Builds the docs and serves them at `http://localhost:8080` |
 | `Gen` | Regenerates the GitHub workflows and Dependabot configuration under `.github/` from `_atom/IBuild.cs`; see [Continuous Integration](../guides/ci.md) |
