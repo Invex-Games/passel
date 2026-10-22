@@ -36,12 +36,32 @@ class AppConfig {
 
   static const String appClientId = String.fromEnvironment('APP_CLIENT_ID');
 
-  /// The base URL for the Passel API.
+  /// The base URL for the Passel API, as this device can reach it.
+  ///
+  /// The production flavor requires `https://`. The development flavor also
+  /// accepts `http://` to one of [cleartextHosts]: `localhost` for a phone on
+  /// USB with `adb reverse tcp:5218 tcp:5218`, `10.0.2.2` for an emulator.
   /// Override at build time:
   /// ```
   /// --dart-define=API_BASE_URL=https://my-custom-host.example.com
   /// ```
   static const String apiBaseUrl = String.fromEnvironment('API_BASE_URL');
+
+  /// A Dev Tunnels access token, sent as `X-Tunnel-Authorization` with every
+  /// request when the API is reached through a tunnel that doesn't allow
+  /// anonymous access. Development flavor only; empty when unset.
+  static const String tunnelAccessToken =
+      String.fromEnvironment('TUNNEL_ACCESS_TOKEN');
+
+  /// The hosts the development flavor may reach over plain `http://`: the
+  /// developer's machine as seen through `adb reverse` or from an emulator.
+  /// Mirrors `android/app/src/development/res/xml/network_security_config.xml`,
+  /// which is what actually permits the cleartext traffic.
+  static const List<String> cleartextHosts = [
+    'localhost',
+    '127.0.0.1',
+    '10.0.2.2',
+  ];
 
   /// Default API version sent with every request.
   static const String apiVersion = '1';
@@ -65,12 +85,70 @@ class AppConfig {
     return Uri.parse(endpoint).replace(queryParameters: merged);
   }
 
+  // ── validation ───────────────────────────────────────────────────────
+
   /// Names of the required values that weren't passed at build time (e.g.
   /// the app was run without `--dart-define-from-file=.env`).
   static List<String> get missingKeys => [
         if (apiBaseUrl.isEmpty) 'API_BASE_URL',
         if (serverClientId.isEmpty) 'SERVER_CLIENT_ID',
       ];
+
+  /// Values that were passed at build time but can't be used in this flavor,
+  /// keyed by name, each with the reason.
+  static Map<String, String> get invalidValues => validate(
+        flavor: flavor,
+        apiBaseUrl: apiBaseUrl,
+        tunnelAccessToken: tunnelAccessToken,
+      );
+
+  /// Whether the build carries everything the app needs. When it doesn't,
+  /// [missingKeys] and [invalidValues] say what is wrong.
+  static bool get isValid => missingKeys.isEmpty && invalidValues.isEmpty;
+
+  /// The checks behind [invalidValues], with the values passed in so they
+  /// can be exercised for either flavor.
+  ///
+  /// The production flavor only talks to the API over `https://`, and never
+  /// carries a tunnel token (a development credential that would otherwise be
+  /// compiled into a store build). The development flavor may use `http://`
+  /// for [cleartextHosts] only, since Android blocks cleartext to anything
+  /// else and the failure would otherwise look like a network error.
+  static Map<String, String> validate({
+    required String flavor,
+    required String apiBaseUrl,
+    required String tunnelAccessToken,
+  }) {
+    final production = flavor == 'production';
+    final apiBaseUrlProblem = apiBaseUrl.isEmpty
+        ? null
+        : _apiBaseUrlProblem(apiBaseUrl, production: production);
+
+    return {
+      if (apiBaseUrlProblem != null) 'API_BASE_URL': apiBaseUrlProblem,
+      if (production && tunnelAccessToken.isNotEmpty)
+        'TUNNEL_ACCESS_TOKEN':
+            'must not be set in the production flavor; it is a development '
+                'tunnel credential',
+    };
+  }
+
+  static String? _apiBaseUrlProblem(String url, {required bool production}) {
+    final uri = Uri.tryParse(url);
+    final scheme = uri?.scheme;
+    if (scheme == 'https') return null;
+    if (production) {
+      return 'must be an https:// URL in the production flavor';
+    }
+    final hosts = cleartextHosts.join(', ');
+    if (scheme == 'http') {
+      final host = uri!.host;
+      if (cleartextHosts.contains(host)) return null;
+      return 'may use http:// only for $hosts (a phone on USB or an '
+          'emulator); $host needs https://';
+    }
+    return 'must be an https:// URL, or an http:// URL to $hosts';
+  }
 
   static bool get isDev => flavor == 'development';
 
