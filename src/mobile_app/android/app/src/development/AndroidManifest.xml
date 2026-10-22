@@ -1,0 +1,8 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Development flavor only. The network security configuration lets the app
+         reach the API over plain HTTP on the developer's machine: localhost through
+         `adb reverse tcp:5218 tcp:5218` on a USB-attached phone, 10.0.2.2 from an
+         emulator. The production flavor has no such configuration, so it keeps the
+         platform default of blocking cleartext everywhere. -->
+    <application android:networkSecurityConfig="@xml/network_security_config"/>
+</manifest>

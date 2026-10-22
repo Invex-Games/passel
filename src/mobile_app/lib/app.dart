@@ -29,11 +29,14 @@ class MyApp extends StatelessWidget {
           darkTheme: darkDynamic != null
               ? fallbackTheme.theme(darkDynamic)
               : fallbackTheme.dark(),
-          // Without its configuration the app can't sign in or reach the API,
-          // so explain how to fix the build instead of failing later.
-          home: AppConfig.missingKeys.isNotEmpty
-              ? ConfigErrorPage(missingKeys: AppConfig.missingKeys)
-              : const StartupRouter(),
+          // Without a usable configuration the app can't sign in or reach the
+          // API, so explain how to fix the build instead of failing later.
+          home: AppConfig.isValid
+              ? const StartupRouter()
+              : ConfigErrorPage(
+                  missingKeys: AppConfig.missingKeys,
+                  invalidValues: AppConfig.invalidValues,
+                ),
         );
       },
     );

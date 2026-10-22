@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 
 import '../api/errors.dart';
+import '../config/app_config.dart';
 import 'auth_service.dart';
 
 /// Supplies a Bearer token; [forceRefresh] discards the cached token first
@@ -39,15 +40,11 @@ Future<T> sendWithAuthRetry<T extends http.BaseResponse>(
       return send(await tokenProvider(forceRefresh: true));
     });
 
-/// Shared HTTP client that does **not** follow redirects.
-///
-/// The API answers unauthenticated requests with 401, but if a proxy or
-/// misconfiguration ever redirects to a sign-in page we want to catch the 3xx
-/// in [validateResponse] instead of parsing a 200 HTML page as JSON.
+/// Shared HTTP client for API requests; see [ApiClient].
 final apiClientProvider = Provider<http.Client>((ref) {
   final inner = http.Client();
   ref.onDispose(inner.close);
-  return _NoRedirectClient(inner);
+  return ApiClient(inner);
 });
 
 /// Throws if [response] indicates a failure.
@@ -86,16 +83,40 @@ void validateResponse(http.Response response, {String context = 'Request'}) {
   throw ApiException.fromResponse(response, context: context);
 }
 
-// ── Private ─────────────────────────────────────────────────────────────────
+// ── API client ──────────────────────────────────────────────────────────────
 
-/// Wraps an [http.Client] and sets `followRedirects: false` on every request.
-class _NoRedirectClient extends http.BaseClient {
-  _NoRedirectClient(this._inner);
+/// Wraps an [http.Client] for requests to the API.
+///
+/// Every request is sent with `followRedirects: false`: the API answers
+/// unauthenticated requests with 401, but if a proxy or misconfiguration ever
+/// redirects to a sign-in page we want to catch the 3xx in [validateResponse]
+/// instead of parsing a 200 HTML page as JSON.
+///
+/// When [tunnelAccessToken] is set (the `TUNNEL_ACCESS_TOKEN` dart-define),
+/// every request also carries `X-Tunnel-Authorization: tunnel <token>`, which
+/// is how a Dev Tunnels tunnel that doesn't allow anonymous access lets a
+/// client through. The token is meant for the tunnel service in front of the
+/// API, so a development build only sets it when its API URL is a tunnel.
+class ApiClient extends http.BaseClient {
+  ApiClient(
+    this._inner, {
+    this.tunnelAccessToken = AppConfig.tunnelAccessToken,
+  });
+
+  /// The header a Dev Tunnels tunnel reads an access token from.
+  static const String tunnelAuthorizationHeader = 'X-Tunnel-Authorization';
+
   final http.Client _inner;
+
+  /// The Dev Tunnels access token to send, or empty for none.
+  final String tunnelAccessToken;
 
   @override
   Future<http.StreamedResponse> send(http.BaseRequest request) {
     request.followRedirects = false;
+    if (tunnelAccessToken.isNotEmpty) {
+      request.headers[tunnelAuthorizationHeader] = 'tunnel $tunnelAccessToken';
+    }
     return _inner.send(request);
   }
 }

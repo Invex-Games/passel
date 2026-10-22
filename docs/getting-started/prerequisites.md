@@ -9,8 +9,8 @@
 | [Docker](https://docs.docker.com/get-started/get-docker/) | The PostgreSQL container the AppHost starts | Yes |
 | [Node.js](https://nodejs.org/) (with npm) | The Chrome extension | Yes |
 | [Aspire CLI](https://aspire.dev/get-started/install-cli/) | `aspire run` (`dotnet run --project src/webapi/Invex.Passel.AppHost` works without it) | No |
-| [Flutter](https://docs.flutter.dev/get-started/install) and the Android SDK | The mobile app | Mobile work only |
-| [Dev Tunnels CLI](https://learn.microsoft.com/azure/developer/dev-tunnels/get-started) | Reaching your local API from a phone | Mobile work only |
+| [Flutter](https://docs.flutter.dev/get-started/install) and the Android SDK | The mobile app; the SDK's `adb` connects a phone on USB to your local API | Mobile work only |
+| [Dev Tunnels CLI](https://learn.microsoft.com/azure/developer/dev-tunnels/get-started) | Reaching your local API from a phone that is not on USB | Only for that |
 
 The API's HTTPS endpoint also needs a trusted ASP.NET Core development certificate:
 

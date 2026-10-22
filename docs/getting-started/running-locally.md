@@ -19,7 +19,7 @@ The Aspire dashboard opens at `https://localhost:17106`. It asks for a login tok
 | `passel-pg` | PostgreSQL in Docker, with pgweb for browsing data. The container is persistent, so data survives AppHost restarts. |
 | `invex-passel-webapi` | The API at `https://localhost:7030`. It waits for the database. |
 | `chrome-extension` | The extension's watch build. It rebuilds `src/chrome-extension/dist` on every change. |
-| `passel-api-tunnel` | A dev tunnel giving the API a public HTTPS URL that physical devices can reach. |
+| `passel-api-tunnel` | A dev tunnel giving the API a public HTTPS URL, for a phone that is not on USB. It doesn't start with the AppHost: start it from the dashboard when you need it, see [the dev tunnel](#a-phone-that-is-not-on-usb-the-dev-tunnel). |
 
 The Google client values are optional in Development. Without them, use the Dev scheme described in [Run without Google](#run-without-google); to sign in with Google, set them in the AppHost's user secrets, see [Google OAuth Clients](google-oauth.md).
 
@@ -56,19 +56,46 @@ The AppHost builds the extension against `https://localhost:7030/api/packets`. T
 
 ## Mobile app
 
-A phone can't reach `localhost`, so the app talks to the API through the dev tunnel.
+The app has the API's URL compiled in, as the device will reach it. By default that is your machine over the USB cable; the dev tunnel is only for a phone that is not on USB.
 
-1. The first time, sign in to Dev Tunnels: `devtunnel user login`. The dashboard also prompts you if you aren't signed in.
-2. Copy the `passel-api-tunnel` URL from the dashboard into `API_BASE_URL` in `src/mobile_app/.env`. The URL stays the same between runs, so you only do this once.
-3. Fill in `SERVER_CLIENT_ID` (the web client id) and `APP_CLIENT_ID` (the Android client id).
-4. Run the **Mobile app (development)** launch configuration in VS Code, or run:
+### A phone on USB, or an emulator
+
+1. Fill in `src/mobile_app/.env` (`SetupDevEnvironment` creates it from `.env.example`): keep `API_BASE_URL=http://localhost:5218`, and set `SERVER_CLIENT_ID` (the web client id) and `APP_CLIENT_ID` (the Android client id).
+2. Plug the phone in with USB debugging on, and make its port 5218 reach your machine:
+
+   ```
+   adb reverse tcp:5218 tcp:5218
+   ```
+
+   The forward lasts until the phone is unplugged or restarted, so run it again after that. With more than one device attached, add `-s <serial>` (`adb devices` lists them). An emulator needs no forward: set `API_BASE_URL=http://10.0.2.2:5218`, the address an emulator reaches its host by.
+3. Run the **Mobile app (development)** launch configuration in VS Code, or run:
 
    ```
    cd src/mobile_app
    flutter run --flavor development --dart-define-from-file=.env
    ```
 
-The development flavor installs as **Passel Dev** (`com.invex.passel.mobileapp.dev`), alongside the production app. If any required value is missing, the app opens on a "missing configuration" page that lists it.
+This works because the API also listens for plain HTTP on port 5218 (the `https` launch profile, see `Properties/launchSettings.json`), and the development flavor of the app allows plain HTTP to `localhost`, `127.0.0.1` and `10.0.2.2` only (`android/app/src/development/res/xml/network_security_config.xml`). The app checks the URL at start-up: the development flavor rejects an `http://` URL to any other host, and the production flavor rejects every `http://` URL, so a store build can never talk to the API in the clear. Nothing leaves your machine; the phone reaches the API through the cable.
 
-> [!NOTE]
-> The tunnel allows anonymous access, so while the AppHost is running your local API is reachable from the internet. Every packet endpoint still requires a valid Google ID token.
+The development flavor installs as **Passel Dev** (`com.invex.passel.mobileapp.dev`), alongside the production app. If a required value is missing, or a value can't be used in that flavor, the app opens on a configuration page that says which.
+
+### A phone that is not on USB: the dev tunnel
+
+The `passel-api-tunnel` resource gives the API a public HTTPS URL. It doesn't start with the AppHost: start it from the dashboard when you need it (the resource's **Start** action), and stop it when you are done.
+
+1. The first time, sign in to Dev Tunnels: `devtunnel user login`. The dashboard also prompts you if you aren't signed in.
+2. Copy the tunnel URL from the dashboard into `API_BASE_URL` in `src/mobile_app/.env`. The URL stays the same between runs.
+3. Run the app as above. The URL is compiled in, so rebuild when you switch between the USB URL and the tunnel URL.
+
+> [!WARNING]
+> While the tunnel runs, anyone with its URL can reach your API, and it is the Development configuration they reach: every packet endpoint, with a Google ID token anyone can mint for their own account; the Development exception page with stack traces; the `Dev <user>` scheme, which signs in as any user without a password; and a database that Marten recreates freely. Scalar, the OpenAPI document and the browser login only answer on `localhost`, so they are not served through the tunnel. The URL is stable, so treat it like a credential: keep it out of screenshots and commits, and stop the tunnel when the phone is back on USB.
+
+#### Requiring a token
+
+To make the tunnel refuse anyone without a token, turn off anonymous access and give the app a token:
+
+1. Set `DevTunnel:AllowAnonymous` to `false` for the AppHost: in its user secrets (`dotnet user-secrets set DevTunnel:AllowAnonymous false --project src/webapi/Invex.Passel.AppHost`), in its git-ignored `appsettings.Development.json`, or as the `DevTunnel__AllowAnonymous` environment variable. Restart the AppHost and start the tunnel.
+2. Issue a token for the tunnel: `devtunnel token <tunnel-id> --scopes connect`. The tunnel id is the resource name followed by a short hash (`passel-api-tunnel-xxxxxxxx`); `devtunnel list` shows it, and it is also the start of the tunnel URL.
+3. Put the token in `TUNNEL_ACCESS_TOKEN` in `.env` and rebuild the app. It sends `X-Tunnel-Authorization: tunnel <token>` with every request, and the tunnel checks it before forwarding. Tokens expire, so repeat the last two steps when the app starts reporting that the session has expired (the tunnel's 401 looks like one to the app).
+
+The production flavor refuses to start with a tunnel token, since it is a development credential that would otherwise be compiled into a store build.

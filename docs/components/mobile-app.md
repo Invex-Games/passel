@@ -8,7 +8,7 @@
 |---|---|
 | `lib/config/` | `AppConfig`, the compile-time configuration, and the page shown when a required value is missing |
 | `lib/api/` | The error types (`ApiException`, `NetworkException`, `SessionExpiredException`, `SignInException`) and `describeError`, which turns any of them into user-facing text |
-| `lib/auth/` | Google Sign-In (`google_sign_in` 7), ID token refresh, and HTTP helpers that retry once on a 401 |
+| `lib/auth/` | Google Sign-In (`google_sign_in` 7), ID token refresh, the API HTTP client (`ApiClient`: never follows redirects, sends the tunnel token when there is one) and helpers that retry once on a 401 |
 | `lib/packets/` | The packet model, repository (HTTP and SSE), offline cache, Riverpod providers and widgets |
 | `lib/theme/` | The Material 3 theme, used when the device doesn't provide dynamic colour |
 
@@ -28,11 +28,14 @@ Values are compiled in with `--dart-define` or `--dart-define-from-file`. Nothin
 
 | Key | Required | Value |
 |---|---|---|
-| `API_BASE_URL` | Yes | The API root, as the device can reach it. Use the dev tunnel URL locally. |
+| `API_BASE_URL` | Yes | The API root, as the device can reach it: `http://localhost:5218` for a phone on USB (with `adb reverse`), `http://10.0.2.2:5218` for an emulator, or the dev tunnel URL. See [Running Locally](../getting-started/running-locally.md#mobile-app). |
 | `SERVER_CLIENT_ID` | Yes | The Google web client id |
 | `APP_CLIENT_ID` | No | The Android client id |
+| `TUNNEL_ACCESS_TOKEN` | No | A Dev Tunnels access token, for a tunnel that doesn't allow anonymous access. Development flavor only. |
 
 Copy `.env.example` to `.env` for local runs. If a value is passed both in the file and with `--dart-define`, the `--dart-define` value wins.
+
+`AppConfig` checks the values at start-up and shows `ConfigErrorPage` instead of the app when one is missing or can't be used in the flavor: the production flavor needs an `https://` API URL and refuses a tunnel token, and the development flavor allows an `http://` URL only to `localhost`, `127.0.0.1` and `10.0.2.2`, the hosts its network security configuration permits cleartext to.
 
 ## Flavors
 
@@ -40,5 +43,7 @@ Copy `.env.example` to `.env` for local runs. If a value is passed both in the f
 |---|---|---|---|
 | `development` | `com.invex.passel.mobileapp.dev` | Passel Dev | The release key if one is configured, otherwise debug keys |
 | `production` | `com.invex.passel.mobileapp` | Passel | The release keystore, from the `SIGNING_RELEASE_*` environment variables |
+
+The development flavor also carries a network security configuration (`android/app/src/development/res/xml/network_security_config.xml`, applied by that flavor's manifest) that permits plain HTTP to `localhost`, `127.0.0.1` and `10.0.2.2`, so a phone on USB and an emulator reach the local API without a tunnel or a trusted certificate. The production flavor has no such configuration and keeps the platform default, which blocks cleartext everywhere.
 
 `dotnet atom BuildMobileAppAndroid --mobile-app-flavor production` builds an obfuscated app bundle and packages its symbols. The development flavor builds a debug APK. See [Build Targets](../reference/build-targets.md).
