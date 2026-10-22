@@ -40,6 +40,32 @@ public sealed class PacketResponseTests
         Assert.Equal(CreatedAt, link.CreatedAt);
         Assert.Equal("Example", link.Name);
         Assert.Equal("https://example.com", link.Url);
+        Assert.Null(link.Preview);
+    }
+
+    [Fact]
+    public void A_link_carries_its_preview_once_it_has_one()
+    {
+        var packet = Stored(new PacketContent.Link
+        {
+            Name = "Example",
+            Url = "https://example.com",
+            Preview = new()
+            {
+                Title = "Example Domain",
+                Description = null,
+                ImageUrl = "https://example.com/og.png",
+                FetchedAt = CreatedAt.AddSeconds(2),
+            },
+        });
+
+        var link = Assert.IsType<PacketEndpoints.PacketResponse.Link>(PacketEndpoints.PacketResponse.From(packet, Encoder));
+
+        Assert.NotNull(link.Preview);
+        Assert.Equal("Example Domain", link.Preview.Title);
+        Assert.Null(link.Preview.Description);
+        Assert.Equal("https://example.com/og.png", link.Preview.ImageUrl);
+        Assert.Equal(CreatedAt.AddSeconds(2), link.Preview.FetchedAt);
     }
 
     [Fact]
@@ -93,6 +119,6 @@ public sealed class PacketResponseTests
             new JsonSerializerOptions(JsonSerializerDefaults.Web));
 
         Assert.StartsWith($"{{\"$type\":\"Link\",\"id\":\"{Encoder.Encode(packet.Id)}\",\"createdAt\":\"2026-10-22T11:03:08+00:00\",", json);
-        Assert.EndsWith("\"name\":\"Example\",\"url\":\"https://example.com\"}", json);
+        Assert.EndsWith("\"name\":\"Example\",\"url\":\"https://example.com\",\"preview\":null}", json);
     }
 }

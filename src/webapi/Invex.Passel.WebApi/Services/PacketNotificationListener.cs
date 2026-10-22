@@ -155,9 +155,10 @@ internal sealed partial class PacketNotificationListener(
     }
 
     /// <summary>
-    ///     Publishes one batch of notifications: the created packets of users with a stream open on this instance are
-    ///     loaded with a single query, deletes need no load, and the events go out in the order the notifications
-    ///     arrived. When the load fails, each affected user gets one resync in place of their created packets.
+    ///     Publishes one batch of notifications: the created and updated packets of users with a stream open on this
+    ///     instance are loaded with a single query, deletes need no load, and the events go out in the order the
+    ///     notifications arrived. When the load fails, each affected user gets one resync in place of their created
+    ///     and updated packets.
     /// </summary>
     internal static async Task DispatchAsync(
         IReadOnlyList<PacketNotification> batch,
@@ -175,7 +176,8 @@ internal sealed partial class PacketNotificationListener(
 
             wanted.Add(notification);
 
-            if (notification.Change == PacketChange.Created)
+            // A packet created and updated within one batch is loaded once
+            if (notification.Change != PacketChange.Deleted && !idsToLoad.Contains(notification.PacketId))
                 idsToLoad.Add(notification.PacketId);
         }
 
@@ -214,8 +216,12 @@ internal sealed partial class PacketNotificationListener(
                      packet.UserId == notification.UserId)
             {
                 // A packet deleted since it was announced is simply gone, and a notification that names another
-                // user's packet is ignored
-                hub.Publish(notification.UserId, new PacketEvent.Created(packet));
+                // user's packet is ignored. Both events carry the packet as it is now, so a create announced after
+                // its preview arrived already shows the preview, and the update repeats it
+                hub.Publish(notification.UserId,
+                    notification.Change == PacketChange.Updated
+                        ? new PacketEvent.Updated(packet)
+                        : new PacketEvent.Created(packet));
             }
         }
     }

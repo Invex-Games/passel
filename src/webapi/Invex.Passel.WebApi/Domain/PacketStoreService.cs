@@ -1,3 +1,4 @@
+using Marten.Exceptions;
 using Npgsql;
 
 namespace Invex.Passel.WebApi.Domain;
@@ -12,15 +13,23 @@ internal interface IPacketStoreService
     ///     Returns <c>false</c> if the user has no such packet.
     /// </summary>
     Task<bool> Handle(DeletePacket command);
+
+    /// <summary>
+    ///     Stores the preview on the user's link and announces the update. Returns <c>false</c>, and writes nothing,
+    ///     when the user has no such link any more: deleted since its page was fetched, which is no error.
+    /// </summary>
+    Task<bool> Handle(SetLinkPreview command);
 }
 
 /// <summary>
-///     Writes packets as documents: one upsert to create, one delete to remove, and a notification after each commit
-///     for the live streams.
+///     Writes packets as documents: one upsert to create, one delete to remove, one update to attach a link's
+///     preview, and a notification after each commit for the live streams. A link's page is queued for fetching
+///     once the link is committed.
 /// </summary>
 internal sealed partial class PacketStoreService(
     IDocumentSession session,
     NpgsqlDataSource dataSource,
+    ILinkPreviewQueue previewQueue,
     ILogger<PacketStoreService> logger) : IPacketStoreService
 {
     public Task<Packet> Handle(CreateTextPacket command) =>
@@ -31,13 +40,22 @@ internal sealed partial class PacketStoreService(
                 Body = command.Body,
             });
 
-    public Task<Packet> Handle(CreateLinkPacket command) =>
-        StoreAsync(command.UserId,
+    public async Task<Packet> Handle(CreateLinkPacket command)
+    {
+        var packet = await StoreAsync(command.UserId,
             new PacketContent.Link
             {
                 Name = command.Title,
                 Url = command.Url,
             });
+
+        // The page is fetched in the background, after the commit, so a slow or dead site never holds up the create
+        // and a rolled-back link is never fetched for. The queue says no when previews are off or it is full, and
+        // the link then simply has no preview
+        previewQueue.TryEnqueue(new(packet.Id, command.UserId, command.Url));
+
+        return packet;
+    }
 
     public async Task<bool> Handle(DeletePacket command)
     {
@@ -52,6 +70,42 @@ internal sealed partial class PacketStoreService(
 
         await session.SaveChangesAsync();
         await NotifyAsync(new(command.UserId, command.PacketId, PacketChange.Deleted));
+
+        return true;
+    }
+
+    public async Task<bool> Handle(SetLinkPreview command)
+    {
+        var packet = await session.LoadAsync<Packet>(command.PacketId);
+
+        if (packet is null || packet.UserId != command.UserId || packet.Content is not PacketContent.Link link)
+            return false;
+
+        var updated = new Packet
+        {
+            Id = packet.Id,
+            UserId = packet.UserId,
+            CreatedAt = packet.CreatedAt,
+            Content = link with
+            {
+                Preview = command.Preview,
+            },
+        };
+
+        // An update, not a store: a store is an upsert, which would bring back a link deleted between the load
+        // above and the save. Marten refuses to update a document that is gone, and the preview goes with it
+        session.Update(updated);
+
+        try
+        {
+            await session.SaveChangesAsync();
+        }
+        catch (NonExistentDocumentException)
+        {
+            return false;
+        }
+
+        await NotifyAsync(new(command.UserId, command.PacketId, PacketChange.Updated));
 
         return true;
     }

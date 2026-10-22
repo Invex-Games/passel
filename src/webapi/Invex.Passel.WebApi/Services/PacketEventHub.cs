@@ -11,6 +11,11 @@ internal partial record PacketEvent
     partial record Deleted(Guid PacketId);
 
     /// <summary>
+    ///     The packet changed after it was created (a link got its preview); carries it as it is now.
+    /// </summary>
+    partial record Updated(Packet Packet);
+
+    /// <summary>
     ///     Packets may have been missed (e.g. the database listener reconnected), so the client should re-fetch.
     /// </summary>
     partial record Resync();
