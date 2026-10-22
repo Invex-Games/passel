@@ -6,6 +6,13 @@ export interface ServerSentEvent {
 }
 
 /**
+ * The most text the parser holds for an event still being received (the unfinished line plus the data lines
+ * before it), in UTF-16 code units: about 1 MB. The API's events are a few KB at most, so anything larger is
+ * a broken or hostile stream, and the parser gives up rather than grow without bound.
+ */
+export const MAX_BUFFER_LENGTH = 1024 * 1024;
+
+/**
  * Incrementally decodes a `text/event-stream` body, following the parsing rules of the HTML
  * Server-Sent Events spec: comments (`:` lines) and unknown fields are ignored, and an event
  * without `data:` is not emitted. Feed it decoded text in chunks of any size.
@@ -14,8 +21,13 @@ export class ServerSentEventParser {
     private buffer = "";
     private event = "";
     private data: string[] = [];
+    /** The length of the data lines collected so far for the current event. */
+    private dataLength = 0;
 
-    /** Adds a chunk of the body and returns the events it completed. */
+    /**
+     * Adds a chunk of the body and returns the events it completed. Throws once an event has grown past
+     * MAX_BUFFER_LENGTH without completing; the stream should then be dropped and reconnected.
+     */
     push(chunk: string): ServerSentEvent[] {
         this.buffer += chunk;
         const events: ServerSentEvent[] = [];
@@ -31,6 +43,10 @@ export class ServerSentEventParser {
         }
         this.buffer = this.buffer.slice(start);
 
+        if (this.buffer.length + this.dataLength > MAX_BUFFER_LENGTH) {
+            throw new Error(`The event stream sent an event longer than ${MAX_BUFFER_LENGTH} characters`);
+        }
+
         return events;
     }
 
@@ -41,6 +57,7 @@ export class ServerSentEventParser {
                 : null;
             this.event = "";
             this.data = [];
+            this.dataLength = 0;
             return event;
         }
 
@@ -51,8 +68,12 @@ export class ServerSentEventParser {
         let value = colon === -1 ? "" : line.slice(colon + 1);
         if (value.startsWith(" ")) value = value.slice(1);
 
-        if (field === "event") this.event = value;
-        else if (field === "data") this.data.push(value);
+        if (field === "event") {
+            this.event = value;
+        } else if (field === "data") {
+            this.data.push(value);
+            this.dataLength += value.length;
+        }
 
         return null;
     }

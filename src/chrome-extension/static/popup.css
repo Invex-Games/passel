@@ -205,10 +205,23 @@ main {
     padding: 16px 16px 20px;
 }
 
-/* ── Composer ──────────────────────────────────────────── */
+/* ── Signed out ────────────────────────────────────────── */
 #auth-signed-out {
     margin-bottom: 12px;
 }
+
+.intro {
+    font-size: 13px;
+    line-height: 1.45;
+    text-align: center;
+    color: var(--md-sys-color-on-surface-variant);
+}
+
+.intro a {
+    color: var(--md-sys-color-primary);
+}
+
+/* ── Composer ──────────────────────────────────────────── */
 
 .composer-row {
     display: flex;
@@ -237,6 +250,8 @@ main {
 }
 
 .feed-list {
+    /* The copy menu is positioned against the list. */
+    position: relative;
     display: flex;
     flex-direction: column;
     gap: 8px;
@@ -246,6 +261,15 @@ main {
     position: relative;
     border-radius: var(--md-sys-shape-corner-large);
     background: color-mix(in srgb, var(--md-sys-color-primary-container) 40%, transparent);
+    /* Tiles well below the fold are neither laid out nor painted until scrolled near; until then they take
+       a typical tile's height (or their own, once rendered). Note this contains paint, so nothing inside a
+       tile may overflow it. */
+    content-visibility: auto;
+    contain-intrinsic-size: auto 96px;
+}
+
+/* Only packets that arrive while the popup is open slide in; a cached render would otherwise animate every tile. */
+.packet.arrived {
     animation: slideIn 0.2s ease-out;
 }
 
@@ -338,8 +362,8 @@ main {
 
 /* ── Copy menu ─────────────────────────────────────────── */
 .menu {
+    /* Appended to .feed-list; popup.ts sets `top` from the tile the menu belongs to. */
     position: absolute;
-    top: 40px;
     right: 8px;
     z-index: 10;
     display: flex;
@@ -370,7 +394,6 @@ main {
 .menu button:hover,
 .menu button:focus-visible {
     background: var(--md-sys-color-surface-container-high);
-    outline: none;
 }
 
 .menu-detail {
@@ -409,6 +432,7 @@ main {
 }
 
 /* ── Toast (snackbar) ──────────────────────────────────── */
+/* All of the popup's feedback goes through the toast. It overlays the bottom of the popup, so it never shifts the layout. */
 .toast {
     position: fixed;
     left: 12px;
@@ -427,6 +451,16 @@ main {
     font-size: 14px;
     box-shadow: 0 3px 8px rgba(0, 0, 0, 0.25);
     animation: slideIn 0.15s ease-out;
+}
+
+.toast.success {
+    background: var(--md-sys-color-tertiary-container);
+    color: var(--md-sys-color-on-tertiary-container);
+}
+
+.toast.error {
+    background: var(--md-sys-color-error-container);
+    color: var(--md-sys-color-on-error-container);
 }
 
 .toast-message {
@@ -621,28 +655,6 @@ main {
     color: var(--md-sys-color-on-surface-variant);
 }
 
-/* ── Status Bar (snackbar-style) ───────────────────────── */
-.status-bar {
-    flex-shrink: 0;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 12px 20px;
-    font-size: 14px;
-    letter-spacing: 0.02em;
-    animation: slideIn 0.2s ease-out;
-}
-
-.status-bar.success {
-    background: var(--md-sys-color-tertiary-container);
-    color: var(--md-sys-color-on-tertiary-container);
-}
-
-.status-bar.error {
-    background: var(--md-sys-color-error-container);
-    color: var(--md-sys-color-on-error-container);
-}
-
 .hidden {
     display: none !important;
 }
@@ -695,6 +707,29 @@ main {
     animation: spin 0.7s linear infinite;
 }
 
+/* ── Keyboard focus ────────────────────────────────────── */
+/* The MD3 focus indicator: a ring in the secondary colour, just outside the control. */
+.md-btn:focus-visible,
+.text-btn:focus-visible,
+.toast-action:focus-visible,
+.intro a:focus-visible {
+    outline: 3px solid var(--md-sys-color-secondary);
+    outline-offset: 2px;
+}
+
+/* Icon buttons sit in tight headers, so the ring hugs the circle. */
+.md-btn-icon:focus-visible {
+    outline: 3px solid var(--md-sys-color-secondary);
+    outline-offset: 0;
+}
+
+/* Menu items fill the menu's width, so the ring goes inside the item. */
+.menu button:focus-visible {
+    outline: 3px solid var(--md-sys-color-secondary);
+    outline-offset: -3px;
+}
+
+/* The composer before the session is known (see popup.html). */
 .disabled-section {
     opacity: 0.38;
     pointer-events: none;

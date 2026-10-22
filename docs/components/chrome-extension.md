@@ -4,7 +4,7 @@
 
 ## What it does
 
-- **Popup:** sign in and out, send the current page, send typed text or a link, and browse the live packet feed. Tiles can be opened, copied or deleted, and a delete can be undone for 4 seconds.
+- **Popup:** sign in and out, send the current page, send typed text or a link, and browse the live packet feed. Tiles can be opened, copied or deleted, and a delete can be undone for 4 seconds. All feedback (send and sign-in results, copies, deletes with their undo) goes through one snackbar that overlays the bottom of the popup, so nothing shifts the layout.
 - **Context menus:** send a link, the selected text, or an image's URL.
 
 ## Modules
@@ -20,6 +20,8 @@
 | `packets.ts`, `sse.ts`, `cache.ts` | Parsing, the SSE parser, and the feed cache in `chrome.storage.local`. |
 
 The ID token is kept in `chrome.storage.session`, which is cleared when the browser closes. Only a login hint goes in local storage, so the extension can sign the user back in silently.
+
+The feed cache holds only the first page (50 packets) and the cursor after it, so it never grows as the user scrolls through older pages; the in-memory list keeps every page loaded while the popup is open.
 
 ## Build
 

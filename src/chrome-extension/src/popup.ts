@@ -1,6 +1,6 @@
 import {clearFeedCache, loadFeedCache, saveFeedCache} from "./cache.js";
 import {FeedRequestError, FeedStore, type FeedState} from "./feed.js";
-import {packetDataForInput, tryParseHttpUrl} from "./packets.js";
+import {packetDataForInput, truncateTitle, tryParseHttpUrl} from "./packets.js";
 import {FEED_PORT_NAME} from "./types.js";
 import type {
     AuthStateResponse,
@@ -25,8 +25,17 @@ const UNDO_DELETE_MS = 4000;
 /** How often the popup pings the service worker so it stays alive to forward live updates. */
 const KEEP_ALIVE_INTERVAL_MS = 20_000;
 
+/**
+ * A resync after the stream reconnects waits up to this long before refetching, so popups that all lost the
+ * stream at the same moment (a server restart) don't all hit the API at once.
+ */
+const MAX_RESYNC_DELAY_MS = 3000;
+
 /** Older packets start loading once the end of the feed is this close to being scrolled into view. */
 const LOAD_MORE_THRESHOLD_PX = 200;
+
+/** Where the copy menu opens, measured from the top of its tile: just under the tile's header. */
+const MENU_TOP_PX = 40;
 
 // ── DOM references ────────────────────────────────────────
 
@@ -34,7 +43,6 @@ const mainEl = document.getElementById("main") as HTMLElement;
 const sendPageBtn = document.getElementById("send-page") as HTMLButtonElement;
 const sendTextBtn = document.getElementById("send-text") as HTMLButtonElement;
 const freetextEl = document.getElementById("freetext") as HTMLTextAreaElement;
-const statusEl = document.getElementById("status") as HTMLDivElement;
 const signInBtn = document.getElementById("sign-in-btn") as HTMLButtonElement;
 const signOutBtn = document.getElementById("sign-out-btn") as HTMLButtonElement;
 const refreshBtn = document.getElementById("refresh-btn") as HTMLButtonElement;
@@ -42,7 +50,7 @@ const syncLabelEl = document.getElementById("sync-label") as HTMLSpanElement;
 const authSignedOut = document.getElementById("auth-signed-out") as HTMLElement;
 const authSignedIn = document.getElementById("auth-signed-in") as HTMLElement;
 const userEmailEl = document.getElementById("user-email") as HTMLSpanElement;
-const authRequiredSections = document.querySelectorAll<HTMLElement>(".auth-required");
+const composerEl = document.getElementById("composer") as HTMLElement;
 const feedSection = document.querySelector(".feed") as HTMLElement;
 const feedList = document.getElementById("feed-list") as HTMLDivElement;
 const feedEnd = document.getElementById("feed-end") as HTMLDivElement;
@@ -102,7 +110,7 @@ async function loadMore(retry = false): Promise<void> {
 function handleFeedError(err: unknown, toastPrefix: string | null): void {
     if (err instanceof FeedRequestError && err.signedOut) {
         setAuthState({signedIn: false});
-        showStatus(err.message, false);
+        showError(err.message);
         return;
     }
     if (toastPrefix) showToast(`${toastPrefix}: ${(err as Error).message}`);
@@ -124,6 +132,10 @@ refreshBtn.addEventListener("click", () => void refreshFeed(true));
 let port: chrome.runtime.Port | null = null;
 let keepAliveTimer: ReturnType<typeof setInterval> | undefined;
 let reconnectTimer: ReturnType<typeof setTimeout> | undefined;
+let resyncTimer: ReturnType<typeof setTimeout> | undefined;
+
+/** Whether a resync has happened since the popup opened: the first one is immediate, later ones are spread out. */
+let resynced = false;
 
 function connectLive(): void {
     if (port) return;
@@ -145,6 +157,7 @@ function connectLive(): void {
 
 function disconnectLive(): void {
     clearTimeout(reconnectTimer);
+    clearTimeout(resyncTimer);
     clearInterval(keepAliveTimer);
     const connected = port;
     port = null;
@@ -165,11 +178,10 @@ function onPortMessage(message: FeedPortMessage): void {
         case "event":
             switch (message.event.kind) {
                 case "resync":
-                    // Catch up on anything created or deleted while not connected.
-                    feed.syncLatest().catch(err => handleFeedError(err, null));
+                    scheduleResync();
                     break;
                 case "created":
-                    feed.applyCreated(message.event.packet);
+                    applyArrived(message.event.packet);
                     break;
                 case "deleted":
                     feed.applyDeleted(message.event.id);
@@ -177,6 +189,24 @@ function onPortMessage(message: FeedPortMessage): void {
             }
             break;
     }
+}
+
+/**
+ * Catches up on anything created or deleted while the stream was down. The first resync after the popup
+ * opens runs at once, so the feed is fresh when the user looks at it; later ones (reconnects) are spread out.
+ */
+function scheduleResync(): void {
+    clearTimeout(resyncTimer);
+    if (!resynced) {
+        resynced = true;
+        syncLatest();
+        return;
+    }
+    resyncTimer = setTimeout(syncLatest, Math.random() * MAX_RESYNC_DELAY_MS);
+}
+
+function syncLatest(): void {
+    feed.syncLatest().catch(err => handleFeedError(err, null));
 }
 
 function setLive(value: boolean): void {
@@ -194,7 +224,9 @@ function setAuthState(state: AuthStateResponse): void {
     authSignedOut.classList.toggle("hidden", signedIn);
     authSignedIn.classList.toggle("hidden", !signedIn);
     refreshBtn.classList.toggle("hidden", !signedIn);
-    authRequiredSections.forEach(s => s.classList.toggle("disabled-section", !signedIn));
+    // Until now the composer was shown disabled (see popup.html); signed out, it isn't shown at all.
+    composerEl.classList.remove("disabled-section");
+    composerEl.classList.toggle("hidden", !signedIn);
     feedSection.classList.toggle("signed-out", !signedIn);
 
     freetextEl.disabled = !signedIn;
@@ -225,12 +257,12 @@ signInBtn.addEventListener("click", async () => {
             await feed.clear();
             loadError = null;
             setAuthState({signedIn: true, email: response.email});
-            showStatus("Signed in!", true);
+            showSuccess("Signed in!");
         } else {
-            showStatus(response?.error || "Sign-in failed.", false);
+            showError(response?.error || "Sign-in failed.");
         }
     } catch (err) {
-        showStatus(`Error: ${(err as Error).message}`, false);
+        showError(`Error: ${(err as Error).message}`);
     } finally {
         setLoading(signInBtn, false);
     }
@@ -241,7 +273,7 @@ signOutBtn.addEventListener("click", async () => {
     setAuthState({signedIn: false});
     await feed.clear();
     loadError = null;
-    showStatus("Signed out.", true);
+    showSuccess("Signed out.");
 });
 
 // ── Send page ─────────────────────────────────────────────
@@ -251,12 +283,12 @@ sendPageBtn.addEventListener("click", async () => {
     try {
         const [tab] = await chrome.tabs.query({active: true, currentWindow: true});
         if (!tab?.url) {
-            showStatus("Could not get current tab.", false);
+            showError("Could not get current tab.");
             return;
         }
-        await send({$type: "Link", name: tab.title || null, url: tab.url}, "Page sent!");
+        await send({$type: "Link", name: tab.title ? truncateTitle(tab.title) : null, url: tab.url}, "Page sent!");
     } catch (err) {
-        showStatus(`Error: ${(err as Error).message}`, false);
+        showError(`Error: ${(err as Error).message}`);
     } finally {
         setLoading(sendPageBtn, false);
     }
@@ -285,7 +317,7 @@ sendTextBtn.addEventListener("click", async () => {
             freetextEl.value = "";
         }
     } catch (err) {
-        showStatus(`Error: ${(err as Error).message}`, false);
+        showError(`Error: ${(err as Error).message}`);
     } finally {
         setLoading(sendTextBtn, false);
     }
@@ -296,12 +328,12 @@ async function send(data: PacketData, successMessage: string): Promise<boolean> 
     if (response?.signedOut) setAuthState({signedIn: false});
 
     if (response?.success) {
-        if (response.packet) feed.applyCreated(response.packet);
-        showStatus(successMessage, true);
+        if (response.packet) applyArrived(response.packet);
+        showSuccess(successMessage);
         return true;
     }
 
-    showStatus(response?.error || "Failed to send.", false);
+    showError(response?.error || "Failed to send.");
     return false;
 }
 
@@ -324,25 +356,39 @@ document.addEventListener("paste", (e: ClipboardEvent) => {
 /** Tiles by packet id. Packets never change, so a tile is built once and reused. */
 const tiles = new Map<string, HTMLElement>();
 
+/** Ids of packets that arrived since the last render (sent here, or received live), so their tiles slide in. */
+const arrivedIds = new Set<string>();
+
+/** Adds a packet that just arrived to the feed; unlike a cached or fetched one, its tile animates in. */
+function applyArrived(packet: Packet): void {
+    arrivedIds.add(packet.id);
+    feed.applyCreated(packet);
+}
+
 function renderFeed(state: FeedState): void {
     const elements = state.packets.map(packet => {
         let tile = tiles.get(packet.id);
         if (!tile) {
-            tile = createTile(packet);
+            tile = createTile(packet, arrivedIds.has(packet.id));
             tiles.set(packet.id, tile);
         }
         return tile;
     });
+    arrivedIds.clear();
 
     const listed = new Set(state.packets.map(p => p.id));
     for (const id of tiles.keys()) {
         if (!listed.has(id)) tiles.delete(id);
     }
 
-    // Only touch the DOM when the list changed, so tiles (and open menus) aren't needlessly re-inserted.
+    // Only touch the DOM when the list changed, so tiles (and an open menu) aren't needlessly re-inserted.
     const children = feedList.children;
     const unchanged = children.length === elements.length && elements.every((el, i) => children[i] === el);
-    if (!unchanged) feedList.replaceChildren(...elements);
+    if (!unchanged) {
+        // The menu is positioned against the tile it belongs to, which is about to move.
+        closeMenu();
+        feedList.replaceChildren(...elements);
+    }
 
     renderFeedEnd(state);
     updateSyncLabel();
@@ -395,9 +441,18 @@ function renderFeedEnd(state: FeedState): void {
     feedEnd.append(textEl("span", "", "You've gone back to the beginning!"));
 }
 
-function createTile(packet: Packet): HTMLElement {
+function createTile(packet: Packet, arrived: boolean): HTMLElement {
     const tile = document.createElement("article");
     tile.className = "packet";
+
+    if (arrived) {
+        // Only live arrivals slide in; a cached or fetched render would otherwise animate every tile at once.
+        // The class goes once the animation ends, so re-inserting the tile when the list is reordered doesn't replay it.
+        tile.classList.add("arrived");
+        tile.addEventListener("animationend", e => {
+            if (e.target === tile) tile.classList.remove("arrived");
+        });
+    }
 
     const link = packet.type === "link" ? tryParseHttpUrl(packet.payload) : null;
 
@@ -435,13 +490,19 @@ function createTile(packet: Packet): HTMLElement {
     return tile;
 }
 
-/** Adds a "Show more" button to newly shown clamped text that overflows, or unclamps text that fits. */
+/**
+ * Adds a "Show more" button to newly shown clamped text that overflows, or unclamps text that fits.
+ * Every body is measured before any is changed, so the feed is laid out once rather than once per tile.
+ */
 function measureClampedTiles(): void {
-    for (const body of feedList.querySelectorAll<HTMLElement>(".packet-body.clamped:not([data-measured])")) {
+    const bodies = [...feedList.querySelectorAll<HTMLElement>(".packet-body.clamped:not([data-measured])")];
+    const overflowing = bodies.map(body => body.scrollHeight > body.clientHeight + 1);
+
+    bodies.forEach((body, i) => {
         body.dataset.measured = "true";
-        if (body.scrollHeight <= body.clientHeight + 1) {
+        if (!overflowing[i]) {
             body.classList.remove("clamped");
-            continue;
+            return;
         }
 
         const more = textButton("Show more", () => {
@@ -450,7 +511,7 @@ function measureClampedTiles(): void {
         });
         more.classList.add("show-more");
         body.after(more);
-    }
+    });
 }
 
 function packetTitle(packet: Packet): string {
@@ -503,7 +564,10 @@ function copyPacket(packet: Packet, tile: HTMLElement): void {
         menu.append(item);
     }
 
-    tile.append(menu);
+    // The menu hangs below the tile's header but lives in the list: a tile contains its paint (see .packet in
+    // popup.css), so a menu inside it would be clipped at the tile's edge and painted under the next tile.
+    menu.style.top = `${tile.offsetTop + MENU_TOP_PX}px`;
+    feedList.append(menu);
     openMenu = menu;
     (menu.firstElementChild as HTMLElement).focus();
 }
@@ -547,13 +611,16 @@ async function deleteWithUndo(packet: Packet): Promise<void> {
     if (!feed.hide(packet.id)) return;
 
     showToast("Packet deleted", {
-        label: "Undo",
-        onClick: async () => {
-            const response = await sendMessage<CancelDeleteResponse>({action: "cancelDelete", id: packet.id});
-            // Too late if it was already sent; the deletion's own response then removes it for good.
-            if (response?.cancelled) feed.unhide(packet.id);
+        action: {
+            label: "Undo",
+            onClick: async () => {
+                const response = await sendMessage<CancelDeleteResponse>({action: "cancelDelete", id: packet.id});
+                // Too late if it was already sent; the deletion's own response then removes it for good.
+                if (response?.cancelled) feed.unhide(packet.id);
+            },
         },
-    }, UNDO_DELETE_MS);
+        durationMs: UNDO_DELETE_MS,
+    });
 
     const response = await sendMessage<DeletePacketResponse>({
         action: "deletePacket", id: packet.id, delayMs: UNDO_DELETE_MS,
@@ -572,29 +639,39 @@ async function deleteWithUndo(packet: Packet): Promise<void> {
 
 // ── UI helpers ────────────────────────────────────────────
 
-let statusTimer: ReturnType<typeof setTimeout> | undefined;
-
-function showStatus(message: string, success: boolean): void {
-    clearTimeout(statusTimer);
-    statusEl.textContent = message;
-    statusEl.className = `status-bar ${success ? "success" : "error"}`;
-    statusTimer = setTimeout(() => {
-        statusEl.className = "status-bar hidden";
-    }, success ? 3000 : 6000);
-}
-
 let toastTimer: ReturnType<typeof setTimeout> | undefined;
 let toastActionHandler: (() => void) | null = null;
 
-/** Shows a snackbar-style toast, replacing any current one. */
-function showToast(message: string, action?: { label: string; onClick: () => void }, durationMs = 3000): void {
+interface ToastOptions {
+    /** Colours the toast as a success or an error; by default it's the neutral snackbar. */
+    tone?: "success" | "error";
+    action?: { label: string; onClick: () => void };
+    /** How long the toast stays. Errors stay longer by default, so there's time to read them. */
+    durationMs?: number;
+}
+
+/**
+ * Shows a snackbar-style toast, replacing any current one. All of the popup's feedback goes through it: it
+ * overlays the bottom of the popup, so nothing shifts the layout.
+ */
+function showToast(message: string, {tone, action, durationMs = tone === "error" ? 6000 : 3000}: ToastOptions = {}): void {
     clearTimeout(toastTimer);
     toastMessage.textContent = message;
     toastAction.textContent = action?.label ?? "";
     toastAction.classList.toggle("hidden", !action);
     toastActionHandler = action?.onClick ?? null;
-    toastEl.classList.remove("hidden");
+    toastEl.className = tone ? `toast ${tone}` : "toast";
+    // An error interrupts a screen reader; other feedback waits its turn.
+    toastEl.setAttribute("aria-live", tone === "error" ? "assertive" : "polite");
     toastTimer = setTimeout(hideToast, durationMs);
+}
+
+function showSuccess(message: string): void {
+    showToast(message, {tone: "success"});
+}
+
+function showError(message: string): void {
+    showToast(message, {tone: "error"});
 }
 
 function hideToast(): void {

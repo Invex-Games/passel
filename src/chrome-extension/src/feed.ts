@@ -6,6 +6,13 @@ import type {Packet, PacketPage} from "./types.js";
 // It mirrors the mobile app's PacketsNotifier. Kept free of chrome.* APIs so it can be unit-tested;
 // the popup supplies the packet source (the service worker) and the cache (local storage).
 
+/**
+ * How many packets the API returns per page, and so how many the cache holds. The cache exists to show
+ * something instantly on the next open; older pages are fetched again by load-more, so caching them would
+ * only make the cache grow without bound.
+ */
+export const PAGE_SIZE = 50;
+
 export interface FeedState extends CachedFeed {
     /** Whether the feed has been loaded (from the cache or the API). */
     loaded: boolean;
@@ -70,6 +77,12 @@ export class FeedStore {
     /** Packets hidden by hide() and where they were, so unhide() can put them back. */
     private readonly hidden = new Map<string, HiddenPacket>();
 
+    /**
+     * The cursor that followed the first page when it was last fetched. The cache holds only the first
+     * page, so it's saved with this cursor rather than the one after the last page loaded.
+     */
+    private firstPageCursor: string | null = null;
+
     constructor(
         private readonly source: FeedSource,
         private readonly cache: FeedCache,
@@ -89,7 +102,10 @@ export class FeedStore {
     /** Shows the cached feed, if there is one and nothing is loaded yet. */
     async showCached(): Promise<void> {
         const cached = await this.cache.load();
-        if (cached && !this.current.loaded) this.set({...EMPTY, ...cached, loaded: true});
+        if (!cached || this.current.loaded) return;
+
+        this.firstPageCursor = cached.nextCursor;
+        this.set({...EMPTY, ...cached, loaded: true});
     }
 
     /** Forgets the feed and its cache (sign-out, or a different account signing in). */
@@ -99,6 +115,7 @@ export class FeedStore {
         this.arrivals = [];
         this.deletedIds.clear();
         this.hidden.clear();
+        this.firstPageCursor = null;
         this.set(EMPTY);
         await this.cache.clear().catch(() => {
         });
@@ -134,6 +151,7 @@ export class FeedStore {
             return;
         }
 
+        this.firstPageCursor = page.nextCursor;
         this.commit({...latest, packets: mergePackets(packets, latest.packets), lastSyncedAt: this.now()});
     }
 
@@ -240,6 +258,7 @@ export class FeedStore {
 
     private replace(page: PacketPage, arrivalsMark: number): void {
         this.generation++;
+        this.firstPageCursor = page.nextCursor;
         this.commit({
             ...this.current,
             packets: this.reconcile(arrivalsMark, page.packets),
@@ -264,11 +283,18 @@ export class FeedStore {
         return packets.filter(p => !this.deletedIds.has(p.id));
     }
 
-    /** Updates the state and saves it to the cache. */
+    /**
+     * Updates the state and saves it to the cache. The in-memory list keeps every page loaded; the cache
+     * gets only the first page and the cursor after it, so local storage never grows with load-more.
+     */
     private commit(state: FeedState): void {
         this.set(state);
         this.cache
-            .save({packets: state.packets, nextCursor: state.nextCursor, lastSyncedAt: state.lastSyncedAt})
+            .save({
+                packets: state.packets.slice(0, PAGE_SIZE),
+                nextCursor: this.firstPageCursor,
+                lastSyncedAt: state.lastSyncedAt,
+            })
             .catch(() => {
                 // The cache only speeds up the next open; failing to write it isn't worth surfacing.
             });

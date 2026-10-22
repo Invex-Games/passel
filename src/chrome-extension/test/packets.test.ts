@@ -1,5 +1,14 @@
 import {describe, expect, it} from "vitest";
-import {mergePackets, packetDataForInput, parsePacket, parsePackets, toLiveEvent, tryParseHttpUrl} from "../src/packets.js";
+import {
+    MAX_TITLE_LENGTH,
+    mergePackets,
+    packetDataForInput,
+    parsePacket,
+    parsePackets,
+    toLiveEvent,
+    truncateTitle,
+    tryParseHttpUrl,
+} from "../src/packets.js";
 import type {Packet} from "../src/types.js";
 
 const text = (id: string): Packet => ({id, type: "text", title: null, payload: `body ${id}`, isImage: false});
@@ -50,6 +59,20 @@ describe("mergePackets", () => {
     it("appends unseen packets and drops duplicates", () => {
         expect(mergePackets([text("a"), text("b")], [text("b"), text("c"), text("c")]).map(p => p.id))
             .toEqual(["a", "b", "c"]);
+    });
+});
+
+describe("truncateTitle", () => {
+    it("keeps titles up to the limit and cuts longer ones down to it", () => {
+        expect(truncateTitle("Example page")).toBe("Example page");
+        expect(truncateTitle("x".repeat(MAX_TITLE_LENGTH))).toHaveLength(MAX_TITLE_LENGTH);
+        expect(truncateTitle("x".repeat(MAX_TITLE_LENGTH + 100))).toBe("x".repeat(MAX_TITLE_LENGTH));
+    });
+
+    it("does not cut a surrogate pair in half", () => {
+        const title = "x".repeat(MAX_TITLE_LENGTH - 1) + "\u{1F600}";
+        expect(title).toHaveLength(MAX_TITLE_LENGTH + 1);
+        expect(truncateTitle(title)).toBe("x".repeat(MAX_TITLE_LENGTH - 1));
     });
 });
 

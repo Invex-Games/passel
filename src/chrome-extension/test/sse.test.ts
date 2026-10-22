@@ -1,5 +1,5 @@
 import {describe, expect, it} from "vitest";
-import {ServerSentEventParser} from "../src/sse.js";
+import {MAX_BUFFER_LENGTH, ServerSentEventParser} from "../src/sse.js";
 
 /** Feeds `chunks` to a fresh parser and returns the events as [event, data] pairs. */
 function decode(...chunks: string[]): [string, string][] {
@@ -38,5 +38,29 @@ describe("ServerSentEventParser", () => {
         const parser = new ServerSentEventParser();
         expect(parser.push("event: resync\ndata: \n")).toEqual([]);
         expect(parser.push("\n")).toEqual([{event: "resync", data: ""}]);
+    });
+});
+
+describe("ServerSentEventParser buffer limit", () => {
+    const half = "x".repeat(MAX_BUFFER_LENGTH / 2);
+
+    it("gives up on a line that grows past the limit", () => {
+        const parser = new ServerSentEventParser();
+        parser.push(half);
+        // Exactly the limit is still fine.
+        expect(parser.push(half)).toEqual([]);
+        expect(() => parser.push("x")).toThrow(/longer than/);
+    });
+
+    it("counts the data lines of an unfinished event towards the limit", () => {
+        const parser = new ServerSentEventParser();
+        parser.push(`data: ${half}\n`);
+        expect(() => parser.push(`data: ${half}x\n`)).toThrow(/longer than/);
+    });
+
+    it("starts counting afresh once an event completes", () => {
+        const parser = new ServerSentEventParser();
+        expect(parser.push(`data: ${half}\n\n`)).toHaveLength(1);
+        expect(parser.push(`data: ${half}x\n\n`)).toHaveLength(1);
     });
 });
