@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Net.ServerSentEvents;
 using System.Runtime.CompilerServices;
 using System.Threading.Channels;
@@ -36,6 +37,39 @@ public static partial class PacketEndpoints
     internal const string HeartbeatEventType = "ping";
 
     private static readonly TimeSpan HeartbeatInterval = TimeSpan.FromSeconds(20);
+
+    /// <summary>
+    ///     No stream outlives this, whatever its token says; clients reconnect with a fresh token.
+    /// </summary>
+    internal static readonly TimeSpan MaxStreamLifetime = TimeSpan.FromDays(1);
+
+    /// <summary>
+    ///     The JWT expiry claim, in seconds since the Unix epoch. The bearer handler leaves it unmapped.
+    /// </summary>
+    private const string ExpiryClaim = "exp";
+
+    /// <summary>
+    ///     How long a stream opened at <paramref name="now" /> may stay open: until the caller's token would no
+    ///     longer validate (its expiry plus the validation clock skew), and at most <see cref="MaxStreamLifetime" />.
+    ///     A principal without a usable expiry, such as one from the development schemes, gets the maximum.
+    /// </summary>
+    internal static TimeSpan StreamLifetime(ClaimsPrincipal user, DateTimeOffset now, TimeSpan clockSkew)
+    {
+        if (!long.TryParse(user.FindFirstValue(ExpiryClaim),
+                NumberStyles.None,
+                CultureInfo.InvariantCulture,
+                out var expiresAt))
+            return MaxStreamLifetime;
+
+        var remainingSeconds = expiresAt - now.ToUnixTimeSeconds() + clockSkew.TotalSeconds;
+
+        if (remainingSeconds <= 0)
+            return TimeSpan.Zero;
+
+        return remainingSeconds >= MaxStreamLifetime.TotalSeconds
+            ? MaxStreamLifetime
+            : TimeSpan.FromSeconds(remainingSeconds);
+    }
 
     /// <summary>
     ///     Yields a resync event, then the events read from <paramref name="reader" />, with a heartbeat after every
@@ -107,49 +141,77 @@ public static partial class PacketEndpoints
     }
 
     public static void MapGetPacketEvents(this IEndpointRouteBuilder builder) =>
-        builder.MapGet("/events",
-            (
-                HttpContext httpContext,
-                IIdEncodingService encodingService,
-                IPacketEventHub eventHub,
-                IHostApplicationLifetime lifetime,
-                IOptions<HttpJsonOptions> jsonOptions) =>
-            {
-                var ownerId = httpContext.User.FindFirstValue(ClaimTypes.NameIdentifier);
-
-                if (ownerId is not { Length: > 0 })
-                    return Results.Unauthorized();
-
-                // Stops reverse proxies such as nginx from buffering the stream
-                httpContext.Response.Headers["X-Accel-Buffering"] = "no";
-
-                return TypedResults.ServerSentEvents(Stream(ownerId, httpContext.RequestAborted));
-
-                async IAsyncEnumerable<SseItem<string>> Stream(
-                    string userId,
-                    [EnumeratorCancellation] CancellationToken cancellationToken = default)
+        builder
+            .MapGet("/events",
+                (
+                    HttpContext httpContext,
+                    IIdEncodingService encodingService,
+                    IPacketEventHub eventHub,
+                    IHostApplicationLifetime lifetime,
+                    IOptions<HttpJsonOptions> jsonOptions,
+                    IOptionsMonitor<JwtBearerOptions> bearerOptions) =>
                 {
-                    // Ends the stream on shutdown so the server doesn't wait out its shutdown timeout for it;
-                    // the client reconnects (to another instance, or this one once restarted)
-                    using var stopping = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken,
-                        lifetime.ApplicationStopping);
+                    var ownerId = httpContext.User.FindFirstValue(ClaimTypes.NameIdentifier);
+
+                    if (ownerId is not { Length: > 0 })
+                        return Results.Unauthorized();
 
                     // Subscribed before the first (resync) event is sent, so nothing can fall between the two
-                    using var subscription = eventHub.Subscribe(userId);
+                    var subscription = eventHub.Subscribe(ownerId);
 
-                    var serializerOptions = jsonOptions.Value.SerializerOptions;
+                    if (subscription is null)
+                    {
+                        httpContext.Response.Headers.RetryAfter = "30";
 
-                    await foreach (var item in StreamPacketEvents(subscription.Reader,
-                                       packet => JsonSerializer.Serialize(ToResponsePacket(packet, encodingService),
-                                           serializerOptions),
-                                       packetId => JsonSerializer.Serialize(new PacketDeletedEventData
-                                           {
-                                               Id = encodingService.Encode(packetId),
-                                           },
-                                           serializerOptions),
-                                       HeartbeatInterval,
-                                       stopping.Token))
-                        yield return item;
-                }
-            });
+                        return Results.Problem("This server has no room for another event stream. Try again later.",
+                            statusCode: StatusCodes.Status503ServiceUnavailable,
+                            title: "Too many event streams");
+                    }
+
+                    // Released when the request ends, which for a stream is when it closes
+                    httpContext.Response.RegisterForDispose(subscription);
+
+                    // The stream ends when the token that opened it would stop validating; the clients reconnect
+                    // with a fresh one
+                    var clockSkew = bearerOptions
+                        .Get(JwtBearerDefaults.AuthenticationScheme)
+                        .TokenValidationParameters
+                        .ClockSkew;
+
+                    var maxAge = StreamLifetime(httpContext.User, DateTimeOffset.UtcNow, clockSkew);
+
+                    // Stops reverse proxies such as nginx from buffering the stream
+                    httpContext.Response.Headers["X-Accel-Buffering"] = "no";
+
+                    return TypedResults.ServerSentEvents(Stream(subscription.Reader, maxAge, httpContext.RequestAborted));
+
+                    async IAsyncEnumerable<SseItem<string>> Stream(
+                        ChannelReader<PacketEvent> reader,
+                        TimeSpan streamMaxAge,
+                        [EnumeratorCancellation] CancellationToken cancellationToken = default)
+                    {
+                        // Ends the stream on shutdown so the server doesn't wait out its shutdown timeout for it;
+                        // the client reconnects (to another instance, or this one once restarted)
+                        using var stopping = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken,
+                            lifetime.ApplicationStopping);
+
+                        stopping.CancelAfter(streamMaxAge);
+
+                        var serializerOptions = jsonOptions.Value.SerializerOptions;
+
+                        await foreach (var item in StreamPacketEvents(reader,
+                                           packet => JsonSerializer.Serialize(
+                                               ToResponsePacket(packet, encodingService),
+                                               serializerOptions),
+                                           packetId => JsonSerializer.Serialize(new PacketDeletedEventData
+                                               {
+                                                   Id = encodingService.Encode(packetId),
+                                               },
+                                               serializerOptions),
+                                           HeartbeatInterval,
+                                           stopping.Token))
+                            yield return item;
+                    }
+                })
+            .RequireRateLimiting(RateLimitPolicies.Streams);
 }

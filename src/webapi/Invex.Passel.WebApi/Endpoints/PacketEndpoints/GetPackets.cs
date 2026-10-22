@@ -97,50 +97,52 @@ public static partial class PacketEndpoints
         };
 
     public static void MapGetPackets(this IEndpointRouteBuilder builder) =>
-        builder.MapGet(string.Empty,
-            async (
-                [FromQuery] string? cursor,
-                HttpContext httpContext,
-                IIdEncodingService encodingService,
-                IQuerySession querySession) =>
-            {
-                var ownerId = httpContext.User.FindFirstValue(ClaimTypes.NameIdentifier);
-
-                if (ownerId is not { Length: > 0 })
-                    return Results.Unauthorized();
-
-                Guid? cursorId = null;
-
-                if (cursor is not null)
+        builder
+            .MapGet(string.Empty,
+                async (
+                    [FromQuery] string? cursor,
+                    HttpContext httpContext,
+                    IIdEncodingService encodingService,
+                    IQuerySession querySession) =>
                 {
-                    if (!encodingService.TryDecode(cursor, out var decodedCursor))
-                        return Results.Problem("The cursor is invalid.", statusCode: StatusCodes.Status400BadRequest);
-
-                    cursorId = decodedCursor;
-                }
-
-                var query = querySession
-                    .Query<PacketAggregate>()
-                    .Where(p => p.UserId == ownerId);
-
-                if (cursorId is { } beforeId)
-                    query = query.Where(p => p.Id < beforeId);
-
-                var fetched = await query
-                    .OrderByDescending(p => p.Id)
-                    .Take(GetPacketsBatchSize + 1)
-                    .ToListAsync();
-
-                var (page, nextCursor) = Paginate(fetched, GetPacketsBatchSize);
-
-                return Results.Ok(new GetPacketsResponseBody
-                {
-                    Packets = page
-                        .Select(p => ToResponsePacket(p, encodingService))
-                        .ToList(),
-                    NextCursor = nextCursor is { } next
-                        ? encodingService.Encode(next)
-                        : null,
-                });
-            });
+                    var ownerId = httpContext.User.FindFirstValue(ClaimTypes.NameIdentifier);
+    
+                    if (ownerId is not { Length: > 0 })
+                        return Results.Unauthorized();
+    
+                    Guid? cursorId = null;
+    
+                    if (cursor is not null)
+                    {
+                        if (!encodingService.TryDecode(cursor, out var decodedCursor))
+                            return Results.Problem("The cursor is invalid.", statusCode: StatusCodes.Status400BadRequest);
+    
+                        cursorId = decodedCursor;
+                    }
+    
+                    var query = querySession
+                        .Query<PacketAggregate>()
+                        .Where(p => p.UserId == ownerId);
+    
+                    if (cursorId is { } beforeId)
+                        query = query.Where(p => p.Id < beforeId);
+    
+                    var fetched = await query
+                        .OrderByDescending(p => p.Id)
+                        .Take(GetPacketsBatchSize + 1)
+                        .ToListAsync();
+    
+                    var (page, nextCursor) = Paginate(fetched, GetPacketsBatchSize);
+    
+                    return Results.Ok(new GetPacketsResponseBody
+                    {
+                        Packets = page
+                            .Select(p => ToResponsePacket(p, encodingService))
+                            .ToList(),
+                        NextCursor = nextCursor is { } next
+                            ? encodingService.Encode(next)
+                            : null,
+                    });
+            })
+            .RequireRateLimiting(RateLimitPolicies.Reads);
 }

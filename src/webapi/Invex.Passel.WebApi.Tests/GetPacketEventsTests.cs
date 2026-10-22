@@ -1,4 +1,6 @@
+using System.Globalization;
 using System.Net.ServerSentEvents;
+using System.Security.Claims;
 using System.Threading.Channels;
 using Invex.Passel.WebApi.Domain.Aggregates;
 using Invex.Passel.WebApi.Endpoints.PacketEndpoints;
@@ -188,5 +190,50 @@ public sealed class GetPacketEventsTests
         }
 
         Assert.Single(items);
+    }
+
+    private static readonly DateTimeOffset Now = new(2026, 10, 22, 12, 0, 0, TimeSpan.Zero);
+    private static readonly TimeSpan ClockSkew = TimeSpan.FromMinutes(5);
+
+    private static ClaimsPrincipal UserExpiringAt(DateTimeOffset expiresAt) =>
+        UserWithExpiry(expiresAt.ToUnixTimeSeconds().ToString(CultureInfo.InvariantCulture));
+
+    private static ClaimsPrincipal UserWithExpiry(string? exp) =>
+        new(new ClaimsIdentity(exp is null ? [] : [new Claim("exp", exp)], "test"));
+
+    [Fact]
+    public void StreamLifetime_ends_when_the_token_would_stop_validating()
+    {
+        var lifetime = PacketEndpoints.StreamLifetime(UserExpiringAt(Now.AddMinutes(30)), Now, ClockSkew);
+
+        Assert.Equal(TimeSpan.FromMinutes(35), lifetime);
+    }
+
+    [Fact]
+    public void StreamLifetime_is_zero_for_a_token_past_its_skew()
+    {
+        var lifetime = PacketEndpoints.StreamLifetime(UserExpiringAt(Now.AddMinutes(-10)), Now, ClockSkew);
+
+        Assert.Equal(TimeSpan.Zero, lifetime);
+    }
+
+    [Fact]
+    public void StreamLifetime_is_capped_for_a_long_lived_token()
+    {
+        var lifetime = PacketEndpoints.StreamLifetime(UserExpiringAt(Now.AddDays(30)), Now, ClockSkew);
+
+        Assert.Equal(PacketEndpoints.MaxStreamLifetime, lifetime);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("not a number")]
+    [InlineData("-5")]
+    public void StreamLifetime_is_the_cap_without_a_usable_expiry(string? exp)
+    {
+        var lifetime = PacketEndpoints.StreamLifetime(UserWithExpiry(exp), Now, ClockSkew);
+
+        Assert.Equal(PacketEndpoints.MaxStreamLifetime, lifetime);
     }
 }

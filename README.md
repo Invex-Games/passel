@@ -18,7 +18,7 @@ dotnet atom SetupDevEnvironment   # checks tools, prepares local config and pack
 aspire run                        # or: dotnet run --project src/webapi/Invex.Passel.AppHost
 ```
 
-The AppHost starts PostgreSQL, the API (`https://localhost:7030`), the extension's watch build and a dev tunnel for phones. On the first run, the Aspire dashboard asks for the Google OAuth client values.
+The AppHost starts PostgreSQL, the API (`https://localhost:7030`), the extension's watch build and a dev tunnel for phones. The Google OAuth client values are optional for local work: without them the API accepts `Authorization: Dev <user>` instead of Google tokens.
 
 ## Docs
 

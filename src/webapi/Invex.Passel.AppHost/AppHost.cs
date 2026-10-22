@@ -1,18 +1,22 @@
+using Aspire.Hosting.Publishing;
+using Microsoft.Extensions.Hosting;
+
 var builder = DistributedApplication.CreateBuilder(args);
 
-// Google OAuth configuration. The dashboard prompts for any value that isn't set yet and can save it to this
-// project's user secrets (Parameters:<name>), so none of it needs to live in a checked-in or hand-written file.
-var googleClientId = builder
-    .AddParameter("google-client-id")
+// Google OAuth configuration, read from this project's user secrets (Parameters:<name>); see
+// docs/getting-started/google-oauth.md. In Development the values are optional: left empty, the API still starts
+// and accepts "Authorization: Dev <user>" instead of Google tokens (docs/getting-started/running-locally.md).
+// Elsewhere they are required, and the dashboard prompts for any that are missing.
+var googleOptional = builder.Environment.IsDevelopment();
+
+var googleClientId = AddGoogleParameter("google-client-id")
     .WithDescription("Google OAuth **web** client id. The API's token audience and the mobile app's SERVER_CLIENT_ID.",
         enableMarkdown: true);
 
-var googleClientSecret = builder
-    .AddParameter("google-client-secret", secret: true)
+var googleClientSecret = AddGoogleParameter("google-client-secret", secret: true)
     .WithDescription("Secret of the Google OAuth web client. Only used for the development-only Scalar login.");
 
-var extensionClientId = builder
-    .AddParameter("google-extension-client-id")
+var extensionClientId = AddGoogleParameter("google-extension-client-id")
     .WithDescription("Google OAuth client id of the Chrome extension. Accepted by the API as an additional audience.");
 
 var postgres = builder
@@ -49,3 +53,22 @@ builder
 builder
     .Build()
     .Run();
+
+IResourceBuilder<ParameterResource> AddGoogleParameter(string name, bool secret = false) =>
+    googleOptional
+        ? builder.AddParameter(name, new EmptyParameterDefault(), secret: secret)
+        : builder.AddParameter(name, secret: secret);
+
+/// <summary>
+///     Resolves a parameter to an empty value when configuration has none, so nothing prompts for it. Writes no
+///     default to a manifest, where the value stays required.
+/// </summary>
+internal sealed class EmptyParameterDefault : ParameterDefault
+{
+    public override string GetDefaultValue() =>
+        string.Empty;
+
+    public override void WriteToManifest(ManifestPublishingContext context)
+    {
+    }
+}

@@ -30,8 +30,23 @@ builder
 
 builder
     .Services
+    .AddOptions<QuotaOptions>()
+    .BindConfiguration(QuotaOptions.SectionName)
+    .ValidateDataAnnotations()
+    .ValidateOnStart();
+
+builder
+    .Services
+    .AddOptions<EventStreamOptions>()
+    .BindConfiguration(EventStreamOptions.SectionName)
+    .ValidateDataAnnotations()
+    .ValidateOnStart();
+
+builder
+    .Services
     .AddSingleton<IIdEncodingService, IdEncodingService>()
     .AddScoped<IPacketStoreService, PacketStoreService>()
+    .AddSingleton<IPacketQuotaService, PacketQuotaService>()
     .AddSingleton<IPacketEventHub, PacketEventHub>()
     .AddHostedService<PacketNotificationListener>();
 

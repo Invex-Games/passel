@@ -11,9 +11,15 @@
 
 ## Request pipeline
 
-`Program.cs` adds the service defaults and the web defaults (`Extensions/HostWebExtensions.cs`). Those cover JSON options, ProblemDetails, CORS, compression, authentication and API versioning. It then maps the packet endpoints (`Endpoints/EndpointMapper.cs`). In development it also maps OpenAPI, Scalar and the browser login endpoints (`Extensions/HostDevExtensions.cs`).
+`Program.cs` adds the service defaults and the web defaults (`Extensions/HostWebExtensions.cs`). Those cover JSON options, ProblemDetails, compression, authentication, rate limiting and API versioning, plus the edge: a Kestrel connection limit, forwarded headers when a proxy is declared, host filtering, and HSTS outside Development. There is no CORS, because neither current client needs it. It then maps the packet endpoints (`Endpoints/EndpointMapper.cs`). In development it also maps OpenAPI, Scalar and the browser login endpoints (`Extensions/HostDevExtensions.cs`).
 
 Every packet endpoint lives under `/api/packets`, requires authentication and is API version 1. The user id is the Google `sub` claim. See [HTTP API](../reference/http-api.md) for the endpoints themselves.
+
+## Abuse controls
+
+Each packet endpoint opts into one of three rate-limiting policies (`Extensions/RateLimitingExtensions.cs`): creates, reads (the list and delete endpoints) and event-stream connections. The limiter runs after authentication so requests are counted per user; requests that fail authentication are counted per remote address instead. Rejections are 429 problems with `Retry-After`. The limits come from the `RateLimits` configuration section; see [Configuration](../reference/configuration.md#web-api).
+
+Before a create, `PacketQuotaService` reads the caller's usage with one aggregate over the snapshot table (`count(*)` and the summed `pg_column_size` of the documents, through the index on `UserId`), and `PacketQuota.Exceeded` compares it with the `Quotas` configuration. A user at the packet limit gets 429, a packet that would pass the byte limit gets 413, and both messages say to delete packets. Two creates that race can both pass the check, so the quotas are approximate by a packet.
 
 ## Storage: Marten event sourcing
 
@@ -40,6 +46,10 @@ Packet ids are never exposed as raw Guids. `IdEncodingService` encodes the Guid'
 
 Because every instance listens, events reach clients connected to any instance. The stream doesn't support resuming. Instead, clients reconnect, receive `resync`, and fetch `GET /api/packets` again. The server also sends `resync` when it may have missed events. If a stream's buffer fills, the server closes the stream rather than drop events.
 
+Streams are capped by the `EventStreams` configuration. The hub keeps at most five per user on an instance: subscribing a sixth removes the oldest from the hub and completes its channel, so that client's stream ends cleanly and it reconnects. Beyond the per-instance total, `Subscribe` returns `null` and the endpoint answers 503 with `Retry-After`. The subscription is registered for disposal with the response, so the hub releases it when the stream ends however it ends.
+
+A stream never outlives the token that opened it: the endpoint reads the `exp` claim and cancels the stream at `exp` plus the bearer handler's clock skew (`PacketEndpoints.StreamLifetime`), with a ceiling of a day for principals without an expiry. The clients already reconnect with a fresh token.
+
 ## Authentication
 
 Clients send a Google **ID token** as a bearer token. The API validates it against Google with these accepted audiences:
@@ -49,9 +59,12 @@ Clients send a Google **ID token** as a bearer token. The API validates it again
 
 In development a policy scheme picks how each request is authenticated:
 
-- A request with an `Authorization` header uses bearer tokens.
-- Any other request uses a cookie, issued by Google OpenID Connect login.
+- A request whose `Authorization` header is `Dev <user-id>` uses the Dev scheme (`Authentication/DevAuthenticationHandler.cs`): it signs the request in as that user, with the id as both `sub` and display name, and no Google involved. The scheme only exists in Development; see [Run without Google](../getting-started/running-locally.md#run-without-google).
+- A request with any other `Authorization` header uses bearer tokens.
+- Any other request uses a cookie, issued by Google OpenID Connect login, when `Authentication:Google:ClientId` and `ClientSecret` are both set. Without them there is no cookie login, so such a request gets a plain 401 from the Dev scheme.
 
-That cookie login is what lets Scalar call authenticated endpoints. Production only accepts bearer tokens, and unauthenticated requests get a plain 401.
+In Development the Google settings are optional: the bearer handler is still registered, but with no client id its audience list is empty and every Google token is rejected. The OpenAPI document declares the Dev scheme so Scalar can send its header, and the Scalar banner says when Google login isn't configured.
+
+That cookie login is what lets Scalar call authenticated endpoints. The login cookie is `Secure` and `SameSite=Strict`. The OpenID Connect correlation and nonce cookies are `Secure` and `SameSite=Lax`, which works because Google returns the code in a top-level GET (`response_mode=query`), and the nonce in the ID token is validated. Production only accepts bearer tokens, and unauthenticated requests get a plain 401.
 
 See [Google OAuth Clients](../getting-started/google-oauth.md) for which client is which.

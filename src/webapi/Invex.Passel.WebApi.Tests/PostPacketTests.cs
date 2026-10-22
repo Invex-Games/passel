@@ -84,4 +84,28 @@ public sealed class PostPacketTests
 
         Assert.Empty(errors);
     }
+
+    [Fact]
+    public void ContentBytes_counts_the_title_and_body_as_utf8()
+    {
+        var bytes = PacketEndpoints.ContentBytes(new PacketEndpoints.PostPacketRequestBody.Text
+        {
+            Title = "é",
+            Body = "abc",
+        });
+
+        Assert.Equal(5, bytes);
+    }
+
+    [Fact]
+    public void ContentBytes_counts_the_name_and_url_and_skips_a_missing_name()
+    {
+        var bytes = PacketEndpoints.ContentBytes(new PacketEndpoints.PostPacketRequestBody.Link
+        {
+            Name = null,
+            Url = "https://example.com",
+        });
+
+        Assert.Equal(19, bytes);
+    }
 }

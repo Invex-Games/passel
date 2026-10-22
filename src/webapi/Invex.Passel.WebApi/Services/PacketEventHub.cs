@@ -1,4 +1,5 @@
 using System.Threading.Channels;
+using Microsoft.Extensions.Options;
 
 namespace Invex.Passel.WebApi.Services;
 
@@ -17,7 +18,11 @@ internal partial record PacketEvent
 
 internal interface IPacketEventHub
 {
-    PacketEventSubscription Subscribe(string userId);
+    /// <summary>
+    ///     Opens a stream for the user. When they already have as many as allowed, their oldest is closed so its
+    ///     client reconnects. Returns <c>null</c> when this instance has no room for another stream.
+    /// </summary>
+    PacketEventSubscription? Subscribe(string userId);
 
     bool HasSubscribers(string userId);
 
@@ -37,27 +42,51 @@ internal sealed class PacketEventSubscription(ChannelReader<PacketEvent> reader,
 /// <summary>
 ///     Fans packet events out to the open event streams of each user on this instance.
 /// </summary>
-internal sealed class PacketEventHub : IPacketEventHub
+internal sealed class PacketEventHub(IOptions<EventStreamOptions> options) : IPacketEventHub
 {
     internal const int SubscriberBufferSize = 64;
 
+    private readonly int _maxStreamsPerUser = options.Value.MaxStreamsPerUser;
+    private readonly int _maxStreamsPerInstance = options.Value.MaxStreamsPerInstance;
     private readonly Lock _lock = new();
     private readonly Dictionary<string, List<Channel<PacketEvent>>> _subscribers = [];
+    private int _count;
 
-    public PacketEventSubscription Subscribe(string userId)
+    public PacketEventSubscription? Subscribe(string userId)
     {
         var channel = Channel.CreateBounded<PacketEvent>(new BoundedChannelOptions(SubscriberBufferSize)
         {
             SingleReader = true,
         });
 
+        Channel<PacketEvent>? evicted = null;
+
         lock (_lock)
         {
-            if (!_subscribers.TryGetValue(userId, out var channels))
+            _subscribers.TryGetValue(userId, out var channels);
+
+            if (channels is not null && channels.Count >= _maxStreamsPerUser)
+            {
+                // The user replaces a stream rather than adding one, so the instance cap does not apply
+                evicted = channels[0];
+                channels.RemoveAt(0);
+                _count--;
+            }
+            else if (_count >= _maxStreamsPerInstance)
+            {
+                return null;
+            }
+
+            if (channels is null)
                 _subscribers[userId] = channels = [];
 
             channels.Add(channel);
+            _count++;
         }
+
+        // Completing the channel ends its stream and the client reconnects. It is already out of the list, so
+        // disposing that stream is a no-op and cannot cascade into evicting another one
+        evicted?.Writer.TryComplete();
 
         return new(channel.Reader, () => Unsubscribe(userId, channel));
     }
@@ -110,10 +139,10 @@ internal sealed class PacketEventHub : IPacketEventHub
 
         lock (_lock)
         {
-            if (!_subscribers.TryGetValue(userId, out var channels))
+            if (!_subscribers.TryGetValue(userId, out var channels) || !channels.Remove(channel))
                 return;
 
-            channels.Remove(channel);
+            _count--;
 
             if (channels.Count == 0)
                 _subscribers.Remove(userId);
