@@ -18,12 +18,8 @@ void main() {
   late FakePacketRepository repo;
   late FakeAuthService auth;
 
-  /// Pumps the list once auth has settled.
-  ///
-  /// Built before that, the feed first loads signed out, as an empty cache,
-  /// and Riverpod keeps that as the value while the signed-in fetch runs, so
-  /// the list would show the empty hint rather than its own loading and
-  /// failure states.
+  /// Pumps the list once auth has settled, so each test starts from a known
+  /// auth state; the cold start before that has its own test file.
   Future<void> pumpList(WidgetTester tester, {bool signedIn = true}) async {
     auth = FakeAuthService(signedIn: signedIn);
     await tester.pumpWidget(ProviderScope(

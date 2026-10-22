@@ -123,11 +123,16 @@ class _PacketListState extends ConsumerState<PacketList> {
     );
 
     final packetsState = asyncState.value;
-    if (asyncState.isLoading && packetsState == null) {
+    // Nothing worth showing yet: no state, or the blank state of a signed-out
+    // start without a cache, which Riverpod keeps as the value while the
+    // first signed-in fetch runs (a cold start), so that fetch shows as
+    // loading or failed rather than as an empty feed.
+    final nothingYet = packetsState == null || packetsState.isBlank;
+    if (asyncState.isLoading && nothingYet) {
       return const Center(child: CircularProgressIndicator());
     }
 
-    if (asyncState.hasError && packetsState == null) {
+    if (asyncState.hasError && nothingYet) {
       return Center(
         child: Padding(
           padding: const EdgeInsets.all(16),

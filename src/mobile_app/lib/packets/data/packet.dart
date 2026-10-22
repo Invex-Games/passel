@@ -196,6 +196,10 @@ class PacketsState {
 
   bool get hasMore => nextCursor != null;
 
+  /// No packets and never synced: the state of a signed-out start without a
+  /// cache, which shows nothing worth keeping on screen once a fetch runs.
+  bool get isBlank => packets.isEmpty && lastSyncedAt == null;
+
   PacketsState copyWith({
     List<Packet>? packets,
     String? Function()? nextCursor,
