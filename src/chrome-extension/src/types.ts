@@ -1,4 +1,4 @@
-﻿// Request bodies for POST /api/packets. `$type` must be the first property, and
+// Request bodies for POST /api/packets. `$type` must be the first property, and
 // nullable fields must still be sent (as null) because the server requires them.
 // File packets aren't supported by the server yet, so the extension only sends text and links.
 

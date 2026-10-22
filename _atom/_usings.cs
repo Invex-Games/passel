@@ -1,4 +1,4 @@
-﻿global using System.Diagnostics.CodeAnalysis;
+global using System.Diagnostics.CodeAnalysis;
 global using System.IO.Compression;
 global using Atom.Helpers;
 global using Atom.Targets;

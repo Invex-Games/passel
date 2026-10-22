@@ -1,4 +1,4 @@
-﻿import {API_URL} from "./config.js";
+import {API_URL} from "./config.js";
 import {getToken, refreshToken, signOut} from "./auth.js";
 import {parsePacket, parsePackets, toLiveEvent} from "./packets.js";
 import {ServerSentEventParser} from "./sse.js";

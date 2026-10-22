@@ -1,4 +1,4 @@
-﻿namespace Atom.Targets;
+namespace Atom.Targets;
 
 internal interface IBuildChromeExtension : IChromeExtensionHelper, IConfigurationHelper
 {

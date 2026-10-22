@@ -1,4 +1,4 @@
-﻿import {getAccountName, getToken, signIn, signOut} from "./auth.js";
+import {getAccountName, getToken, signIn, signOut} from "./auth.js";
 import {deletePacket, getPackets, sendPacket} from "./api.js";
 import {addFeedPort} from "./live.js";
 import {FEED_PORT_NAME} from "./types.js";

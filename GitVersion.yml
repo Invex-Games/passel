@@ -1,4 +1,4 @@
-﻿assembly-informational-format: '{Major}.{Minor}.{Patch}{PreReleaseTagWithDash}'
+assembly-informational-format: '{Major}.{Minor}.{Patch}{PreReleaseTagWithDash}'
 assembly-file-versioning-format: '{Major}.{Minor}.{Patch}.{WeightedPreReleaseNumber ?? 0}'
 mode: ContinuousDelivery
 tag-prefix: '[vV]?'

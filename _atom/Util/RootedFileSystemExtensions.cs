@@ -1,4 +1,4 @@
-﻿namespace Atom.Util;
+namespace Atom.Util;
 
 [PublicAPI]
 public static class RootedFileSystemExtensions

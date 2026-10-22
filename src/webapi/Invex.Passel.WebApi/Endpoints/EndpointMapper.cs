@@ -1,4 +1,4 @@
-﻿namespace Invex.Passel.WebApi.Endpoints;
+namespace Invex.Passel.WebApi.Endpoints;
 
 internal static class EndpointMapper
 {

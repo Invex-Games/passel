@@ -1,4 +1,4 @@
-﻿import * as esbuild from "esbuild";
+import * as esbuild from "esbuild";
 import {readFileSync, writeFileSync, existsSync, rmSync, mkdirSync, cpSync} from "fs";
 
 // Produces a self-contained, loadable extension in OUT_DIR (manifest.json, popup.html, popup.css,

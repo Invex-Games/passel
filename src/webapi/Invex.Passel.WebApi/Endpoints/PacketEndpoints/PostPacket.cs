@@ -1,4 +1,4 @@
-﻿namespace Invex.Passel.WebApi.Endpoints.PacketEndpoints;
+namespace Invex.Passel.WebApi.Endpoints.PacketEndpoints;
 
 public static partial class PacketEndpoints
 {

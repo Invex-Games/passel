@@ -1,4 +1,4 @@
-﻿namespace Atom.Util;
+namespace Atom.Util;
 
 /// <summary>
 ///     Represents a cache scoped to a build, using an <see cref="IBuildAccessor" /> as the key.

@@ -1,4 +1,4 @@
-﻿namespace Invex.Passel.WebApi.Extensions;
+namespace Invex.Passel.WebApi.Extensions;
 
 internal static class HostWebExtensions
 {

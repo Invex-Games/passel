@@ -1,4 +1,4 @@
-﻿import {GOOGLE_CLIENT_ID} from "./config.js";
+import {GOOGLE_CLIENT_ID} from "./config.js";
 import {clearFeedCache} from "./cache.js";
 
 // Only the service worker uses this module. The ID token lives in session storage (memory only,

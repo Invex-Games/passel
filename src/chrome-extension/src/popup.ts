@@ -1,4 +1,4 @@
-﻿import {clearFeedCache, loadFeedCache, saveFeedCache} from "./cache.js";
+import {clearFeedCache, loadFeedCache, saveFeedCache} from "./cache.js";
 import {FeedRequestError, FeedStore, type FeedState} from "./feed.js";
 import {packetDataForInput, tryParseHttpUrl} from "./packets.js";
 import {FEED_PORT_NAME} from "./types.js";

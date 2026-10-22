@@ -1,4 +1,4 @@
-﻿namespace Invex.Passel.WebApi.Domain.Commands;
+namespace Invex.Passel.WebApi.Domain.Commands;
 
 [PublicAPI]
 public sealed record CreateTextPacket

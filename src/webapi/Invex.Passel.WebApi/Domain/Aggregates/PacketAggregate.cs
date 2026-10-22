@@ -1,4 +1,4 @@
-﻿namespace Invex.Passel.WebApi.Domain.Aggregates;
+namespace Invex.Passel.WebApi.Domain.Aggregates;
 
 [PublicAPI]
 [Union]

@@ -1,4 +1,4 @@
-﻿namespace Invex.Passel.WebApi.Domain.Events;
+namespace Invex.Passel.WebApi.Domain.Events;
 
 [PublicAPI]
 public sealed record TextPacketCreated

@@ -1,4 +1,4 @@
-﻿declare const __CONFIG__: {
+declare const __CONFIG__: {
     API_URL: string;
     GOOGLE_CLIENT_ID: string;
 };

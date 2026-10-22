@@ -1,4 +1,4 @@
-﻿namespace Invex.Passel.WebApi.Services;
+namespace Invex.Passel.WebApi.Services;
 
 public interface IIdEncodingService
 {

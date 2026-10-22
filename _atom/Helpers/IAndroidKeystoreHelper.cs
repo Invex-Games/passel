@@ -1,4 +1,4 @@
-﻿namespace Atom.Helpers;
+namespace Atom.Helpers;
 
 internal interface IAndroidKeystoreHelper : IProcessHelper
 {
