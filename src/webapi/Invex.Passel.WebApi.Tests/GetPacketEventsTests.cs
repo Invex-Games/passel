@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Net.ServerSentEvents;
+using System.Runtime.ExceptionServices;
 using System.Security.Claims;
 using System.Threading.Channels;
 using Invex.Passel.WebApi.Domain.Aggregates;
@@ -43,6 +44,7 @@ public sealed class GetPacketEventsTests
                            Serialize,
                            SerializeDeleted,
                            heartbeatInterval,
+                           null,
                            TestContext.Current.CancellationToken))
         {
             items.Add(item);
@@ -52,6 +54,25 @@ public sealed class GetPacketEventsTests
         }
 
         return items;
+    }
+
+    private static DefaultHttpContext CreateHttpContext() =>
+        new()
+        {
+            RequestServices = new ServiceCollection()
+                .AddLogging()
+                .BuildServiceProvider(),
+            Response =
+            {
+                Body = new MemoryStream(),
+            },
+        };
+
+    private static async Task<string> ReadBodyAsync(HttpContext httpContext)
+    {
+        httpContext.Response.Body.Position = 0;
+
+        return await new StreamReader(httpContext.Response.Body).ReadToEndAsync(TestContext.Current.CancellationToken);
     }
 
     [Fact]
@@ -111,6 +132,7 @@ public sealed class GetPacketEventsTests
                            Serialize,
                            SerializeDeleted,
                            TimeSpan.FromMilliseconds(20),
+                           null,
                            TestContext.Current.CancellationToken))
         {
             items.Add(item);
@@ -146,30 +168,88 @@ public sealed class GetPacketEventsTests
         channel.Writer.TryWrite(new PacketEvent.Created(CreatePacket("body")));
         channel.Writer.Complete();
 
-        var httpContext = new DefaultHttpContext
-        {
-            RequestServices = new ServiceCollection()
-                .AddLogging()
-                .BuildServiceProvider(),
-            Response =
-            {
-                Body = new MemoryStream(),
-            },
-        };
+        var httpContext = CreateHttpContext();
 
         await TypedResults
             .ServerSentEvents(PacketEndpoints.StreamPacketEvents(channel.Reader,
                 Serialize,
                 SerializeDeleted,
                 LongHeartbeat,
+                null,
                 TestContext.Current.CancellationToken))
             .ExecuteAsync(httpContext);
 
-        httpContext.Response.Body.Position = 0;
-        var body = await new StreamReader(httpContext.Response.Body).ReadToEndAsync(TestContext.Current.CancellationToken);
-
         Assert.Equal("text/event-stream", httpContext.Response.ContentType);
-        Assert.Equal("event: resync\ndata: \n\nevent: packet-created\ndata: body\n\n", body);
+        Assert.Equal("event: resync\ndata: \n\nevent: packet-created\ndata: body\n\n", await ReadBodyAsync(httpContext));
+    }
+
+    [Fact]
+    public async Task Sends_the_reconnection_interval_with_the_resync()
+    {
+        var channel = Channel.CreateUnbounded<PacketEvent>();
+        channel.Writer.TryWrite(new PacketEvent.Created(CreatePacket("body")));
+        channel.Writer.Complete();
+        var httpContext = CreateHttpContext();
+
+        await TypedResults
+            .ServerSentEvents(PacketEndpoints.StreamPacketEvents(channel.Reader,
+                Serialize,
+                SerializeDeleted,
+                LongHeartbeat,
+                TimeSpan.FromSeconds(3),
+                TestContext.Current.CancellationToken))
+            .ExecuteAsync(httpContext);
+
+        // Only the first event carries it; the client keeps the value for the whole connection
+        Assert.Equal("event: resync\ndata: \nretry: 3000\n\nevent: packet-created\ndata: body\n\n",
+            await ReadBodyAsync(httpContext));
+    }
+
+    [Fact]
+    public void NextReconnectionInterval_stays_within_its_range()
+    {
+        var random = new Random(42);
+
+        var intervals = Enumerable
+            .Range(0, 1000)
+            .Select(_ => PacketEndpoints.NextReconnectionInterval(random))
+            .ToList();
+
+        Assert.All(intervals,
+            interval => Assert.InRange(interval,
+                PacketEndpoints.MinReconnectionInterval,
+                PacketEndpoints.MaxReconnectionInterval));
+        Assert.True(intervals.Distinct().Count() > 1);
+    }
+
+    [Fact]
+    public async Task Heartbeats_are_timed_without_throwing()
+    {
+        // Timing them with Task.WaitAsync threw and caught a TimeoutException per heartbeat per stream. A first-chance
+        // handler sees every exception thrown in the process, so none may be a timeout while heartbeats go out
+        var channel = Channel.CreateUnbounded<PacketEvent>();
+        var timeouts = 0;
+
+        EventHandler<FirstChanceExceptionEventArgs> handler = (_, args) =>
+        {
+            if (args.Exception is TimeoutException)
+                Interlocked.Increment(ref timeouts);
+        };
+
+        AppDomain.CurrentDomain.FirstChanceException += handler;
+
+        try
+        {
+            var items = await Collect(channel, TimeSpan.FromMilliseconds(20), 4);
+
+            Assert.Equal(3, items.Count(item => item.EventType == PacketEndpoints.HeartbeatEventType));
+        }
+        finally
+        {
+            AppDomain.CurrentDomain.FirstChanceException -= handler;
+        }
+
+        Assert.Equal(0, timeouts);
     }
 
     [Fact]
@@ -183,6 +263,7 @@ public sealed class GetPacketEventsTests
                            Serialize,
                            SerializeDeleted,
                            LongHeartbeat,
+                           null,
                            aborted.Token))
         {
             items.Add(item);

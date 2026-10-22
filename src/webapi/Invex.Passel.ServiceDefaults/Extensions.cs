@@ -21,6 +21,12 @@ public static class Extensions
     private const string HealthEndpointPath = "/health";
     private const string AlivenessEndpointPath = "/alive";
 
+    /// <summary>
+    ///     The packet event stream. A stream stays open for up to a day, so its request would hold an activity open,
+    ///     and export one long empty trace per stream, until the client disconnects.
+    /// </summary>
+    private const string PacketEventsPath = "/api/packets/events";
+
     extension<TBuilder>(TBuilder builder)
         where TBuilder : IHostApplicationBuilder
     {
@@ -75,10 +81,11 @@ public static class Extensions
                     tracing
                         .AddSource(builder.Environment.ApplicationName)
                         .AddAspNetCoreInstrumentation(tracing =>
-                            // Exclude health check requests from tracing
+                            // Exclude health check requests and the long-lived event streams from tracing
                             tracing.Filter = context =>
                                 !context.Request.Path.StartsWithSegments(HealthEndpointPath) &&
-                                !context.Request.Path.StartsWithSegments(AlivenessEndpointPath))
+                                !context.Request.Path.StartsWithSegments(AlivenessEndpointPath) &&
+                                !context.Request.Path.StartsWithSegments(PacketEventsPath))
                         // Uncomment the following line to enable gRPC instrumentation (requires the OpenTelemetry.Instrumentation.GrpcNetClient package)
                         //.AddGrpcClientInstrumentation()
                         .AddHttpClientInstrumentation();

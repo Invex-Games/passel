@@ -39,6 +39,14 @@ public static partial class PacketEndpoints
     private static readonly TimeSpan HeartbeatInterval = TimeSpan.FromSeconds(20);
 
     /// <summary>
+    ///     The range of the SSE <c>retry</c> value sent with the first event. It is drawn per stream, so clients that
+    ///     honour it reconnect spread over the range after a restart rather than all at once.
+    /// </summary>
+    internal static readonly TimeSpan MinReconnectionInterval = TimeSpan.FromSeconds(2);
+
+    internal static readonly TimeSpan MaxReconnectionInterval = TimeSpan.FromSeconds(6);
+
+    /// <summary>
     ///     No stream outlives this, whatever its token says; clients reconnect with a fresh token.
     /// </summary>
     internal static readonly TimeSpan MaxStreamLifetime = TimeSpan.FromDays(1);
@@ -72,17 +80,30 @@ public static partial class PacketEndpoints
     }
 
     /// <summary>
+    ///     A reconnection interval for one stream: whole milliseconds from <see cref="MinReconnectionInterval" /> to
+    ///     <see cref="MaxReconnectionInterval" />, both inclusive.
+    /// </summary>
+    internal static TimeSpan NextReconnectionInterval(Random random) =>
+        TimeSpan.FromMilliseconds(random.Next((int)MinReconnectionInterval.TotalMilliseconds,
+            (int)MaxReconnectionInterval.TotalMilliseconds + 1));
+
+    /// <summary>
     ///     Yields a resync event, then the events read from <paramref name="reader" />, with a heartbeat after every
     ///     <paramref name="heartbeatInterval" /> without one. Ends when the reader completes or the request is aborted.
+    ///     The resync carries <paramref name="reconnectionInterval" /> as the SSE <c>retry</c> value when one is given.
     /// </summary>
     internal static async IAsyncEnumerable<SseItem<string>> StreamPacketEvents(
         ChannelReader<PacketEvent> reader,
         Func<PacketAggregate, string> serializePacket,
         Func<Guid, string> serializeDeleted,
         TimeSpan heartbeatInterval,
+        TimeSpan? reconnectionInterval,
         [EnumeratorCancellation] CancellationToken cancellationToken)
     {
-        yield return new(string.Empty, ResyncEventType);
+        yield return new(string.Empty, ResyncEventType)
+        {
+            ReconnectionInterval = reconnectionInterval,
+        };
 
         // Kept across heartbeats so a single pending wait is never abandoned
         Task<bool>? waitToRead = null;
@@ -119,25 +140,31 @@ public static partial class PacketEndpoints
     }
 
     /// <summary>
-    ///     Returns the result of <paramref name="waitToRead" />, <c>null</c> on timeout, or <c>false</c> if cancelled.
+    ///     Returns the result of <paramref name="waitToRead" />, <c>null</c> when <paramref name="timeout" /> passes
+    ///     first, or <c>false</c> once the stream is cancelled. An idle stream times out on nearly every call, so the
+    ///     timeout is a delay that completes rather than an exception that is thrown and caught.
     /// </summary>
     private static async Task<bool?> WaitAsync(
         Task<bool> waitToRead,
         TimeSpan timeout,
         CancellationToken cancellationToken)
     {
-        try
-        {
-            return await waitToRead.WaitAsync(timeout, cancellationToken);
-        }
-        catch (TimeoutException)
-        {
-            return null;
-        }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-        {
+        // Linked to the stream so that cancelling it ends the delay too, and cancelled when an event wins so that the
+        // delay releases its timer instead of holding it until the interval is up
+        using var timer = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        var timedOut = Task.Delay(timeout, timer.Token);
+
+        var completed = await Task.WhenAny(waitToRead, timedOut);
+
+        if (cancellationToken.IsCancellationRequested)
             return false;
-        }
+
+        if (completed == timedOut)
+            return null;
+
+        timer.Cancel();
+
+        return await waitToRead;
     }
 
     public static void MapGetPacketEvents(this IEndpointRouteBuilder builder) =>
@@ -209,6 +236,7 @@ public static partial class PacketEndpoints
                                                },
                                                serializerOptions),
                                            HeartbeatInterval,
+                                           NextReconnectionInterval(Random.Shared),
                                            stopping.Token))
                             yield return item;
                     }

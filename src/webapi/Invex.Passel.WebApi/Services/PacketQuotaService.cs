@@ -24,8 +24,9 @@ internal interface IPacketQuotaService
 /// </summary>
 internal sealed class PacketQuotaService(NpgsqlDataSource dataSource, IDocumentStore store) : IPacketQuotaService
 {
-    // The filter matches the expression of the user id index Program.cs declares on the snapshot document.
-    // pg_column_size reads the stored (compressed) size without detoasting the document.
+    // The filter matches the leading expression of the index on user id and id that Program.cs declares on the
+    // snapshot document, so only the user's rows are read. pg_column_size reads the stored (compressed) size without
+    // detoasting the document.
     private readonly string _sql = $"""
         select count(*), coalesce(sum(pg_column_size(d.data)), 0)::bigint
         from {store.Options.FindOrResolveDocumentType(typeof(PacketAggregate)).TableName.QualifiedName} as d
