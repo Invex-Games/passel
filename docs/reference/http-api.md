@@ -16,11 +16,11 @@ Packets are a tagged union with a `$type` discriminator. `$type` doesn't have to
 
 | `$type` | Fields |
 |---|---|
-| `Link` | `id`, `name` (nullable), `url` |
-| `Text` | `id`, `title` (nullable), `body` |
-| `File` | `id`, `fileName`, `contentType`, `parcelId`, `isImage`. Returned only; creating file packets isn't supported yet. |
+| `Link` | `id`, `createdAt`, `name` (nullable), `url` |
+| `Text` | `id`, `createdAt`, `title` (nullable), `body` |
+| `File` | `id`, `createdAt`, `fileName`, `contentType`, `parcelId`, `isImage`. Returned only; creating file packets isn't supported yet. |
 
-`id` is an opaque string (a Sqids-encoded Guid).
+`id` is an opaque string (a Sqids-encoded Guid). `createdAt` is when the packet was created, as an ISO 8601 timestamp in UTC (for example `2026-10-22T11:03:08.1234567+00:00`); it is returned, never sent.
 
 ### `GET /api/packets`
 
@@ -31,14 +31,14 @@ Returns the caller's packets, newest first, 50 per page.
 | `cursor` | The `nextCursor` from the previous page. An invalid cursor returns 400. |
 
 ```json
-{ "packets": [ { "$type": "Link", "id": "…", "name": "Example", "url": "https://example.com" } ], "nextCursor": "…" }
+{ "packets": [ { "$type": "Link", "id": "…", "createdAt": "2026-10-22T11:03:08.1234567+00:00", "name": "Example", "url": "https://example.com" } ], "nextCursor": "…" }
 ```
 
 `nextCursor` is `null` on the last page.
 
 ### `POST /api/packets`
 
-Creates a packet and returns it, with its `id`, as **200 OK**. Nullable fields must be sent explicitly, even as `null`.
+Creates a packet and returns it, with its `id` and `createdAt`, as **200 OK**. Nullable fields must be sent explicitly, even as `null`.
 
 ```json
 { "$type": "Text", "title": null, "body": "Hello from my laptop" }
@@ -55,7 +55,7 @@ A `File` packet returns 400. Validation failures return a validation problem key
 
 ### `DELETE /api/packets/{id}`
 
-Returns 204. Returns 404 if the id is malformed, the packet doesn't exist, or it belongs to someone else.
+Returns 204 and erases the packet; nothing of it is kept. Returns 404 if the id is malformed, the packet doesn't exist, or it belongs to someone else.
 
 ### `GET /api/packets/events`
 

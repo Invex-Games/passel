@@ -1,4 +1,4 @@
-using Invex.Passel.WebApi.Domain.Aggregates;
+using Invex.Passel.WebApi.Domain;
 using Invex.Passel.WebApi.Options;
 using Invex.Passel.WebApi.Services;
 
@@ -41,7 +41,8 @@ public sealed class PacketEventHubTests
         {
             Id = Guid.CreateVersion7(),
             UserId = userId,
-            Packet = new Packet.Text
+            CreatedAt = DateTimeOffset.UtcNow,
+            Content = new PacketContent.Text
             {
                 Title = null,
                 Body = "body",

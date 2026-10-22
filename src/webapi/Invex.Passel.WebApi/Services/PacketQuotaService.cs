@@ -19,18 +19,18 @@ internal interface IPacketQuotaService
 }
 
 /// <summary>
-///     Reads a user's usage with one aggregate over the packet snapshot table, through the index on the user id.
+///     Reads a user's usage with one aggregate over the packet table, through the index on the user id.
 ///     Two creates racing each other can both pass the check, so the quotas are approximate by a packet.
 /// </summary>
 internal sealed class PacketQuotaService(NpgsqlDataSource dataSource, IDocumentStore store) : IPacketQuotaService
 {
     // The filter matches the leading expression of the index on user id and id that Program.cs declares on the
-    // snapshot document, so only the user's rows are read. pg_column_size reads the stored (compressed) size without
+    // packet document, so only the user's rows are read. pg_column_size reads the stored (compressed) size without
     // detoasting the document.
     private readonly string _sql = $"""
         select count(*), coalesce(sum(pg_column_size(d.data)), 0)::bigint
-        from {store.Options.FindOrResolveDocumentType(typeof(PacketAggregate)).TableName.QualifiedName} as d
-        where d.data ->> '{nameof(PacketAggregate.UserId)}' = $1
+        from {store.Options.FindOrResolveDocumentType(typeof(Packet)).TableName.QualifiedName} as d
+        where d.data ->> '{nameof(Packet.UserId)}' = $1
         """;
 
     public async Task<PacketQuotaUsage> GetUsageAsync(string userId, CancellationToken cancellationToken = default)

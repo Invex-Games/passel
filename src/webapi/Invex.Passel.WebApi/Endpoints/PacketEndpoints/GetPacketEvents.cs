@@ -94,7 +94,7 @@ public static partial class PacketEndpoints
     /// </summary>
     internal static async IAsyncEnumerable<SseItem<string>> StreamPacketEvents(
         ChannelReader<PacketEvent> reader,
-        Func<PacketAggregate, string> serializePacket,
+        Func<Packet, string> serializePacket,
         Func<Guid, string> serializeDeleted,
         TimeSpan heartbeatInterval,
         TimeSpan? reconnectionInterval,

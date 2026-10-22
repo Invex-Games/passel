@@ -1,5 +1,5 @@
 using System.Threading.Channels;
-using Invex.Passel.WebApi.Domain.Aggregates;
+using Invex.Passel.WebApi.Domain;
 using Invex.Passel.WebApi.Options;
 using Invex.Passel.WebApi.Services;
 
@@ -18,12 +18,13 @@ public sealed class PacketNotificationListenerTests
         return subscription;
     }
 
-    private static PacketAggregate CreatePacket(string userId) =>
+    private static Packet CreatePacket(string userId) =>
         new()
         {
             Id = Guid.CreateVersion7(),
             UserId = userId,
-            Packet = new Packet.Text
+            CreatedAt = DateTimeOffset.UtcNow,
+            Content = new PacketContent.Text
             {
                 Title = null,
                 Body = "body",
@@ -43,19 +44,19 @@ public sealed class PacketNotificationListenerTests
     /// <summary>
     ///     Stands in for the query: records every call and answers with the packets it knows, or fails.
     /// </summary>
-    private sealed class FakeLoader(params IEnumerable<PacketAggregate> packets)
+    private sealed class FakeLoader(params IEnumerable<Packet> packets)
     {
-        private readonly Dictionary<Guid, PacketAggregate> _packets = packets.ToDictionary(p => p.Id);
+        private readonly Dictionary<Guid, Packet> _packets = packets.ToDictionary(p => p.Id);
 
         public List<IReadOnlyList<Guid>> Calls { get; } = [];
 
         public bool Fails { get; init; }
 
-        public Task<IReadOnlyList<PacketAggregate>?> Load(IReadOnlyList<Guid> packetIds, CancellationToken cancellationToken)
+        public Task<IReadOnlyList<Packet>?> Load(IReadOnlyList<Guid> packetIds, CancellationToken cancellationToken)
         {
             Calls.Add([..packetIds]);
 
-            IReadOnlyList<PacketAggregate>? loaded = Fails
+            IReadOnlyList<Packet>? loaded = Fails
                 ? null
                 : packetIds
                     .Where(_packets.ContainsKey)

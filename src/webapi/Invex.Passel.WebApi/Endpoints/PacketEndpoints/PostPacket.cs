@@ -48,6 +48,11 @@ public static partial class PacketEndpoints
     {
         public required string Id { get; init; }
 
+        /// <summary>
+        ///     When the packet was created, in UTC.
+        /// </summary>
+        public required DateTimeOffset CreatedAt { get; init; }
+
         [PublicAPI]
         public sealed partial record Link
         {
@@ -161,7 +166,7 @@ public static partial class PacketEndpoints
                             statusCode: exceeded.StatusCode,
                             title: exceeded.Title);
 
-                    var result = packet switch
+                    var created = packet switch
                     {
                         PostPacketRequestBody.Text text => await packetStoreService.Handle(new CreateTextPacket
                         {
@@ -175,27 +180,30 @@ public static partial class PacketEndpoints
                             Title = link.Name,
                             Url = link.Url,
                         }),
-                        _ => null,
-                    };
-
-                    return result?.Packet switch
-                    {
-                        Packet.Link linkResult => Results.Ok(new PostPacketResponseBody.Link
-                        {
-                            Name = linkResult.Name,
-                            Url = linkResult.Url,
-                            Id = encodingService.Encode(result.Id),
-                        }),
-                        Packet.Text textResult => Results.Ok(new PostPacketResponseBody.Text
-                        {
-                            Title = textResult.Title,
-                            Body = textResult.Body,
-                            Id = encodingService.Encode(result.Id),
-                        }),
-                        null => Results.Problem("Failed to create packet.",
-                            statusCode: StatusCodes.Status500InternalServerError),
                         _ => throw new UnreachableException(),
                     };
+
+                    // Typed as the union so the "$type" discriminator is written, as in the list
+                    PostPacketResponseBody response = created.Content switch
+                    {
+                        PacketContent.Link link => new PostPacketResponseBody.Link
+                        {
+                            Name = link.Name,
+                            Url = link.Url,
+                            Id = encodingService.Encode(created.Id),
+                            CreatedAt = created.CreatedAt,
+                        },
+                        PacketContent.Text text => new PostPacketResponseBody.Text
+                        {
+                            Title = text.Title,
+                            Body = text.Body,
+                            Id = encodingService.Encode(created.Id),
+                            CreatedAt = created.CreatedAt,
+                        },
+                        _ => throw new UnreachableException(),
+                    };
+
+                    return Results.Ok(response);
                 })
             .AcceptsJson(nameof(PostPacketRequestBody.Link),
                 new PostPacketRequestBody.Link

@@ -3,7 +3,7 @@ using System.Net.ServerSentEvents;
 using System.Runtime.ExceptionServices;
 using System.Security.Claims;
 using System.Threading.Channels;
-using Invex.Passel.WebApi.Domain.Aggregates;
+using Invex.Passel.WebApi.Domain;
 using Invex.Passel.WebApi.Endpoints.PacketEndpoints;
 using Invex.Passel.WebApi.Services;
 using Microsoft.AspNetCore.Http;
@@ -15,20 +15,21 @@ public sealed class GetPacketEventsTests
 {
     private static readonly TimeSpan LongHeartbeat = TimeSpan.FromMinutes(5);
 
-    private static PacketAggregate CreatePacket(string body) =>
+    private static Packet CreatePacket(string body) =>
         new()
         {
             Id = Guid.CreateVersion7(),
             UserId = "user",
-            Packet = new Packet.Text
+            CreatedAt = DateTimeOffset.UtcNow,
+            Content = new PacketContent.Text
             {
                 Title = null,
                 Body = body,
             },
         };
 
-    private static string Serialize(PacketAggregate packet) =>
-        ((Packet.Text)packet.Packet).Body;
+    private static string Serialize(Packet packet) =>
+        ((PacketContent.Text)packet.Content).Body;
 
     private static string SerializeDeleted(Guid packetId) =>
         $"deleted {packetId}";

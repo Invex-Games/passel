@@ -20,6 +20,7 @@ All notable changes to Passel. The format follows [Keep a Changelog](https://kee
 
 ### Changed
 
+- Packets are plain Marten documents instead of event streams with a snapshot (ADR 0001): a delete erases the packet, each packet is stored once, and the list and create responses and the `packet-created` event carry `createdAt`. A development database from before keeps its old tables, which can be dropped.
 - Marten 9 and current Aspire, OpenTelemetry and Google packages.
 - Line endings are LF everywhere, files carry no byte-order mark, and the Atom build tool is pinned in `dotnet-tools.json`.
 - NuGet package versions are managed centrally in `Directory.Packages.props`; the .NET SDK is pinned in `global.json`.

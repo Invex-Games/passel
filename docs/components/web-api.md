@@ -19,30 +19,32 @@ Every packet endpoint lives under `/api/packets`, requires authentication and is
 
 Each packet endpoint opts into one of three rate-limiting policies (`Extensions/RateLimitingExtensions.cs`): creates, reads (the list and delete endpoints) and event-stream connections. The limiter runs after authentication so requests are counted per user; requests that fail authentication are counted per remote address instead. Rejections are 429 problems with `Retry-After`. The limits come from the `RateLimits` configuration section; see [Configuration](../reference/configuration.md#web-api).
 
-Before a create, `PacketQuotaService` reads the caller's usage with one aggregate over the snapshot table (`count(*)` and the summed `pg_column_size` of the documents, through the leading member of the index on `UserId` and `Id`), and `PacketQuota.Exceeded` compares it with the `Quotas` configuration. A user at the packet limit gets 429, a packet that would pass the byte limit gets 413, and both messages say to delete packets. Two creates that race can both pass the check, so the quotas are approximate by a packet.
+Before a create, `PacketQuotaService` reads the caller's usage with one aggregate over the packet table (`count(*)` and the summed `pg_column_size` of the documents, through the leading member of the index on `UserId` and `Id`), and `PacketQuota.Exceeded` compares it with the `Quotas` configuration. A user at the packet limit gets 429, a packet that would pass the byte limit gets 413, and both messages say to delete packets. Two creates that race can both pass the check, so the quotas are approximate by a packet.
 
-## Storage: Marten event sourcing
+## Storage: Marten documents
 
-Packets are stored with [Marten](https://martendb.io/) on PostgreSQL.
+Packets are stored with [Marten](https://martendb.io/) on PostgreSQL, as plain documents ([ADR 0001](../decisions/0001-packets-as-documents.md)).
 
-- Each packet is an event stream keyed by a version 7 `Guid`. The events are `TextPacketCreated`, `LinkPacketCreated`, `FilePacketCreated` and `PacketDeleted`.
-- `PacketAggregate` is kept as an **inline snapshot**: a document written in the same transaction as the event. Reads query the snapshot documents. `PacketDeleted` removes the document.
-- `PacketStoreService` handles creating and deleting packets. Deleting checks ownership first. A missing packet and someone else's packet both return 404, so ids can't be probed.
-- Snapshot documents carry one composite computed index on `UserId` and `Id`, which serves the feed query. See [The feed index](#the-feed-index).
+- Each packet is one `Packet` document (`Domain/Packet.cs`) in the `mt_doc_packet` table: `Id`, `UserId`, `CreatedAt` and the `Content` union (`Link`, `Text` or `File`, stored with a `$type` discriminator). The id is a version 7 `Guid`, so id order is creation order; the feed and its cursor rely on that.
+- `PacketStoreService` handles creating and deleting packets: one upsert to create, one delete to remove. Deleting checks ownership first. A missing packet and someone else's packet both return 404, so ids can't be probed. A delete removes the document, and nothing else keeps the content.
+- The documents carry one composite computed index on `UserId` and `Id`, which serves the feed query. See [The feed index](#the-feed-index).
+- Marten applies the schema at startup (`ApplyAllDatabaseChangesOnStartup`), so the table exists before the first request; the quota check reads it with plain SQL, which Marten's on-first-use creation would not cover.
 
 File packets exist in the model, but nothing creates them yet: the API rejects them with 400 and there is no file storage.
+
+A database from before the move still has the event-sourcing tables (`mt_doc_packetaggregate`, `mt_events`, `mt_streams`); nothing reads them, and they can be dropped. Marten does not migrate the old packets into the new table.
 
 ### The feed index
 
 `GET /api/packets` runs `where UserId = ? and Id < ? order by Id desc limit 51`. With the index declared as `.Index([p => p.UserId, p => p.Id])`, Marten emits the identity member as the `id` column rather than a JSON expression, so the query becomes a backward range scan of at most 51 index entries however many packets the user has:
 
 ```sql
-CREATE INDEX mt_doc_packetaggregate_idx_user_id_id ON public.mt_doc_packetaggregate USING btree ((data ->> 'UserId'), (id));
+CREATE INDEX mt_doc_packet_idx_user_id_id ON public.mt_doc_packet USING btree ((data ->> 'UserId'), (id));
 ```
 
 `Program.cs` sets the name; the one Marten derives runs the members together as `user_idid`. The single-column index on `UserId` that the API used to declare is gone, because the leading member of this one serves the same lookups, including the quota aggregate.
 
-Measured on PostgreSQL 18.3 with 15,021 packets seeded through the API (one user with 5,001, fifty users with 200 each), `EXPLAIN (ANALYZE, BUFFERS)` of the exact statements Marten emits, warm, after `ANALYZE`:
+Measured on PostgreSQL 18.3 with 15,021 packets seeded through the API (one user with 5,001, fifty users with 200 each), `EXPLAIN (ANALYZE, BUFFERS)` of the exact statements Marten emits, warm, after `ANALYZE`. The measurements were taken on the snapshot table of the event-sourced model; the document table has the same columns and the same index, so the plans are the same:
 
 | Query | Index on `UserId` only | Index on `UserId`, `Id` |
 |---|---|---|

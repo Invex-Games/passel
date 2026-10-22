@@ -6,7 +6,7 @@ namespace Invex.Passel.WebApi.Services;
 [Union]
 internal partial record PacketEvent
 {
-    partial record Created(PacketAggregate Packet);
+    partial record Created(Packet Packet);
 
     partial record Deleted(Guid PacketId);
 

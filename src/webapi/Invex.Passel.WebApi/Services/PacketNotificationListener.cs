@@ -17,7 +17,7 @@ internal sealed partial class PacketNotificationListener(
     /// <summary>
     ///     Loads the snapshots of the given packets; <c>null</c> when they could not be loaded.
     /// </summary>
-    internal delegate Task<IReadOnlyList<PacketAggregate>?> PacketLoader(
+    internal delegate Task<IReadOnlyList<Packet>?> PacketLoader(
         IReadOnlyList<Guid> packetIds,
         CancellationToken cancellationToken);
 
@@ -186,7 +186,7 @@ internal sealed partial class PacketNotificationListener(
             ? []
             : await loadPackets(idsToLoad, cancellationToken);
 
-        Dictionary<Guid, PacketAggregate>? packets = null;
+        Dictionary<Guid, Packet>? packets = null;
 
         if (loaded is not null)
         {
@@ -223,7 +223,7 @@ internal sealed partial class PacketNotificationListener(
     /// <summary>
     ///     Loads the snapshots in one query; <c>null</c> when it fails, which is logged.
     /// </summary>
-    private async Task<IReadOnlyList<PacketAggregate>?> LoadPacketsAsync(
+    private async Task<IReadOnlyList<Packet>?> LoadPacketsAsync(
         IReadOnlyList<Guid> packetIds,
         CancellationToken cancellationToken)
     {
@@ -231,7 +231,7 @@ internal sealed partial class PacketNotificationListener(
         {
             await using var session = store.QuerySession();
 
-            return await session.LoadManyAsync<PacketAggregate>(cancellationToken, packetIds);
+            return await session.LoadManyAsync<Packet>(cancellationToken, packetIds);
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {

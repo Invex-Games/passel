@@ -4,9 +4,9 @@ namespace Invex.Passel.WebApi.Domain;
 
 internal interface IPacketStoreService
 {
-    Task<PacketAggregate?> Handle(CreateTextPacket command);
+    Task<Packet> Handle(CreateTextPacket command);
 
-    Task<PacketAggregate?> Handle(CreateLinkPacket command);
+    Task<Packet> Handle(CreateLinkPacket command);
 
     /// <summary>
     ///     Returns <c>false</c> if the user has no such packet.
@@ -14,68 +14,65 @@ internal interface IPacketStoreService
     Task<bool> Handle(DeletePacket command);
 }
 
+/// <summary>
+///     Writes packets as documents: one upsert to create, one delete to remove, and a notification after each commit
+///     for the live streams.
+/// </summary>
 internal sealed partial class PacketStoreService(
     IDocumentSession session,
     NpgsqlDataSource dataSource,
     ILogger<PacketStoreService> logger) : IPacketStoreService
 {
-    public async Task<PacketAggregate?> Handle(CreateTextPacket command)
-    {
-        var id = Guid.CreateVersion7();
-        var stream = await session.Events.FetchForWriting<PacketAggregate>(id);
+    public Task<Packet> Handle(CreateTextPacket command) =>
+        StoreAsync(command.UserId,
+            new PacketContent.Text
+            {
+                Title = command.Title,
+                Body = command.Body,
+            });
 
-        stream.AppendOne(new TextPacketCreated
-        {
-            UserId = command.UserId,
-            Title = command.Title,
-            Body = command.Body,
-            CreatedAt = DateTimeOffset.UtcNow,
-        });
-
-        await session.SaveChangesAsync();
-        await NotifyAsync(new(command.UserId, id));
-
-        return await session.Events.FetchLatest<PacketAggregate>(id);
-    }
-
-    public async Task<PacketAggregate?> Handle(CreateLinkPacket command)
-    {
-        var id = Guid.CreateVersion7();
-        var stream = await session.Events.FetchForWriting<PacketAggregate>(id);
-
-        stream.AppendOne(new LinkPacketCreated
-        {
-            UserId = command.UserId,
-            Title = command.Title,
-            Url = command.Url,
-            CreatedAt = DateTimeOffset.UtcNow,
-        });
-
-        await session.SaveChangesAsync();
-        await NotifyAsync(new(command.UserId, id));
-
-        return await session.Events.FetchLatest<PacketAggregate>(id);
-    }
+    public Task<Packet> Handle(CreateLinkPacket command) =>
+        StoreAsync(command.UserId,
+            new PacketContent.Link
+            {
+                Name = command.Title,
+                Url = command.Url,
+            });
 
     public async Task<bool> Handle(DeletePacket command)
     {
-        var packet = await session.LoadAsync<PacketAggregate>(command.PacketId);
+        var packet = await session.LoadAsync<Packet>(command.PacketId);
 
         // Another user's packet is reported as missing too, so packet ids can't be probed
         if (packet is null || packet.UserId != command.UserId)
             return false;
 
-        // The inline snapshot projection removes the packet's document when this is applied
-        session.Events.Append(command.PacketId,
-            new PacketDeleted
-            {
-                DeletedAt = DateTimeOffset.UtcNow,
-            });
+        // The document is the only record of the packet, so this is the end of its content
+        session.Delete(packet);
 
         await session.SaveChangesAsync();
         await NotifyAsync(new(command.UserId, command.PacketId, PacketChange.Deleted));
 
         return true;
+    }
+
+    private async Task<Packet> StoreAsync(string userId, PacketContent content)
+    {
+        var packet = new Packet
+        {
+            // Version 7, so ids order packets by creation; the feed pages on them
+            Id = Guid.CreateVersion7(),
+            UserId = userId,
+            CreatedAt = DateTimeOffset.UtcNow,
+            Content = content,
+        };
+
+        session.Store(packet);
+
+        await session.SaveChangesAsync();
+        await NotifyAsync(new(userId, packet.Id));
+
+        return packet;
     }
 
     // Sent once the change is committed, so it never announces one that was rolled back. It can't be queued in the

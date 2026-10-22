@@ -34,6 +34,11 @@
             href: reference/configuration.md
         -   name: HTTP API
             href: reference/http-api.md
+-   name: Decisions
+    href: decisions/0001-packets-as-documents.md
+    items:
+        -   name: 0001 Packets as documents
+            href: decisions/0001-packets-as-documents.md
 -   name: Evaluation
     href: evaluation/index.md
     items:

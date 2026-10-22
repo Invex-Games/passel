@@ -20,6 +20,11 @@ public static partial class PacketEndpoints
         {
             public required string Id { get; init; }
 
+            /// <summary>
+            ///     When the packet was created, in UTC.
+            /// </summary>
+            public required DateTimeOffset CreatedAt { get; init; }
+
             [PublicAPI]
             public sealed partial record Link
             {
@@ -54,8 +59,8 @@ public static partial class PacketEndpoints
     ///     Splits a result set fetched with <c>Take(batchSize + 1)</c> into the page to return and the cursor for the
     ///     next page. The extra row only signals that more data exists; the cursor is the last row actually returned.
     /// </summary>
-    internal static (IReadOnlyList<PacketAggregate> Page, Guid? NextCursor) Paginate(
-        IReadOnlyList<PacketAggregate> fetched,
+    internal static (IReadOnlyList<Packet> Page, Guid? NextCursor) Paginate(
+        IReadOnlyList<Packet> fetched,
         int batchSize)
     {
         if (fetched.Count <= batchSize)
@@ -69,29 +74,32 @@ public static partial class PacketEndpoints
     }
 
     internal static GetPacketsResponseBody.Packet ToResponsePacket(
-        PacketAggregate aggregate,
+        Packet packet,
         IIdEncodingService encodingService) =>
-        aggregate.Packet switch
+        packet.Content switch
         {
-            Packet.Link link => new GetPacketsResponseBody.Packet.Link
+            PacketContent.Link link => new GetPacketsResponseBody.Packet.Link
             {
                 Name = link.Name,
                 Url = link.Url,
-                Id = encodingService.Encode(aggregate.Id),
+                Id = encodingService.Encode(packet.Id),
+                CreatedAt = packet.CreatedAt,
             },
-            Packet.Text text => new GetPacketsResponseBody.Packet.Text
+            PacketContent.Text text => new GetPacketsResponseBody.Packet.Text
             {
                 Title = text.Title,
                 Body = text.Body,
-                Id = encodingService.Encode(aggregate.Id),
+                Id = encodingService.Encode(packet.Id),
+                CreatedAt = packet.CreatedAt,
             },
-            Packet.File file => new GetPacketsResponseBody.Packet.File
+            PacketContent.File file => new GetPacketsResponseBody.Packet.File
             {
                 FileName = file.FileName,
                 ContentType = file.ContentType,
                 ParcelId = encodingService.Encode(file.ParcelId),
                 IsImage = file.IsImage,
-                Id = encodingService.Encode(aggregate.Id),
+                Id = encodingService.Encode(packet.Id),
+                CreatedAt = packet.CreatedAt,
             },
             _ => throw new UnreachableException(),
         };
@@ -121,7 +129,7 @@ public static partial class PacketEndpoints
                     }
     
                     var query = querySession
-                        .Query<PacketAggregate>()
+                        .Query<Packet>()
                         .Where(p => p.UserId == ownerId);
     
                     if (cursorId is { } beforeId)
