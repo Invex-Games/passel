@@ -23,17 +23,23 @@ class FakeAuthService extends AsyncNotifier<bool> implements AuthService {
   FakeAuthService({this.signedIn = false});
   final bool signedIn;
 
+  /// How often [signIn] and [signOut] were called.
+  int signInCalls = 0;
+  int signOutCalls = 0;
+
   @override
   Future<bool> build() async => signedIn;
 
   @override
   Future<bool> signIn({String? devUser}) async {
+    signInCalls++;
     state = const AsyncData(true);
     return true;
   }
 
   @override
   Future<void> signOut() async {
+    signOutCalls++;
     state = const AsyncData(false);
   }
 
