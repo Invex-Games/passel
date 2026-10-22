@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Net.Http.Headers;
+using Invex.Passel.WebApi.Services;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 
@@ -24,6 +25,9 @@ internal sealed class PasselApiFactory(string connectionString) : WebApplication
         builder.UseSetting("ConnectionStrings:passel-db", connectionString);
         builder.UseSetting("Authentication:Google:ClientId", string.Empty);
         builder.UseSetting("Authentication:Google:ClientSecret", string.Empty);
+
+        // The contract fixtures carry ids encoded by the API; pinned so they come out the same on every machine
+        builder.UseSetting("Encoding:Alphabet", IdEncodingService.DefaultAlphabet);
 
         // The suite makes more requests per user in a minute than the defaults allow (paging alone creates 51
         // packets); the limits have unit tests of their own

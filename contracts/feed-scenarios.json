@@ -1,0 +1,230 @@
+{
+  "description": "Feed sequences every client's feed store must agree on. The extension's FeedStore (src/chrome-extension/src/feed.ts) and the mobile app's PacketsNotifier (src/mobile_app/lib/packets/packets_provider.dart) implement the same rules; test/contracts.test.ts and test/contracts_test.dart run every scenario through them. The API's integration tests check that every packet below is a valid wire packet.",
+  "format": {
+    "packets": "The packets the scenarios refer to by id, each in the wire shape of a GET /api/packets item (see contracts/fixtures/list-page.json).",
+    "actions": {
+      "open": "The feed is opened with nothing cached: the client fetches the first page.",
+      "refresh": "The user refreshes: the client fetches the first page and replaces the list with it.",
+      "loadMore": "The user reaches the end of the list: the client fetches the next page with the cursor it was given.",
+      "resync": "The live stream (re)connects or says events may have been missed: the client fetches the first page and merges it on top of what it has.",
+      "created": "A packet-created event arrives with the packet named by `packet`.",
+      "deleted": "A packet-deleted event arrives for the packet named by `id`.",
+      "hide": "The user deletes the packet named by `id`; it leaves the list while the deletion can still be undone.",
+      "unhide": "The user undoes the deletion of the packet named by `id`."
+    },
+    "serves": "For an action that fetches: the cursor the client must ask with (null for the first page), the packets the API answers with, newest first, and the cursor that follows them. An action without `serves` must not fetch.",
+    "expect": "The ids the list holds after the step, in order, and optionally the cursor the client would load more with."
+  },
+  "packets": {
+    "a": {
+      "$type": "Link",
+      "id": "a",
+      "createdAt": "2026-10-22T11:03:08.1234567+00:00",
+      "name": "Example",
+      "url": "https://example.com/page?q=1"
+    },
+    "b": {
+      "$type": "Text",
+      "id": "b",
+      "createdAt": "2026-10-22T11:02:08.1234567+00:00",
+      "title": null,
+      "body": "Hello from my laptop"
+    },
+    "c": {
+      "$type": "File",
+      "id": "c",
+      "createdAt": "2026-10-22T11:01:08.1234567+00:00",
+      "fileName": "screenshot.png",
+      "contentType": "image/png",
+      "parcelId": "p1",
+      "isImage": true
+    },
+    "d": {
+      "$type": "Text",
+      "id": "d",
+      "createdAt": "2026-10-22T11:00:08.1234567+00:00",
+      "title": "Shopping",
+      "body": "milk, eggs"
+    },
+    "x": {
+      "$type": "Link",
+      "id": "x",
+      "createdAt": "2026-10-22T12:00:00+00:00",
+      "name": null,
+      "url": "https://example.org/x"
+    },
+    "y": {
+      "$type": "Text",
+      "id": "y",
+      "createdAt": "2026-10-22T11:59:00+00:00",
+      "title": "Y",
+      "body": "Sent while the feed was away"
+    },
+    "new": {
+      "$type": "Text",
+      "id": "new",
+      "createdAt": "2026-10-22T11:10:00+00:00",
+      "title": null,
+      "body": "Sent from the phone"
+    },
+    "live": {
+      "$type": "Link",
+      "id": "live",
+      "createdAt": "2026-10-22T11:11:00+00:00",
+      "name": "Arrived live",
+      "url": "https://example.com/live"
+    }
+  },
+  "scenarios": [
+    {
+      "name": "The first page fills an empty feed",
+      "steps": [
+        {
+          "action": "open",
+          "serves": { "cursor": null, "packets": ["a", "b", "c"], "nextCursor": "c1" },
+          "expect": { "packets": ["a", "b", "c"], "nextCursor": "c1" }
+        }
+      ]
+    },
+    {
+      "name": "Loading more appends the cursor page and drops what it repeats",
+      "steps": [
+        {
+          "action": "open",
+          "serves": { "cursor": null, "packets": ["a", "b", "c"], "nextCursor": "c1" },
+          "expect": { "packets": ["a", "b", "c"], "nextCursor": "c1" }
+        },
+        {
+          "action": "loadMore",
+          "serves": { "cursor": "c1", "packets": ["c", "d"], "nextCursor": null },
+          "expect": { "packets": ["a", "b", "c", "d"], "nextCursor": null }
+        }
+      ]
+    },
+    {
+      "name": "Paging stops when the server repeats the cursor",
+      "steps": [
+        {
+          "action": "open",
+          "serves": { "cursor": null, "packets": ["a", "b"], "nextCursor": "c1" },
+          "expect": { "packets": ["a", "b"], "nextCursor": "c1" }
+        },
+        {
+          "action": "loadMore",
+          "serves": { "cursor": "c1", "packets": ["c"], "nextCursor": "c1" },
+          "expect": { "packets": ["a", "b", "c"], "nextCursor": null }
+        }
+      ]
+    },
+    {
+      "name": "A live create goes on top, once",
+      "steps": [
+        {
+          "action": "open",
+          "serves": { "cursor": null, "packets": ["a", "b"], "nextCursor": null },
+          "expect": { "packets": ["a", "b"] }
+        },
+        {
+          "action": "created",
+          "packet": "live",
+          "expect": { "packets": ["live", "a", "b"] }
+        },
+        {
+          "action": "created",
+          "packet": "live",
+          "expect": { "packets": ["live", "a", "b"] }
+        }
+      ]
+    },
+    {
+      "name": "A live delete removes the packet and keeps it out",
+      "steps": [
+        {
+          "action": "open",
+          "serves": { "cursor": null, "packets": ["a", "b", "c"], "nextCursor": null },
+          "expect": { "packets": ["a", "b", "c"] }
+        },
+        {
+          "action": "deleted",
+          "id": "b",
+          "expect": { "packets": ["a", "c"] }
+        },
+        {
+          "action": "created",
+          "packet": "b",
+          "expect": { "packets": ["a", "c"] }
+        },
+        {
+          "action": "refresh",
+          "serves": { "cursor": null, "packets": ["a", "b", "c"], "nextCursor": null },
+          "expect": { "packets": ["a", "c"] }
+        }
+      ]
+    },
+    {
+      "name": "A resync merges the latest page on top of the pages loaded",
+      "steps": [
+        {
+          "action": "open",
+          "serves": { "cursor": null, "packets": ["a", "b"], "nextCursor": "c1" },
+          "expect": { "packets": ["a", "b"], "nextCursor": "c1" }
+        },
+        {
+          "action": "loadMore",
+          "serves": { "cursor": "c1", "packets": ["c"], "nextCursor": null },
+          "expect": { "packets": ["a", "b", "c"], "nextCursor": null }
+        },
+        {
+          "action": "resync",
+          "serves": { "cursor": null, "packets": ["new", "a", "b"], "nextCursor": "c2" },
+          "expect": { "packets": ["new", "a", "b", "c"], "nextCursor": null }
+        }
+      ]
+    },
+    {
+      "name": "A resync replaces the feed when nothing overlaps",
+      "steps": [
+        {
+          "action": "open",
+          "serves": { "cursor": null, "packets": ["a", "b"], "nextCursor": "c1" },
+          "expect": { "packets": ["a", "b"], "nextCursor": "c1" }
+        },
+        {
+          "action": "resync",
+          "serves": { "cursor": null, "packets": ["x", "y"], "nextCursor": "c9" },
+          "expect": { "packets": ["x", "y"], "nextCursor": "c9" }
+        }
+      ]
+    },
+    {
+      "name": "A deletion can be undone until it is confirmed",
+      "steps": [
+        {
+          "action": "open",
+          "serves": { "cursor": null, "packets": ["a", "b", "c"], "nextCursor": null },
+          "expect": { "packets": ["a", "b", "c"] }
+        },
+        {
+          "action": "hide",
+          "id": "b",
+          "expect": { "packets": ["a", "c"] }
+        },
+        {
+          "action": "created",
+          "packet": "new",
+          "expect": { "packets": ["new", "a", "c"] }
+        },
+        {
+          "action": "unhide",
+          "id": "b",
+          "expect": { "packets": ["new", "a", "b", "c"] }
+        },
+        {
+          "action": "deleted",
+          "id": "b",
+          "expect": { "packets": ["new", "a", "c"] }
+        }
+      ]
+    }
+  ]
+}
