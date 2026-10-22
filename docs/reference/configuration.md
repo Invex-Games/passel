@@ -23,8 +23,12 @@ The values are stored in the AppHost's user secrets as `Parameters:<name>`. The 
 | `RateLimits:CreatesPerMinute` | No | Packets a user may create per minute. Default 30. |
 | `RateLimits:ReadsPerMinute` | No | List and delete requests a user may make per minute. Default 120. |
 | `RateLimits:StreamsPerMinute` | No | Event streams a user may open per minute. Default 10. |
+| `Quotas:MaxPacketsPerUser` | No | The most packets a user may have at once. Default 5000. |
+| `Quotas:MaxBytesPerUser` | No | The most bytes a user may have stored across their packets. Default 52428800 (50 MB). |
 
 Rate limits are sliding one-minute windows counted per signed-in user (the `sub` claim), or per remote address for requests that aren't authenticated. A request over the limit gets a 429 problem with a `Retry-After` header.
+
+Quotas are checked before every create with one indexed aggregate over the user's packets. The byte quota counts the stored size of the packet documents, which PostgreSQL compresses when they're large, so it's a storage cap rather than an exact character count. A user at the packet limit gets a 429 problem; a packet that would pass the byte limit gets a 413 problem. Both say to delete packets.
 
 When you run the API outside the AppHost, put these in `src/webapi/Invex.Passel.WebApi/appsettings.Development.json`. The file is git-ignored by the `*.Development.json` rule. Settings supplied by the AppHost take precedence over the file.
 

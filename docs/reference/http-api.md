@@ -8,6 +8,8 @@ Every endpoint below requires `Authorization: Bearer <Google ID token>`. Request
 
 Each endpoint is rate limited per user, over a sliding window of one minute. The defaults are 30 creates, 120 list or delete requests, and 10 event-stream connections per minute; see [Configuration](configuration.md#web-api). A request over the limit gets **429 Too Many Requests** with a `Retry-After` header (in seconds) and a problem body.
 
+Each user also has a quota: by default 5,000 packets and 50 MB of stored packets. A create at the packet limit gets **429**, and one that would pass the byte limit gets **413 Content Too Large**; the problem `detail` says which, and that deleting packets frees the quota. Neither has a `Retry-After`, because only a delete changes the outcome.
+
 ## Packets
 
 Packets are a tagged union with a `$type` discriminator. `$type` doesn't have to be the first property.
@@ -49,7 +51,7 @@ Creates a packet and returns it, with its `id`, as **200 OK**. Nullable fields m
 | `body` | Not blank, at most 65,536 characters |
 | Request body | At most 256 KB |
 
-A `File` packet returns 400. Validation failures return a validation problem keyed by field.
+A `File` packet returns 400. Validation failures return a validation problem keyed by field. A create that would exceed the caller's quota returns 429 or 413; see [Limits](#limits).
 
 ### `DELETE /api/packets/{id}`
 

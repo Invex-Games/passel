@@ -1,3 +1,6 @@
+using System.Text;
+using Microsoft.Extensions.Options;
+
 namespace Invex.Passel.WebApi.Endpoints.PacketEndpoints;
 
 public static partial class PacketEndpoints
@@ -109,6 +112,23 @@ public static partial class PacketEndpoints
         return errors;
     }
 
+    /// <summary>
+    ///     The content a packet adds to what the user has stored, in UTF-8 bytes. Close to the stored size of its
+    ///     document, which is what the byte quota counts.
+    /// </summary>
+    internal static long ContentBytes(PostPacketRequestBody packet) =>
+        packet switch
+        {
+            PostPacketRequestBody.Link link => Utf8Bytes(link.Name) + Utf8Bytes(link.Url),
+            PostPacketRequestBody.Text text => Utf8Bytes(text.Title) + Utf8Bytes(text.Body),
+            _ => 0,
+        };
+
+    private static long Utf8Bytes(string? value) =>
+        value is null
+            ? 0
+            : Encoding.UTF8.GetByteCount(value);
+
     public static void MapPostPacket(this IEndpointRouteBuilder builder) =>
         builder
             .MapPost(string.Empty,
@@ -116,7 +136,9 @@ public static partial class PacketEndpoints
                     [FromBody] PostPacketRequestBody packet,
                     HttpContext httpContext,
                     IIdEncodingService encodingService,
-                    IPacketStoreService packetStoreService) =>
+                    IPacketStoreService packetStoreService,
+                    IPacketQuotaService quotaService,
+                    IOptions<QuotaOptions> quotas) =>
                 {
                     var ownerId = httpContext.User.FindFirstValue(ClaimTypes.NameIdentifier);
 
@@ -131,6 +153,13 @@ public static partial class PacketEndpoints
 
                     if (errors.Count > 0)
                         return Results.ValidationProblem(errors);
+
+                    var usage = await quotaService.GetUsageAsync(ownerId, httpContext.RequestAborted);
+
+                    if (PacketQuota.Exceeded(usage, ContentBytes(packet), quotas.Value) is { } exceeded)
+                        return Results.Problem(exceeded.Detail,
+                            statusCode: exceeded.StatusCode,
+                            title: exceeded.Title);
 
                     var result = packet switch
                     {

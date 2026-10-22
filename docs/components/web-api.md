@@ -19,6 +19,8 @@ Every packet endpoint lives under `/api/packets`, requires authentication and is
 
 Each packet endpoint opts into one of three rate-limiting policies (`Extensions/RateLimitingExtensions.cs`): creates, reads (the list and delete endpoints) and event-stream connections. The limiter runs after authentication so requests are counted per user; requests that fail authentication are counted per remote address instead. Rejections are 429 problems with `Retry-After`. The limits come from the `RateLimits` configuration section; see [Configuration](../reference/configuration.md#web-api).
 
+Before a create, `PacketQuotaService` reads the caller's usage with one aggregate over the snapshot table (`count(*)` and the summed `pg_column_size` of the documents, through the index on `UserId`), and `PacketQuota.Exceeded` compares it with the `Quotas` configuration. A user at the packet limit gets 429, a packet that would pass the byte limit gets 413, and both messages say to delete packets. Two creates that race can both pass the check, so the quotas are approximate by a packet.
+
 ## Storage: Marten event sourcing
 
 Packets are stored with [Marten](https://martendb.io/) on PostgreSQL.
