@@ -47,7 +47,8 @@ internal interface ITestTargets : IChromeExtensionHelper, IFlutterHelper, IMobil
 
     Target TestMobileApp =>
         t => t
-            .DescribedAs("Analyzes and runs the mobile app tests")
+            .DescribedAs("Analyzes and runs the mobile app tests with coverage, keeping the lcov report")
+            .ProducesArtifact(MobileAppCoverageArtifactName)
             .Executes(async cancellationToken =>
             {
                 // Uses whichever Flutter is installed and never switches its version, unlike FlutterBuild; a machine
@@ -60,10 +61,21 @@ internal interface ITestTargets : IChromeExtensionHelper, IFlutterHelper, IMobil
                     },
                     cancellationToken);
 
-                await ProcessRunner.RunAsync(new(flutterPath, "test")
+                // Writes coverage/lcov.info (line coverage of lib/) next to the tests
+                await ProcessRunner.RunAsync(new(flutterPath, "test --coverage")
                     {
                         WorkingDirectory = MobileAppDirectory,
                     },
                     cancellationToken);
+
+                var publishDirectory = RootedFileSystem.AtomPublishDirectory / MobileAppCoverageArtifactName;
+
+                RootedFileSystem.CleanOrCreateDirectory(publishDirectory);
+                RootedFileSystem.File.Copy(MobileAppDirectory / "coverage" / "lcov.info", publishDirectory / "lcov.info");
             });
+
+    /// <summary>
+    ///     The mobile app's lcov report, attached to the workflow run so the coverage of a change can be read.
+    /// </summary>
+    const string MobileAppCoverageArtifactName = "MobileAppCoverage";
 }
