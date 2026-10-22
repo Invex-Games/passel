@@ -10,7 +10,11 @@ internal static class EndpointMapper
                 .NewVersionedApi("Packets")
                 .MapGroup("/api/packets")
                 .HasApiVersion(1)
-                .RequireAuthorization();
+                .RequireAuthorization()
+                // Every packet endpoint answers 401 without a user and 429 over its rate limit; each declares the
+                // responses of its own
+                .WithMetadata(new ProducesResponseTypeMetadata(StatusCodes.Status401Unauthorized))
+                .ProducesProblem(StatusCodes.Status429TooManyRequests);
 
             group.MapPostPacket();
             group.MapGetPackets();

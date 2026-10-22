@@ -1,5 +1,6 @@
 using System.Net;
 using Microsoft.AspNetCore.HostFiltering;
+using Microsoft.AspNetCore.OpenApi;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Microsoft.Extensions.Primitives;
 using Microsoft.IdentityModel.Protocols.OpenIdConnect;
@@ -54,10 +55,44 @@ internal static class HostWebExtensions
             .AddApiExplorer(options => options.GroupNameFormat = "'v'VVV")
             .AddOpenApi(options =>
             {
+                options.Document.AddDocumentTransformer(DescribeApi);
+
                 // Lets Scalar offer the Development schemes; the document is only served in Development anyway
                 if (isDevelopment)
                     options.Document.AddDocumentTransformer(HostDevExtensions.AddDevelopmentSecuritySchemes);
             });
+    }
+
+    /// <summary>
+    ///     The document's title, and the scheme every environment accepts: a Google ID token as a bearer token. The
+    ///     Development host adds its own schemes after this. The document is committed as
+    ///     <c>contracts/openapi.json</c>, so what this writes is part of the contract the integration tests check.
+    /// </summary>
+    private static Task DescribeApi(
+        OpenApiDocument document,
+        OpenApiDocumentTransformerContext context,
+        CancellationToken cancellationToken)
+    {
+        document.Info ??= new();
+        document.Info.Title = "Passel API";
+        document.Components ??= new();
+        document.Components.SecuritySchemes ??= new Dictionary<string, IOpenApiSecurityScheme>();
+        document.Security ??= [];
+
+        document.Components.SecuritySchemes[JwtBearerDefaults.AuthenticationScheme] = new OpenApiSecurityScheme
+        {
+            Type = SecuritySchemeType.Http,
+            Scheme = "bearer",
+            BearerFormat = "JWT",
+            Description = "A Google ID token issued for one of the API's client ids.",
+        };
+
+        document.Security.Add(new()
+        {
+            [new OpenApiSecuritySchemeReference(JwtBearerDefaults.AuthenticationScheme, document)] = [],
+        });
+
+        return Task.CompletedTask;
     }
 
     /// <summary>

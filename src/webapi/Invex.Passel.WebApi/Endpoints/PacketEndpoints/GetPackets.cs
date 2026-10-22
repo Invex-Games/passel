@@ -4,55 +4,18 @@ public static partial class PacketEndpoints
 {
     internal const int GetPacketsBatchSize = 50;
 
+    /// <summary>
+    ///     One page of the caller's packets, newest first.
+    /// </summary>
     [PublicAPI]
     public sealed partial record GetPacketsResponseBody
     {
-        public required IReadOnlyList<Packet> Packets { get; init; }
+        public required IReadOnlyList<PacketResponse> Packets { get; init; }
 
+        /// <summary>
+        ///     The cursor for the next page, or <c>null</c> on the last one.
+        /// </summary>
         public string? NextCursor { get; init; }
-
-        [PublicAPI]
-        [Union]
-        [JsonDerivedType(typeof(Link), typeDiscriminator: nameof(Link))]
-        [JsonDerivedType(typeof(Text), typeDiscriminator: nameof(Text))]
-        [JsonDerivedType(typeof(File), typeDiscriminator: nameof(File))]
-        public partial record Packet
-        {
-            public required string Id { get; init; }
-
-            /// <summary>
-            ///     When the packet was created, in UTC.
-            /// </summary>
-            public required DateTimeOffset CreatedAt { get; init; }
-
-            [PublicAPI]
-            public sealed partial record Link
-            {
-                public required string? Name { get; init; }
-
-                public required string Url { get; init; }
-            }
-
-            [PublicAPI]
-            public sealed partial record Text
-            {
-                public required string? Title { get; init; }
-
-                public required string Body { get; init; }
-            }
-
-            [PublicAPI]
-            public sealed partial record File
-            {
-                public required string? FileName { get; init; }
-
-                public required string ContentType { get; init; }
-
-                public required string ParcelId { get; init; }
-
-                public required bool IsImage { get; init; }
-            }
-        }
     }
 
     /// <summary>
@@ -73,37 +36,6 @@ public static partial class PacketEndpoints
         return (page, page[^1].Id);
     }
 
-    internal static GetPacketsResponseBody.Packet ToResponsePacket(
-        Packet packet,
-        IIdEncodingService encodingService) =>
-        packet.Content switch
-        {
-            PacketContent.Link link => new GetPacketsResponseBody.Packet.Link
-            {
-                Name = link.Name,
-                Url = link.Url,
-                Id = encodingService.Encode(packet.Id),
-                CreatedAt = packet.CreatedAt,
-            },
-            PacketContent.Text text => new GetPacketsResponseBody.Packet.Text
-            {
-                Title = text.Title,
-                Body = text.Body,
-                Id = encodingService.Encode(packet.Id),
-                CreatedAt = packet.CreatedAt,
-            },
-            PacketContent.File file => new GetPacketsResponseBody.Packet.File
-            {
-                FileName = file.FileName,
-                ContentType = file.ContentType,
-                ParcelId = encodingService.Encode(file.ParcelId),
-                IsImage = file.IsImage,
-                Id = encodingService.Encode(packet.Id),
-                CreatedAt = packet.CreatedAt,
-            },
-            _ => throw new UnreachableException(),
-        };
-
     public static void MapGetPackets(this IEndpointRouteBuilder builder) =>
         builder
             .MapGet(string.Empty,
@@ -114,43 +46,45 @@ public static partial class PacketEndpoints
                     IQuerySession querySession) =>
                 {
                     var ownerId = httpContext.User.FindFirstValue(ClaimTypes.NameIdentifier);
-    
+
                     if (ownerId is not { Length: > 0 })
                         return Results.Unauthorized();
-    
+
                     Guid? cursorId = null;
-    
+
                     if (cursor is not null)
                     {
                         if (!encodingService.TryDecode(cursor, out var decodedCursor))
                             return Results.Problem("The cursor is invalid.", statusCode: StatusCodes.Status400BadRequest);
-    
+
                         cursorId = decodedCursor;
                     }
-    
+
                     var query = querySession
                         .Query<Packet>()
                         .Where(p => p.UserId == ownerId);
-    
+
                     if (cursorId is { } beforeId)
                         query = query.Where(p => p.Id < beforeId);
-    
+
                     var fetched = await query
                         .OrderByDescending(p => p.Id)
                         .Take(GetPacketsBatchSize + 1)
                         .ToListAsync();
-    
+
                     var (page, nextCursor) = Paginate(fetched, GetPacketsBatchSize);
-    
+
                     return Results.Ok(new GetPacketsResponseBody
                     {
                         Packets = page
-                            .Select(p => ToResponsePacket(p, encodingService))
+                            .Select(p => PacketResponse.From(p, encodingService))
                             .ToList(),
                         NextCursor = nextCursor is { } next
                             ? encodingService.Encode(next)
                             : null,
                     });
-            })
+                })
+            .Produces<GetPacketsResponseBody>()
+            .ProducesProblem(StatusCodes.Status400BadRequest)
             .RequireRateLimiting(RateLimitPolicies.Reads);
 }
