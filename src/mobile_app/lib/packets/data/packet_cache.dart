@@ -6,8 +6,14 @@ import 'packet.dart';
 
 // ─── Packet cache ─────────────────────────────────────────────────────────────
 
-/// Persists the current [PacketsState] to [SharedPreferences] so the feed can
-/// be shown immediately on the next cold start without a network round-trip.
+/// Persists the first page of the feed to [SharedPreferences] so it can be
+/// shown immediately on the next cold start without a network round-trip.
+///
+/// The cache holds at most [maxPackets] packets and the cursor that follows
+/// them; `PacketsNotifier` trims what it saves to that.  Older pages are
+/// fetched again when the user scrolls to them, and the first page is
+/// replaced by the refresh that follows every start, so a bigger cache would
+/// only cost encode time and file churn on every change.
 ///
 /// The cache belongs to the signed-in user: it survives an expired session
 /// (so the feed stays browsable offline until the user signs in again) but is
@@ -16,12 +22,15 @@ import 'packet.dart';
 ///
 /// Storage layout (single JSON string under [_key]):
 /// ```json
-/// { "nextCursor": "abc123", "packets": [ { "id": "…", … }, … ] }
+/// { "nextCursor": "abc123", "lastSyncedAt": "…", "packets": [ { "id": "…", … }, … ] }
 /// ```
 class PacketCache {
   PacketCache._();
 
   static const String _key = 'packets_cache_v3';
+
+  /// The most packets the cache holds: one page, as the API serves it.
+  static const int maxPackets = 50;
 
   /// Returns the last saved [PacketsState], or `null` if nothing is cached.
   ///
@@ -53,6 +62,9 @@ class PacketCache {
   }
 
   /// Persists [state] to disk, replacing any previously stored data.
+  ///
+  /// Callers pass at most [maxPackets] packets with the cursor that follows
+  /// them (see `PacketsNotifier`); this writes what it is given.
   static Future<void> save(PacketsState state) async {
     final prefs = await SharedPreferences.getInstance();
     final encoded = jsonEncode({

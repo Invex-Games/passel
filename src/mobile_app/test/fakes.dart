@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_sign_in/google_sign_in.dart';
@@ -10,6 +11,7 @@ import 'package:passel_mobileapp/app_lifecycle.dart';
 import 'package:passel_mobileapp/auth/auth_service.dart';
 import 'package:passel_mobileapp/packets/data/packet.dart';
 import 'package:passel_mobileapp/packets/data/packet_repository.dart';
+import 'package:passel_mobileapp/packets/packets_provider.dart';
 
 // ─── Auth fakes ──────────────────────────────────────────────────────────────
 
@@ -37,6 +39,33 @@ class FakeAuthService extends AsyncNotifier<bool> implements AuthService {
   @override
   Future<String?> getIdToken({bool forceRefresh = false}) async =>
       signedIn ? 'fake-token' : null;
+}
+
+/// Auth service whose initialisation completes only when the test calls
+/// [complete], like Google Sign-In still initialising on a cold start.
+class PendingAuthService extends AsyncNotifier<bool> implements AuthService {
+  final _initialised = Completer<bool>();
+
+  @override
+  Future<bool> build() => _initialised.future;
+
+  /// Finishes initialising, signed in or out.
+  void complete(bool signedIn) => _initialised.complete(signedIn);
+
+  @override
+  Future<bool> signIn() async {
+    state = const AsyncData(true);
+    return true;
+  }
+
+  @override
+  Future<void> signOut() async {
+    state = const AsyncData(false);
+  }
+
+  @override
+  Future<String?> getIdToken({bool forceRefresh = false}) async =>
+      state.valueOrNull == true ? 'fake-token' : null;
 }
 
 /// Auth service whose [signIn] completes only when the caller completes the future.
@@ -109,6 +138,7 @@ class FakeGoogleSignIn implements GoogleSignIn {
   Future<GoogleSignInAccount?> Function() onLightweight =
       () async => null;
   Future<GoogleSignInAccount> Function()? onAuthenticate;
+  Future<void> Function() onInitialize = () async {};
 
   int lightweightCalls = 0;
   int signOutCalls = 0;
@@ -120,7 +150,8 @@ class FakeGoogleSignIn implements GoogleSignIn {
     String? serverClientId,
     String? nonce,
     String? hostedDomain,
-  }) async {}
+  }) =>
+      onInitialize();
 
   @override
   Stream<GoogleSignInAuthenticationEvent> get authenticationEvents =>
@@ -166,11 +197,21 @@ class InMemoryPacketCache implements PacketCacheStrategy {
 
   PacketsState? state;
 
-  @override
-  Future<PacketsState?> load() async => state;
+  /// How often [load] and [save] were called.
+  int loadCalls = 0;
+  int saveCalls = 0;
 
   @override
-  Future<void> save(PacketsState state) async => this.state = state;
+  Future<PacketsState?> load() async {
+    loadCalls++;
+    return state;
+  }
+
+  @override
+  Future<void> save(PacketsState state) async {
+    saveCalls++;
+    this.state = state;
+  }
 
   @override
   Future<void> clear() async => state = null;
@@ -240,6 +281,23 @@ class FakePacketRepository extends PacketRepository {
   }
 }
 
+/// [Random] whose [nextDouble] always returns [value], so delays with jitter
+/// become exact: `1.0` is the longest possible delay, `0.0` none.
+class FakeRandom implements Random {
+  FakeRandom([this.value = 1.0]);
+
+  double value;
+
+  @override
+  double nextDouble() => value;
+
+  @override
+  bool nextBool() => throw UnimplementedError();
+
+  @override
+  int nextInt(int max) => throw UnimplementedError();
+}
+
 // ─── Lifecycle fakes ─────────────────────────────────────────────────────────
 
 /// [AppForegroundNotifier] that doesn't need a Flutter binding; flip it with
@@ -257,3 +315,9 @@ class FakeAppForeground extends AppForegroundNotifier {
 /// Shorthand for a text packet with the given [id].
 Packet textPacket(String id) =>
     Packet(id: id, type: PacketType.text, payload: 'body $id');
+
+/// Makes [PacketsNotifier] write its cache on the next event-loop turn
+/// instead of after its debounce, so tests can `await pumpEventQueue()` and
+/// then inspect the cache.
+Override immediateCacheWrites() =>
+    packetCacheWriteDelayProvider.overrideWithValue(Duration.zero);

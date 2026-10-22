@@ -2,8 +2,8 @@ import 'package:fake_async/fake_async.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:passel_mobileapp/api/errors.dart';
 import 'package:passel_mobileapp/app_lifecycle.dart';
-import 'package:passel_mobileapp/auth/auth_helpers.dart';
 import 'package:passel_mobileapp/auth/auth_service.dart';
 import 'package:passel_mobileapp/packets/data/packet.dart';
 import 'package:passel_mobileapp/packets/packets_provider.dart';
@@ -17,13 +17,23 @@ void main() {
   /// Creates a container whose [packetLiveUpdatesProvider] is watched like
   /// the feed page does.  Call [pumpEventQueue] (or flush microtasks) to let
   /// auth and the first build settle.
-  ProviderContainer start({bool signedIn = true, bool inForeground = true}) {
+  ///
+  /// Jittered delays are driven by [random]; by default the longest
+  /// possible delay, so the backoff schedule is exact.
+  ProviderContainer start({
+    bool signedIn = true,
+    bool inForeground = true,
+    FakeRandom? random,
+  }) {
     foreground = FakeAppForeground(initial: inForeground);
     final container = ProviderContainer(overrides: [
       authServiceProvider
           .overrideWith(() => FakeAuthService(signedIn: signedIn)),
       packetRepositoryProvider.overrideWithValue(repo),
       appForegroundProvider.overrideWith(() => foreground),
+      packetLiveUpdatesProvider.overrideWith(
+        () => PacketLiveUpdates(random: random ?? FakeRandom()),
+      ),
     ]);
     container.listen(packetsProvider, (_, __) {});
     container.listen(packetLiveUpdatesProvider, (_, __) {});
@@ -149,7 +159,9 @@ void main() {
       repo.connections.single.close();
       async.elapse(Duration.zero);
       expect(isLive(c), isFalse);
-      async.elapse(const Duration(seconds: 1));
+      async.elapse(const Duration(milliseconds: 999));
+      expect(repo.connections, hasLength(1));
+      async.elapse(const Duration(milliseconds: 1));
       expect(repo.connections, hasLength(2));
 
       // A second failure without a successful resync backs off further.
@@ -165,6 +177,106 @@ void main() {
         async.elapse(PacketLiveUpdates.maxRetryDelay);
       }
       expect(repo.connections, hasLength(13));
+
+      c.dispose();
+    });
+  });
+
+  test('spreads reconnects over the whole backoff window', () {
+    fakeAsync((async) {
+      repo = FakePacketRepository();
+      final random = FakeRandom(0.0);
+      final c = start(random: random);
+      async.elapse(Duration.zero);
+
+      // Full jitter: the delay is a random share of the backoff, so a client
+      // may reconnect straight away...
+      repo.connections.single.close();
+      async.elapse(Duration.zero);
+      expect(repo.connections, hasLength(2));
+
+      // ...or anywhere up to it (here half of the 2 s second step).
+      random.value = 0.5;
+      repo.connections.last.addError(Exception('offline'));
+      async.elapse(const Duration(milliseconds: 999));
+      expect(repo.connections, hasLength(2));
+      async.elapse(const Duration(milliseconds: 1));
+      expect(repo.connections, hasLength(3));
+
+      c.dispose();
+    });
+  });
+
+  test('catches up at once on the first resync and after a delay on later ones',
+      () {
+    fakeAsync((async) {
+      repo = FakePacketRepository();
+      final c = start(random: FakeRandom(0.5));
+      async.elapse(Duration.zero);
+      final fetchesAfterStart = repo.fetchCursors.length;
+
+      repo.connections.single.add(const PacketsResyncEvent());
+      async.elapse(Duration.zero);
+      expect(repo.fetchCursors, hasLength(fetchesAfterStart + 1));
+
+      // The server tells every client to resync again (it lost its own
+      // listener): the fetch waits a random share of 3 s.
+      repo.connections.single.add(const PacketsResyncEvent());
+      async.elapse(const Duration(milliseconds: 1499));
+      expect(repo.fetchCursors, hasLength(fetchesAfterStart + 1));
+      async.elapse(const Duration(milliseconds: 1));
+      expect(repo.fetchCursors, hasLength(fetchesAfterStart + 2));
+
+      // A resync on a reconnection within the same run is delayed too.
+      repo.connections.single.close();
+      async.elapse(const Duration(seconds: 1));
+      expect(repo.connections, hasLength(2));
+      repo.connections.last.add(const PacketsResyncEvent());
+      async.elapse(const Duration(milliseconds: 1499));
+      expect(repo.fetchCursors, hasLength(fetchesAfterStart + 2));
+      async.elapse(const Duration(milliseconds: 1));
+      expect(repo.fetchCursors, hasLength(fetchesAfterStart + 3));
+
+      c.dispose();
+    });
+  });
+
+  test('a resync arriving during the delay restarts it', () {
+    fakeAsync((async) {
+      repo = FakePacketRepository();
+      final c = start(random: FakeRandom(1.0));
+      async.elapse(Duration.zero);
+      repo.connections.single.add(const PacketsResyncEvent());
+      async.elapse(Duration.zero);
+      final fetchesAfterFirst = repo.fetchCursors.length;
+
+      repo.connections.single.add(const PacketsResyncEvent());
+      async.elapse(const Duration(seconds: 2));
+      repo.connections.single.add(const PacketsResyncEvent());
+      async.elapse(const Duration(seconds: 2));
+      expect(repo.fetchCursors, hasLength(fetchesAfterFirst));
+
+      async.elapse(const Duration(seconds: 1));
+      expect(repo.fetchCursors, hasLength(fetchesAfterFirst + 1));
+
+      c.dispose();
+    });
+  });
+
+  test('a delayed catch-up is dropped when the stream stops', () {
+    fakeAsync((async) {
+      repo = FakePacketRepository();
+      final c = start(random: FakeRandom(1.0));
+      async.elapse(Duration.zero);
+      repo.connections.single.add(const PacketsResyncEvent());
+      async.elapse(Duration.zero);
+      repo.connections.single.add(const PacketsResyncEvent());
+      final fetchesBefore = repo.fetchCursors.length;
+
+      foreground.setForeground(false);
+      async.elapse(const Duration(seconds: 5));
+
+      expect(repo.fetchCursors, hasLength(fetchesBefore));
 
       c.dispose();
     });

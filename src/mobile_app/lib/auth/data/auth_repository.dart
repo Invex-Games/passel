@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../api/errors.dart';
 import 'jwt.dart';
 
 /// Encapsulates all Google Sign-In interactions.
@@ -62,15 +63,20 @@ class AuthRepository {
   /// Initializes the Google Sign-In SDK and starts listening to auth events.
   ///
   /// Must be called once before any other method.  Returns `true` if a
-  /// previous session was silently restored.
+  /// previous session was silently restored.  Throws [SignInException] if
+  /// the SDK can't be set up (a misconfigured build).
   Future<bool> initialize({
     required String? clientId,
     required String serverClientId,
   }) async {
-    await _googleSignIn.initialize(
-      clientId: clientId,
-      serverClientId: serverClientId,
-    );
+    try {
+      await _googleSignIn.initialize(
+        clientId: clientId,
+        serverClientId: serverClientId,
+      );
+    } on GoogleSignInException catch (e) {
+      throw SignInException(describeSignInFailure(e.code), e);
+    }
 
     _authSub?.cancel();
     _authSub = _googleSignIn.authenticationEvents.listen(
@@ -96,10 +102,13 @@ class AuthRepository {
 
   /// Interactive sign-in. Returns `true` on success, `false` if cancelled.
   ///
-  /// Throws for non-cancellation errors so the UI can show a meaningful message.
+  /// Throws [SignInException], whose message is written for the user, for
+  /// other failures.
   Future<bool> signIn() async {
     if (!_googleSignIn.supportsAuthenticate()) {
-      throw Exception('Google Sign-In is not supported on this device.');
+      throw const SignInException(
+        'Google Sign-In is not available on this device.',
+      );
     }
     try {
       final account =
@@ -110,9 +119,22 @@ class AuthRepository {
       if (e.code == GoogleSignInExceptionCode.canceled) {
         return false;
       }
-      throw Exception('Google Sign-In failed (${e.code}): $e');
+      throw SignInException(describeSignInFailure(e.code), e);
     }
   }
+
+  /// User-facing text for a Google Sign-In failure with [code].
+  static String describeSignInFailure(GoogleSignInExceptionCode code) =>
+      switch (code) {
+        GoogleSignInExceptionCode.interrupted =>
+          'Sign-in was interrupted. Please try again.',
+        GoogleSignInExceptionCode.clientConfigurationError ||
+        GoogleSignInExceptionCode.providerConfigurationError =>
+          'Google Sign-In is not set up correctly for this build of Passel.',
+        GoogleSignInExceptionCode.uiUnavailable =>
+          'Google Sign-In could not be shown. Please try again.',
+        _ => 'Google Sign-In failed. Please try again.',
+      };
 
   /// Signs out and clears the signed-in user's locally stored data.
   ///

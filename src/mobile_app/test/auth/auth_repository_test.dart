@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:passel_mobileapp/api/errors.dart';
 import 'package:passel_mobileapp/auth/data/auth_repository.dart';
 import 'package:passel_mobileapp/auth/data/jwt.dart';
 
@@ -314,6 +315,60 @@ void main() {
 
       expect(await repo.signIn(), isFalse);
       expect(repo.isSignedIn, isFalse);
+    });
+
+    test('signIn throws a SignInException written for the user', () async {
+      google.onAuthenticate = () async => throw const GoogleSignInException(
+            code: GoogleSignInExceptionCode.clientConfigurationError,
+            description: 'Developer console is not set up correctly',
+          );
+      final repo = buildRepo();
+      await init(repo);
+
+      await expectLater(
+        repo.signIn(),
+        throwsA(isA<SignInException>()
+            .having(
+              (e) => e.message,
+              'message',
+              'Google Sign-In is not set up correctly for this build of '
+                  'Passel.',
+            )
+            .having((e) => e.cause, 'cause', isA<GoogleSignInException>())),
+      );
+      expect(repo.isSignedIn, isFalse);
+    });
+
+    test('initialize throws a SignInException when the SDK cannot be set up',
+        () async {
+      google.onInitialize = () async => throw const GoogleSignInException(
+          code: GoogleSignInExceptionCode.providerConfigurationError);
+      final repo = buildRepo();
+
+      await expectLater(
+        init(repo),
+        throwsA(isA<SignInException>().having(
+          describeError,
+          'description',
+          contains('not set up correctly'),
+        )),
+      );
+    });
+  });
+
+  group('AuthRepository.describeSignInFailure', () {
+    test('gives every code a sentence without SDK names in it', () {
+      for (final code in GoogleSignInExceptionCode.values) {
+        final text = AuthRepository.describeSignInFailure(code);
+        expect(text, endsWith('.'));
+        expect(text, isNot(contains('Exception')));
+        expect(text, isNot(contains('Error')));
+      }
+      expect(
+        AuthRepository.describeSignInFailure(
+            GoogleSignInExceptionCode.interrupted),
+        contains('interrupted'),
+      );
     });
   });
 }

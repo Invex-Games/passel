@@ -2,7 +2,7 @@ import 'package:custom_refresh_indicator/custom_refresh_indicator.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../auth/auth_helpers.dart';
+import '../../api/errors.dart';
 import '../../auth/auth_service.dart';
 import '../../auth/login_page.dart';
 import '../data/packet.dart';
@@ -21,8 +21,7 @@ class PacketList extends ConsumerStatefulWidget {
   ConsumerState<PacketList> createState() => _PacketListState();
 }
 
-class _PacketListState extends ConsumerState<PacketList>
-    with AutomaticKeepAliveClientMixin<PacketList> {
+class _PacketListState extends ConsumerState<PacketList> {
   final _scrollController = ScrollController();
 
   /// Tracks packet IDs that have already animated in (don't re-animate).
@@ -105,16 +104,14 @@ class _PacketListState extends ConsumerState<PacketList>
     } on SessionExpiredException {
       _promptLogin();
     } catch (e) {
-      messenger?.showSnackBar(SnackBar(content: Text('Refresh failed: $e')));
+      messenger?.showSnackBar(
+        SnackBar(content: Text('Refresh failed: ${describeError(e)}')),
+      );
     }
   }
 
   @override
-  bool get wantKeepAlive => true;
-
-  @override
   Widget build(BuildContext context) {
-    super.build(context);
     final asyncState = ref.watch(packetsProvider);
     final isSignedIn =
         ref.watch(authServiceProvider).valueOrNull == true;
@@ -138,7 +135,8 @@ class _PacketListState extends ConsumerState<PacketList>
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
-                asyncState.error.toString(),
+                describeError(asyncState.error!),
+                textAlign: TextAlign.center,
                 style: TextStyle(color: Theme.of(context).colorScheme.error),
               ),
               const SizedBox(height: 16),
@@ -153,6 +151,13 @@ class _PacketListState extends ConsumerState<PacketList>
     }
 
     final packets = packetsState?.packets ?? [];
+
+    // Lets the list find each existing tile's new position when packets are
+    // inserted above it, so a live event moves the tiles instead of
+    // rebuilding every visible one's state (animation, Dismissible).
+    final indexById = <String, int>{
+      for (var i = 0; i < packets.length; i++) packets[i].id: i,
+    };
 
     return NotificationListener<ScrollNotification>(
       onNotification: (notification) {
@@ -222,6 +227,10 @@ class _PacketListState extends ConsumerState<PacketList>
                 // +1 for the top slot: "loading more" spinner, retry row,
                 // sign-in prompt, or "all caught up".
                 itemCount: packets.length + 1,
+                // Tiles are keyed by packet id; the end-of-list slot has no
+                // key.
+                findItemIndexCallback: (key) =>
+                    key is ValueKey<String> ? indexById[key.value] : null,
                 separatorBuilder: (_, __) =>
                     const SizedBox(height: 8), // Space between packets
                 itemBuilder: (context, index) {

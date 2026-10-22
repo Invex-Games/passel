@@ -8,11 +8,24 @@ import '../packets/data/packet_cache.dart';
 
 // ─── Repository provider ─────────────────────────────────────────────────────
 
+/// Bumped whenever the signed-in user's locally stored data is cleared: on
+/// explicit sign-out and when a different account signs in.
+///
+/// Providers holding per-user state read or watch it so they drop what they
+/// hold in memory (and don't write it back to disk) instead of re-reading
+/// the cleared cache to find out.  It is bumped *before* the cache is
+/// cleared and before the auth state flips, so by the time they rebuild the
+/// signal is already there.
+final userDataGenerationProvider = StateProvider<int>((_) => 0);
+
 final authRepositoryProvider = Provider<AuthRepository>((ref) {
   final repo = AuthRepository(
     // Per-user data must not outlive the session (sign-out) or leak to a
     // different account signing in on the same device.
-    onUserDataInvalidated: PacketCache.clear,
+    onUserDataInvalidated: () async {
+      ref.read(userDataGenerationProvider.notifier).state++;
+      await PacketCache.clear();
+    },
   );
   ref.onDispose(repo.dispose);
   return repo;

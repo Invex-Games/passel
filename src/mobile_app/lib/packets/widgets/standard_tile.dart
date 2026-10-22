@@ -3,9 +3,13 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../data/link_utils.dart';
 import '../data/packet.dart';
+import 'clamped_text.dart';
 import 'tile_header.dart';
 
 /// Tile for text and link packets.
+///
+/// A note is clamped to [noteMaxLines] lines with a "Show more" toggle
+/// (bodies may be up to 64 KB); a link is its URL on one line, ellipsised.
 class StandardTile extends StatelessWidget {
   const StandardTile({
     super.key,
@@ -13,6 +17,9 @@ class StandardTile extends StatelessWidget {
     required this.index,
     this.onDelete,
   });
+
+  /// How many lines of a note are shown before "Show more".
+  static const int noteMaxLines = 8;
 
   final Packet packet;
   final int index;
@@ -30,19 +37,21 @@ class StandardTile extends StatelessWidget {
         TileHeader(packet: packet, index: index, onDelete: onDelete),
         const SizedBox(height: 16),
         Padding(
-          padding: const EdgeInsets.only(left: 18.0),
+          padding: const EdgeInsets.only(left: 18.0, right: 18.0),
           child: linkUri != null
               ? GestureDetector(
                   onTap: () => _openLink(context, linkUri),
                   child: Text(
                     packet.payload,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       color: Theme.of(context).colorScheme.primary,
                       decoration: TextDecoration.underline,
                     ),
                   ),
                 )
-              : Text(packet.payload),
+              : ClampedText(packet.payload, maxLines: noteMaxLines),
         ),
         const SizedBox(height: 16),
       ],

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../auth/auth_helpers.dart';
+import '../../api/errors.dart';
 import '../../auth/login_page.dart';
 import '../data/link_utils.dart';
 import '../packets_provider.dart';
@@ -33,7 +33,9 @@ Future<void> showPushPacketSheet(BuildContext context, WidgetRef ref) async {
   } on SessionExpiredException {
     if (context.mounted) await showLoginSheet(context);
   } catch (e) {
-    messenger.showSnackBar(SnackBar(content: Text('Push failed: $e')));
+    messenger.showSnackBar(
+      SnackBar(content: Text('Push failed: ${describeError(e)}')),
+    );
   }
 }
 

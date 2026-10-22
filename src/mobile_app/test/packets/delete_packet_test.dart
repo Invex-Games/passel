@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -20,6 +22,7 @@ void main() {
         authServiceProvider
             .overrideWith(() => FakeAuthService(signedIn: signedIn)),
         packetRepositoryProvider.overrideWithValue(repo),
+        immediateCacheWrites(),
       ],
       child: const MaterialApp(home: Scaffold(body: PacketList())),
     ));
@@ -96,8 +99,9 @@ void main() {
     expect(find.text('Packet deleted'), findsOneWidget);
   });
 
-  testWidgets('shows the failure and restores the packet', (tester) async {
-    repo.onDelete = (_) async => throw Exception('offline');
+  testWidgets('shows the failure in plain words and restores the packet',
+      (tester) async {
+    repo.onDelete = (_) async => throw const SocketException('offline');
     await pumpFeed(tester);
 
     await tester.tap(deleteButtonOf('a'));
@@ -105,7 +109,11 @@ void main() {
     await tester.pump(undoDeleteDuration + const Duration(seconds: 1));
     await tester.pumpAndSettle();
 
-    expect(find.textContaining('Couldn\'t delete packet'), findsOneWidget);
+    expect(
+      find.text('Couldn\'t delete packet: Could not reach Passel. Check your '
+          'connection and try again.'),
+      findsOneWidget,
+    );
     expect(find.text('body a'), findsOneWidget);
   });
 
