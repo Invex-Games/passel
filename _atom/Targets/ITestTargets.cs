@@ -43,8 +43,9 @@ internal interface ITestTargets : IChromeExtensionHelper, IFlutterHelper, IMobil
             .DescribedAs("Analyzes and runs the mobile app tests")
             .Executes(async cancellationToken =>
             {
-                // Uses whichever Flutter is installed; unlike FlutterBuild, never switches the SDK to flutter-version
-                var flutterPath = await GetFlutterCommand(cancellationToken);
+                // Uses whichever Flutter is installed and never switches its version, unlike FlutterBuild; a machine
+                // without Flutter (a CI runner) gets the pinned version installed into .flutter/
+                var flutterPath = await GetOrInstallFlutterCommand(cancellationToken);
 
                 await ProcessRunner.RunAsync(new(flutterPath, "analyze")
                     {

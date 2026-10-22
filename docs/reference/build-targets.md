@@ -15,6 +15,7 @@ Parameters can be passed on the command line (`--mobile-app-flavor production`),
 | `TestMobileApp` | `flutter analyze` and `flutter test` |
 | `BuildDocs` | Builds this site into `_site/` and `atom-publish/GeneratedDocs` |
 | `ServeDocs` | Builds the docs and serves them at `http://localhost:8080` |
+| `Gen` | Regenerates the GitHub workflows and Dependabot configuration under `.github/` from `_atom/IBuild.cs`; see [Continuous Integration](../guides/ci.md) |
 
 ## Release builds
 
@@ -23,5 +24,6 @@ Parameters can be passed on the command line (`--mobile-app-flavor production`),
 | `BuildWebApi` | Published API, in `atom-publish/Invex.Passel.WebApi` | None |
 | `BuildChromeExtension` | `atom-publish/ChromeExtension/chrome-extension.zip` | `api-base-url-production` (the extension calls `<url>/api/packets`), `chrome-extension-client-id` |
 | `BuildMobileAppAndroid` | A debug APK (development) or a signed, obfuscated app bundle plus symbols (production), in `atom-publish/android` | `mobile-app-flavor`, `api-base-url-production` / `api-base-url-development`, `server-client-id`, `mobile-app-client-id`, plus the `android-keystore-*` secrets for production |
+| `PublishDocs` | The site built by `BuildDocs`, force-pushed to the `gh-pages` branch for GitHub Pages | `github-token` |
 
 `BuildMobileAppAndroid` checks out the Flutter version in `flutter-version` (`_atom/appsettings.json`). If there's no Flutter on your `PATH`, it clones that version into `.flutter/`. Running it locally can therefore switch the version of your own Flutter SDK. The client-id parameters only take effect when they're real Google client ids (ending in `.apps.googleusercontent.com`). Otherwise the build logs a warning and uses the values in `src/mobile_app/.env`.

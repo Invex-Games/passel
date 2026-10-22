@@ -1,0 +1,199 @@
+name: Build
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions: { }
+
+concurrency:
+  group: '${{ github.workflow }}-${{ github.ref }}'
+  cancel-in-progress: true
+
+jobs:
+
+  SetupBuildInfo:
+    runs-on: ubuntu-latest
+    outputs:
+      build-name: ${{ steps.SetupBuildInfo.outputs.build-name }}
+      build-id: ${{ steps.SetupBuildInfo.outputs.build-id }}
+      build-version: ${{ steps.SetupBuildInfo.outputs.build-version }}
+      build-timestamp: ${{ steps.SetupBuildInfo.outputs.build-timestamp }}
+    steps:
+
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET 10.0.x
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+
+      - name: SetupBuildInfo
+        id: SetupBuildInfo
+        run: dotnet run --project _atom/_atom.csproj -- SetupBuildInfo --skip --headless
+
+  TestWebApi:
+    runs-on: ubuntu-latest
+    steps:
+
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET 10.0.x
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+
+      - name: TestWebApi
+        id: TestWebApi
+        run: dotnet run --project _atom/_atom.csproj -- TestWebApi --skip --headless
+
+  TestChromeExtension:
+    runs-on: ubuntu-latest
+    steps:
+
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET 10.0.x
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+
+      - name: TestChromeExtension
+        id: TestChromeExtension
+        run: dotnet run --project _atom/_atom.csproj -- TestChromeExtension --skip --headless
+
+  TestMobileApp:
+    runs-on: ubuntu-latest
+    steps:
+
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET 10.0.x
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+
+      - name: TestMobileApp
+        id: TestMobileApp
+        run: dotnet run --project _atom/_atom.csproj -- TestMobileApp --skip --headless
+
+  BuildWebApi:
+    runs-on: ubuntu-latest
+    steps:
+
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET 10.0.x
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+
+      - name: BuildWebApi
+        id: BuildWebApi
+        run: dotnet run --project _atom/_atom.csproj -- BuildWebApi --skip --headless
+
+      - name: Store Invex.Passel.WebApi
+        uses: actions/upload-artifact@v7
+        with:
+          name: Invex.Passel.WebApi
+          path: '${{ github.workspace }}/.github/publish/Invex.Passel.WebApi'
+
+  BuildChromeExtension:
+    runs-on: ubuntu-latest
+    steps:
+
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET 10.0.x
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+
+      - name: BuildChromeExtension
+        id: BuildChromeExtension
+        run: dotnet run --project _atom/_atom.csproj -- BuildChromeExtension --skip --headless
+        env:
+          chrome-extension-client-id: ${{ vars.CHROME_EXTENSION_CLIENT_ID }}
+
+      - name: Store ChromeExtension
+        uses: actions/upload-artifact@v7
+        with:
+          name: ChromeExtension
+          path: '${{ github.workspace }}/.github/publish/ChromeExtension'
+
+  BuildDocs:
+    runs-on: ubuntu-latest
+    steps:
+
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET 10.0.x
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+
+      - name: BuildDocs
+        id: BuildDocs
+        run: dotnet run --project _atom/_atom.csproj -- BuildDocs --skip --headless
+
+      - name: Store GeneratedDocs
+        uses: actions/upload-artifact@v7
+        with:
+          name: GeneratedDocs
+          path: '${{ github.workspace }}/.github/publish/GeneratedDocs'
+
+  PublishDocs:
+    permissions:
+      contents: write
+    needs: [ BuildDocs ]
+    runs-on: ubuntu-latest
+    steps:
+
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET 10.0.x
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Retrieve GeneratedDocs
+        uses: actions/download-artifact@v8
+        with:
+          name: GeneratedDocs
+          path: '${{ github.workspace }}/.github/artifacts/GeneratedDocs'
+
+      - name: PublishDocs
+        id: PublishDocs
+        run: dotnet run --project _atom/_atom.csproj -- PublishDocs --skip --headless
+        env:
+          azure-vault-app-secret: ${{ secrets.AZURE_VAULT_APP_SECRET }}
+          azure-vault-address: ${{ vars.AZURE_VAULT_ADDRESS }}
+          azure-vault-tenant-id: ${{ vars.AZURE_VAULT_TENANT_ID }}
+          azure-vault-app-id: ${{ vars.AZURE_VAULT_APP_ID }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+

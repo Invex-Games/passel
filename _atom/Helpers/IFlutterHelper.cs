@@ -64,6 +64,14 @@ internal interface IFlutterHelper : IProcessHelper
         await TryGetFlutterCommand(cancellationToken) ??
         throw new StepFailedException("Failed to find Flutter command");
 
+    /// <summary>
+    ///     The Flutter on PATH, used as it is, or the pinned version installed into <c>.flutter/</c> when there is
+    ///     none (a CI runner, for example). Unlike <see cref="EnsureFlutterIsCorrectVersion" /> this never changes
+    ///     an installation it found.
+    /// </summary>
+    async ValueTask<string> GetOrInstallFlutterCommand(CancellationToken cancellationToken = default) =>
+        await TryGetFlutterCommand(cancellationToken) ?? (await EnsureFlutterExists(cancellationToken)).path.Path;
+
     async ValueTask<string> GetDartCommand(CancellationToken cancellationToken = default) =>
         await TryGetDartCommand(cancellationToken) ?? throw new StepFailedException("Failed to find Dart command");
 

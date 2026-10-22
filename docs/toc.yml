@@ -23,6 +23,8 @@
             href: guides/testing.md
         -   name: Writing Docs
             href: guides/writing-docs.md
+        -   name: Continuous Integration
+            href: guides/ci.md
 -   name: Reference
     href: reference/build-targets.md
     items:
