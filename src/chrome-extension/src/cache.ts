@@ -1,15 +1,8 @@
-import type {Packet} from "./types.js";
+import type {CachedFeed, Packet} from "@passel/core";
 
 // The feed is cached in local storage so the popup can show it instantly (and offline). It belongs to
-// the signed-in user: it's cleared on explicit sign-out and when a different account signs in.
+// the signed-in user: it is cleared on explicit sign-out and when a different account signs in.
 const CACHE_KEY = "packetsCache";
-
-export interface CachedFeed {
-    packets: Packet[];
-    nextCursor: string | null;
-    /** When the feed was last fetched (ms since the epoch). */
-    lastSyncedAt: number | null;
-}
 
 export async function loadFeedCache(): Promise<CachedFeed | null> {
     try {

@@ -1,7 +1,7 @@
 import {getAccountName, getLastDevUser, getToken, signIn, signOut} from "./auth.js";
 import {deletePacket, getPackets, sendPacket} from "./api.js";
 import {addFeedPort} from "./live.js";
-import {FEED_PORT_NAME} from "./types.js";
+import {FEED_PORT_NAME} from "@passel/core";
 import type {
     AuthStateResponse,
     CancelDeleteResponse,
@@ -9,7 +9,7 @@ import type {
     ExtensionMessage,
     PacketData,
     SendPacketResponse,
-} from "./types.js";
+} from "@passel/core";
 
 // ── Context menus ─────────────────────────────────────────
 

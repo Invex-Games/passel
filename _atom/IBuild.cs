@@ -93,7 +93,7 @@ internal interface IBuild : IWorkflowBuildDefinition,
             Updates =
             [
                 DependabotUpdate(WorkflowLabels.Github.Dependabot.NugetEcosystem, "/"),
-                DependabotUpdate("npm", "/src/chrome-extension"),
+                DependabotUpdate("npm", "/src"),
                 DependabotUpdate("pub", "/src/mobile_app"),
                 DependabotUpdate("github-actions", "/"),
             ],

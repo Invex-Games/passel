@@ -1,5 +1,5 @@
 import {SignedOutError, watchEvents} from "./api.js";
-import type {FeedPortMessage} from "./types.js";
+import type {FeedPortMessage} from "@passel/core";
 
 // Only the service worker uses this module. While at least one popup holds a feed port, the API's event
 // stream is kept open and its events are forwarded to every port; it's closed once the last port goes.

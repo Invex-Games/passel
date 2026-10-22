@@ -4,14 +4,14 @@ import {fileURLToPath} from "node:url";
 import {describe, expect, it} from "vitest";
 import {FeedStore, type FeedCache} from "../src/feed.js";
 import {parsePacket, parsePackets, toLiveEvent} from "../src/packets.js";
-import type {CachedFeed} from "../src/cache.js";
+import type {CachedFeed} from "../src/types.js";
 import type {Packet} from "../src/types.js";
 
 // The wire contract, as the API's integration tests write it. contracts/ at the repository root holds sample
 // payloads the API serialized (fixtures/) and the feed sequences every client must agree on
 // (feed-scenarios.json). Both go through the real parsers and the real feed store here, so a change to the
 // wire shape or to the feed rules on either side fails this suite. See contracts/README.md.
-const contractsDir = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "..", "contracts");
+const contractsDir = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "..", "..", "contracts");
 const fixturesDir = join(contractsDir, "fixtures");
 
 /** A packet as the API writes it. */

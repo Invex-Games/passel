@@ -1,8 +1,13 @@
 import {API_URL} from "./config.js";
 import {getToken, refreshToken, signOut} from "./auth.js";
-import {authorizationHeader, devUserOf} from "./authorization.js";
-import {parsePacket, parsePackets, toLiveEvent} from "./packets.js";
-import {ServerSentEventParser} from "./sse.js";
+import {
+    authorizationHeader,
+    devUserOf,
+    parsePacket,
+    parsePackets,
+    ServerSentEventParser,
+    toLiveEvent,
+} from "@passel/core";
 import type {
     ApiResult,
     DeletePacketResponse,
@@ -11,7 +16,7 @@ import type {
     PacketData,
     ProblemDetails,
     SendPacketResponse,
-} from "./types.js";
+} from "@passel/core";
 
 export class SignedOutError extends Error {
 }

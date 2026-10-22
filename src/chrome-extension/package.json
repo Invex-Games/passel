@@ -9,16 +9,18 @@
   "scripts": {
     "dev": "node build.mjs --dev",
     "dev:watch": "node build.mjs --dev --watch",
-    "build": "tsc --noEmit && vitest run && node build.mjs",
+    "build": "tsc --noEmit && node build.mjs",
     "typecheck": "tsc --noEmit",
+    "harness": "node harness/serve.mjs",
     "clean": "node -e \"for (const dir of ['dist', 'out']) require('fs').rmSync(dir, {recursive: true, force: true})\"",
-    "test": "vitest run"
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "@passel/core": "*",
+    "@passel/ui": "*"
   },
   "devDependencies": {
     "@types/chrome": "^0.0.304",
-    "@types/node": "^22.20.5",
-    "esbuild": "^0.28.2",
-    "typescript": "^5.8.3",
-    "vitest": "^5.0.5"
+    "esbuild": "^0.28.2"
   }
 }

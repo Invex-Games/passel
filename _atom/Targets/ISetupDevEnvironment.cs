@@ -99,7 +99,7 @@ internal interface ISetupDevEnvironment : IChromeExtensionHelper, IFlutterHelper
 
                 if (npmPath is not null)
                 {
-                    Logger.LogInformation("Installing Chrome Extension packages");
+                    Logger.LogInformation("Installing the npm workspace (the shared packages and the Chrome Extension)");
                     await RestoreChromeExtensionPackages(cancellationToken);
                 }
 

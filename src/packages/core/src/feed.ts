@@ -1,5 +1,5 @@
 import {mergePackets} from "./packets.js";
-import type {CachedFeed} from "./cache.js";
+import type {CachedFeed} from "./types.js";
 import type {Packet, PacketPage} from "./types.js";
 
 // The popup's packet feed: the list, paging, and keeping it in step with live events and deletions.

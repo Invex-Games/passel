@@ -23,13 +23,13 @@ Versions come from commit messages through GitVersion (`GitVersion.yml`), so the
 | `breaking` | `breaking(api): drop the v1 packets endpoint` | Major bump |
 | `chore`, `docs`, `build`, `ci`, `refactor`, `test`, `perf` | `chore: pin the Atom tool` | None |
 
-Scopes are the component: `webapi`, `apphost`, `extension`, `mobile`, `atom`, `docs`. Branches are named after the prefix: `feat/share-target`, `fix/token-refresh`, `chore/ci`. Pull requests target `main` and should be squash-merged with the conventional title, or rebased when every commit is conventional on its own.
+Scopes are the component: `webapi`, `apphost`, `core`, `ui`, `extension`, `mobile`, `atom`, `docs`. Branches are named after the prefix: `feat/share-target`, `fix/token-refresh`, `chore/ci`. Pull requests target `main` and should be squash-merged with the conventional title, or rebased when every commit is conventional on its own.
 
 ## Before opening a pull request
 
 - Run `dotnet atom Test`, or the suite for the component you changed:
   - `dotnet test --project src/webapi/Invex.Passel.WebApi.Tests/Invex.Passel.WebApi.Tests.csproj`, and with Docker running, `dotnet test --project src/webapi/Invex.Passel.WebApi.IntegrationTests/Invex.Passel.WebApi.IntegrationTests.csproj`
-  - `npm run typecheck && npm test` in `src/chrome-extension`
+  - `npm run typecheck && npm test` in `src` (the npm workspace: the shared packages and the extension)
   - `flutter analyze && flutter test` in `src/mobile_app`
 - Warnings are errors in every component; keep it that way rather than suppressing.
 - Update the docs page for anything you changed in behaviour, configuration or commands, and preview with `dotnet atom ServeDocs`.

@@ -27,20 +27,21 @@ internal interface ITestTargets : IChromeExtensionHelper, IFlutterHelper, IMobil
 
     Target TestChromeExtension =>
         t => t
-            .DescribedAs("Type-checks and runs the Chrome Extension tests")
+            .DescribedAs("Type-checks and runs the tests of the shared TypeScript packages and the Chrome Extension")
             .Executes(async cancellationToken =>
             {
                 var npmPath = await RestoreChromeExtensionPackages(cancellationToken);
 
+                // The workspace scripts run every member: @passel/core, @passel/ui and the extension
                 await ProcessRunner.RunAsync(new(npmPath, "run typecheck")
                     {
-                        WorkingDirectory = ChromeExtensionDirectory,
+                        WorkingDirectory = WebWorkspaceDirectory,
                     },
                     cancellationToken);
 
                 await ProcessRunner.RunAsync(new(npmPath, "test")
                     {
-                        WorkingDirectory = ChromeExtensionDirectory,
+                        WorkingDirectory = WebWorkspaceDirectory,
                     },
                     cancellationToken);
             });

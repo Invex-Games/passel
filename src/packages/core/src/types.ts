@@ -151,3 +151,12 @@ export type FeedPortMessage =
     | { type: "status"; live: boolean }
     | { type: "event"; event: LiveEvent }
     | { type: "signedOut" };
+
+// The feed as a client caches it between runs: the first page and the cursor after it.
+
+export interface CachedFeed {
+    packets: Packet[];
+    nextCursor: string | null;
+    /** When the feed was last fetched (ms since the epoch). */
+    lastSyncedAt: number | null;
+}

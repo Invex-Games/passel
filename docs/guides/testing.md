@@ -6,7 +6,7 @@ Each component has its own test suite. Only the Web API integration tests need D
 |---|---|---|---|
 | Web API | xUnit v3 on Microsoft.Testing.Platform | `dotnet test --project src/webapi/Invex.Passel.WebApi.Tests/Invex.Passel.WebApi.Tests.csproj` | `dotnet atom TestWebApi` |
 | Web API integration | xUnit v3, with PostgreSQL in a Docker container (Testcontainers) | `dotnet test --project src/webapi/Invex.Passel.WebApi.IntegrationTests/Invex.Passel.WebApi.IntegrationTests.csproj` | `dotnet atom TestWebApi`, after the unit tests |
-| Chrome extension | TypeScript type-check, then Vitest | `npm run typecheck` and `npm test` in `src/chrome-extension` | `dotnet atom TestChromeExtension` |
+| Shared TypeScript packages and the Chrome extension | TypeScript type-check of every workspace member, then Vitest (the tests live in `src/packages/core`) | `npm run typecheck` and `npm test` in `src` | `dotnet atom TestChromeExtension` |
 | Mobile app | `flutter analyze`, then `flutter test` | Both, in `src/mobile_app` | `dotnet atom TestMobileApp`, with coverage |
 
 `dotnet atom Test` runs all three.

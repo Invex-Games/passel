@@ -1,0 +1,22 @@
+{
+  "name": "passel-web",
+  "private": true,
+  "description": "The npm workspace of Passel's TypeScript code: the shared core and UI packages, the Chrome extension, and later the web app.",
+  "engines": {
+    "node": ">=22.12"
+  },
+  "workspaces": [
+    "packages/*",
+    "chrome-extension"
+  ],
+  "scripts": {
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "npm test --workspaces --if-present",
+    "build": "npm run build --workspace chrome-extension"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.5",
+    "typescript": "^5.8.3",
+    "vitest": "^5.0.5"
+  }
+}

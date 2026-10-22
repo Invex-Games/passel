@@ -106,7 +106,7 @@ const copyStaticPlugin = {
 // ── Build options ────────────────────────────────────────────
 
 const options = {
-    entryPoints: ["src/background.ts", "src/popup.ts"],
+    entryPoints: ["src/background.ts", "src/popup.ts", "src/popup.css"],
     bundle: true,
     format: "esm",
     target: "es2020",

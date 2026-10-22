@@ -1,6 +1,6 @@
 import {DEV_SIGN_IN, GOOGLE_CLIENT_ID} from "./config.js";
 import {clearFeedCache} from "./cache.js";
-import {DEV_USER_RULE, devToken, devUserOf, isValidDevUser} from "./authorization.js";
+import {DEV_USER_RULE, devToken, devUserOf, isValidDevUser} from "@passel/core";
 
 // Only the service worker uses this module. The ID token lives in session storage (memory only,
 // cleared when the browser closes); the login hint lives in local storage so a signed-in user can

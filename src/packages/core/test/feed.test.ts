@@ -1,6 +1,6 @@
 import {beforeEach, describe, expect, it} from "vitest";
 import {FeedRequestError, FeedStore, PAGE_SIZE, type FeedCache} from "../src/feed.js";
-import type {CachedFeed} from "../src/cache.js";
+import type {CachedFeed} from "../src/types.js";
 import type {Packet, PacketPage} from "../src/types.js";
 
 const text = (id: string): Packet => ({id, type: "text", title: null, payload: `body ${id}`, isImage: false});
