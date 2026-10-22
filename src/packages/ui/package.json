@@ -1,0 +1,9 @@
+{
+  "name": "@passel/ui",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Passel's design tokens: the Material 3 colour scheme and shape tokens as CSS custom properties, for the Chrome extension popup and the web app.",
+  "exports": {
+    "./tokens.css": "./src/tokens.css"
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "name": "@passel/core",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Passel's client logic with no platform APIs: the wire types and parsing, the feed store, the server-sent events parser and the authorization header. Consumed from source by the Chrome extension and the web app.",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./*": "./src/*.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  }
+}
