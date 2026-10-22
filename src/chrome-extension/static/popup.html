@@ -34,7 +34,8 @@
     </header>
 
     <main id="main">
-        <section id="auth-signed-out" class="section">
+        <!-- Shown once the session is known to be signed out; the composer takes its place when signed in. -->
+        <section id="auth-signed-out" class="section hidden">
             <button id="sign-in-btn" class="md-btn md-btn-filled" type="button">
                 <svg class="icon btn-icon" viewBox="0 0 24 24" aria-hidden="true">
                     <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" />
@@ -45,9 +46,14 @@
                 <span class="btn-label">Sign in with Google</span>
                 <span class="btn-loading-label">Signing in…</span>
             </button>
+            <p class="intro">
+                Send links and text between your devices.
+                Learn more at <a href="https://passel.link" target="_blank" rel="noopener noreferrer">passel.link</a>.
+            </p>
         </section>
 
-        <section id="composer" class="section composer auth-required disabled-section">
+        <!-- Disabled until the session is known, so a signed-in user's popup doesn't jump; hidden while signed out. -->
+        <section id="composer" class="section composer disabled-section">
             <button id="send-page" class="md-btn md-btn-filled" type="button" disabled>
                 <svg class="icon btn-icon" viewBox="0 0 24 24" aria-hidden="true">
                     <circle cx="12" cy="12" r="10" />

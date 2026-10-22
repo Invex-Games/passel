@@ -44,7 +44,7 @@ const syncLabelEl = document.getElementById("sync-label") as HTMLSpanElement;
 const authSignedOut = document.getElementById("auth-signed-out") as HTMLElement;
 const authSignedIn = document.getElementById("auth-signed-in") as HTMLElement;
 const userEmailEl = document.getElementById("user-email") as HTMLSpanElement;
-const authRequiredSections = document.querySelectorAll<HTMLElement>(".auth-required");
+const composerEl = document.getElementById("composer") as HTMLElement;
 const feedSection = document.querySelector(".feed") as HTMLElement;
 const feedList = document.getElementById("feed-list") as HTMLDivElement;
 const feedEnd = document.getElementById("feed-end") as HTMLDivElement;
@@ -196,7 +196,9 @@ function setAuthState(state: AuthStateResponse): void {
     authSignedOut.classList.toggle("hidden", signedIn);
     authSignedIn.classList.toggle("hidden", !signedIn);
     refreshBtn.classList.toggle("hidden", !signedIn);
-    authRequiredSections.forEach(s => s.classList.toggle("disabled-section", !signedIn));
+    // Until now the composer was shown disabled (see popup.html); signed out, it isn't shown at all.
+    composerEl.classList.remove("disabled-section");
+    composerEl.classList.toggle("hidden", !signedIn);
     feedSection.classList.toggle("signed-out", !signedIn);
 
     freetextEl.disabled = !signedIn;

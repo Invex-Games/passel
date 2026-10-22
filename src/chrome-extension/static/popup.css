@@ -205,10 +205,23 @@ main {
     padding: 16px 16px 20px;
 }
 
-/* ── Composer ──────────────────────────────────────────── */
+/* ── Signed out ────────────────────────────────────────── */
 #auth-signed-out {
     margin-bottom: 12px;
 }
+
+.intro {
+    font-size: 13px;
+    line-height: 1.45;
+    text-align: center;
+    color: var(--md-sys-color-on-surface-variant);
+}
+
+.intro a {
+    color: var(--md-sys-color-primary);
+}
+
+/* ── Composer ──────────────────────────────────────────── */
 
 .composer-row {
     display: flex;
@@ -698,7 +711,8 @@ main {
 /* The MD3 focus indicator: a ring in the secondary colour, just outside the control. */
 .md-btn:focus-visible,
 .text-btn:focus-visible,
-.toast-action:focus-visible {
+.toast-action:focus-visible,
+.intro a:focus-visible {
     outline: 3px solid var(--md-sys-color-secondary);
     outline-offset: 2px;
 }
@@ -715,6 +729,7 @@ main {
     outline-offset: -3px;
 }
 
+/* The composer before the session is known (see popup.html). */
 .disabled-section {
     opacity: 0.38;
     pointer-events: none;
