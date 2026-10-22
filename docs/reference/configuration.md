@@ -27,6 +27,13 @@ The values are stored in the AppHost's user secrets as `Parameters:<name>`. The 
 | `Quotas:MaxBytesPerUser` | No | The most bytes a user may have stored across their packets. Default 52428800 (50 MB). |
 | `EventStreams:MaxStreamsPerUser` | No | Event streams one user may hold open on one instance; opening another closes their oldest. Default 5. |
 | `EventStreams:MaxStreamsPerInstance` | No | Event streams one instance holds open in total; beyond it the endpoint answers 503. Default 4000. |
+| `AllowedHosts` | No | The hosts the API answers to, separated by `;`. `appsettings.json` sets the production host, `api.passel.link`; a deployment on another host overrides it, and must include the host its health probes use. Ignored in Development, which answers to any host. |
+| `ForwardedHeaders:Enabled` | No | Behind a reverse proxy, take the client address and scheme from `X-Forwarded-For` and `X-Forwarded-Proto`. Default `false`. |
+| `ForwardedHeaders:KnownProxies` | No | The proxy addresses to accept those headers from, as a list. |
+| `ForwardedHeaders:KnownNetworks` | No | The proxy networks to accept those headers from, in CIDR notation, as a list. With neither list set, the headers are accepted from whatever connects directly, which is only safe when the proxy is the one way to reach the API. |
+| `Kestrel:Limits:MaxConcurrentConnections` | No | The most open connections, event streams included. Default 5000. The rest of the `Kestrel` section binds too. |
+
+The API sends no CORS headers. Neither client needs them: the extension's host permissions bypass CORS, and the mobile app isn't a browser. The web app will add an allowlist of its own origin when it arrives. Outside Development the API also sends HSTS.
 
 Rate limits are sliding one-minute windows counted per signed-in user (the `sub` claim), or per remote address for requests that aren't authenticated. A request over the limit gets a 429 problem with a `Retry-After` header.
 
