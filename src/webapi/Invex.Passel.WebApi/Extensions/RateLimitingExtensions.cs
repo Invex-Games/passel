@@ -83,10 +83,15 @@ internal static class RateLimitingExtensions
         var httpContext = context.HttpContext;
         httpContext.Response.StatusCode = StatusCodes.Status429TooManyRequests;
 
-        if (context.Lease.TryGetMetadata(MetadataName.RetryAfter, out var retryAfter))
-            httpContext.Response.Headers.RetryAfter = Math
-                .Ceiling(retryAfter.TotalSeconds)
-                .ToString(CultureInfo.InvariantCulture);
+        // A window limiter that cannot queue gives no retry-after metadata, so the fallback is the window: after a
+        // whole one the user is sure to have permits again
+        var retryAfter = context.Lease.TryGetMetadata(MetadataName.RetryAfter, out var fromLease)
+            ? fromLease
+            : Window;
+
+        httpContext.Response.Headers.RetryAfter = Math
+            .Ceiling(retryAfter.TotalSeconds)
+            .ToString(CultureInfo.InvariantCulture);
 
         // Falls back to the bare status code when the client does not accept JSON (for example an event-stream
         // request), which the status code pages middleware then turns into its plain response
