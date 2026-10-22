@@ -28,7 +28,7 @@ Scopes are the component: `webapi`, `apphost`, `extension`, `mobile`, `atom`, `d
 ## Before opening a pull request
 
 - Run `dotnet atom Test`, or the suite for the component you changed:
-  - `dotnet test --project src/webapi/Invex.Passel.WebApi.Tests/Invex.Passel.WebApi.Tests.csproj`
+  - `dotnet test --project src/webapi/Invex.Passel.WebApi.Tests/Invex.Passel.WebApi.Tests.csproj`, and with Docker running, `dotnet test --project src/webapi/Invex.Passel.WebApi.IntegrationTests/Invex.Passel.WebApi.IntegrationTests.csproj`
   - `npm run typecheck && npm test` in `src/chrome-extension`
   - `flutter analyze && flutter test` in `src/mobile_app`
 - Warnings are errors in every component; keep it that way rather than suppressing.

@@ -12,7 +12,7 @@ On Windows the generator writes CRLF line endings, so after an interactive run g
 | `Build` | Pushes to `main`, manual dispatch | The three test suites, `BuildWebApi` and `BuildChromeExtension` (artifacts attached to the run), `BuildDocs` and `PublishDocs` (the site force-pushed to the `gh-pages` branch) |
 | Dependabot | Weekly, Monday 06:00 Brisbane time | One grouped pull request each for NuGet, npm, pub and GitHub Actions, with `build(...)` commit prefixes so versions don't bump |
 
-A newer run of a workflow on the same branch cancels the one still in progress. Every job checks the repository out and sets up the .NET 10 SDK; Node comes with the runner, and `TestMobileApp` installs the Flutter version pinned in `_atom/appsettings.json` into `.flutter/` because runners don't have one.
+A newer run of a workflow on the same branch cancels the one still in progress. Every job checks the repository out and sets up the .NET 10 SDK; Node and Docker come with the runner (`TestWebApi` starts PostgreSQL in a container for the integration tests), and `TestMobileApp` installs the Flutter version pinned in `_atom/appsettings.json` into `.flutter/` because runners don't have one.
 
 The mobile app's release build (`BuildMobileAppAndroid`) is not in a workflow yet: it needs the Android keystore and client ids from Azure Key Vault, so the repository first needs an Azure identity with access to the vault.
 

@@ -17,6 +17,7 @@ All notable changes to Passel. The format follows [Keep a Changelog](https://kee
 - A Development-only `Authorization: Dev <user>` scheme, so the API, Scalar and the tests run without Google credentials; the AppHost's Google parameters are optional in Development. Scalar opens with the scheme filled in for a visitor who is not logged in with Google, and otherwise selects the Google login, which the document declares as its own scheme.
 - Sign-in without Google in the clients' development builds: the mobile app's `DEV_USER` dart-define and the extension's `DEV_SIGN_IN` build flag (set by the AppHost) sign in through that scheme as any named user, with a field for switching users, so per-user behaviour can be tested from one device. Production builds refuse the define and never compile the flag in.
 - A USB path for mobile development: the development flavor of the app may use plain HTTP to `localhost` and the emulator host, so a phone reaches the local API through `adb reverse` without a tunnel; the production flavor refuses an `http://` API URL. A `TUNNEL_ACCESS_TOKEN` dart-define and a `DevTunnel:AllowAnonymous` AppHost setting for running the dev tunnel without anonymous access.
+- Integration tests for the API against PostgreSQL in Docker (Testcontainers): ownership isolation, paging, delete semantics, live updates end to end and the schema on an empty database. `dotnet atom TestWebApi` and the workflows run them after the unit tests.
 
 ### Changed
 

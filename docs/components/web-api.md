@@ -1,11 +1,12 @@
 # Web API
 
-`src/webapi` holds four projects:
+`src/webapi` holds five projects:
 
 | Project | Purpose |
 |---|---|
 | `Invex.Passel.WebApi` | The API |
 | `Invex.Passel.WebApi.Tests` | Unit tests (xUnit v3 on Microsoft.Testing.Platform) |
+| `Invex.Passel.WebApi.IntegrationTests` | Integration tests against PostgreSQL in Docker; see [Integration tests](#integration-tests) |
 | `Invex.Passel.AppHost` | The Aspire AppHost that runs the local environment |
 | `Invex.Passel.ServiceDefaults` | OpenTelemetry, health checks, service discovery and HTTP resilience, shared Aspire-style |
 
@@ -93,3 +94,17 @@ In Development the Google settings are optional: the bearer handler is still reg
 That cookie login is what lets Scalar call authenticated endpoints. The login cookie is `Secure` and `SameSite=Strict`. The OpenID Connect correlation and nonce cookies are `Secure` and `SameSite=Lax`, which works because Google returns the code in a top-level GET (`response_mode=query`), and the nonce in the ID token is validated. Production only accepts bearer tokens, and unauthenticated requests get a plain 401.
 
 See [Google OAuth Clients](../getting-started/google-oauth.md) for which client is which.
+
+## Integration tests
+
+`Invex.Passel.WebApi.IntegrationTests` runs the API as `Program.cs` builds it, in the Development environment, against a real PostgreSQL. The suite needs Docker running and nothing else:
+
+```
+dotnet test --project src/webapi/Invex.Passel.WebApi.IntegrationTests/Invex.Passel.WebApi.IntegrationTests.csproj
+```
+
+`dotnet atom TestWebApi` runs it after the unit tests, and so do the `Validate` and `Build` workflows, since GitHub-hosted runners have Docker.
+
+The suite starts one `postgres:18.3` container (the image the AppHost runs) with [Testcontainers](https://dotnet.testcontainers.org/) and hosts the API in-process with `WebApplicationFactory`, pointed at the container through the `passel-db` connection string. Requests are signed in with the Development `Authorization: Dev <user>` scheme, and every test acts as users of its own, so the tests share one database without seeing each other's packets. The rate limits are raised for the run, because paging alone creates 51 packets in a minute; the limits have unit tests of their own. Before the first test, the fixture creates packets until one arrives on an event stream, because the notification listener connects after the host has started and a packet created before then is announced to nobody.
+
+The tests speak HTTP only, as the clients do: they assert the JSON and the events, never tables or Marten types. They cover creating and listing with ownership isolation, paging over 51 packets through the cursor, the delete semantics (a second delete and another user's packet are both 404), the event stream end to end (a create and a delete committed through the API arrive as `packet-created` and `packet-deleted` on the owner's stream, through the database notification, and on nobody else's), and the schema: a second API host on an empty database serves a create as its very first request. A run takes under ten seconds once the images are local, about thirty the first time, and removes its container when it ends.

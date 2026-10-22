@@ -10,7 +10,7 @@ Parameters can be passed on the command line (`--mobile-app-flavor production`),
 |---|---|
 | `SetupDevEnvironment` | Checks the tools you need, Docker, and the HTTPS development certificate. Creates `src/mobile_app/.env`, then restores npm and Flutter packages. |
 | `Test` | Runs `TestWebApi`, `TestChromeExtension` and `TestMobileApp` |
-| `TestWebApi` | `dotnet test` on the Web API test project |
+| `TestWebApi` | `dotnet test` on the Web API unit tests, then on the integration tests, which start PostgreSQL in a Docker container |
 | `TestChromeExtension` | Type-checks the extension and runs Vitest |
 | `TestMobileApp` | `flutter analyze` and `flutter test` |
 | `BuildDocs` | Builds this site into `_site/` and `atom-publish/GeneratedDocs` |
