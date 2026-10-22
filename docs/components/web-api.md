@@ -59,8 +59,11 @@ Clients send a Google **ID token** as a bearer token. The API validates it again
 
 In development a policy scheme picks how each request is authenticated:
 
-- A request with an `Authorization` header uses bearer tokens.
-- Any other request uses a cookie, issued by Google OpenID Connect login.
+- A request whose `Authorization` header is `Dev <user-id>` uses the Dev scheme (`Authentication/DevAuthenticationHandler.cs`): it signs the request in as that user, with the id as both `sub` and display name, and no Google involved. The scheme only exists in Development; see [Run without Google](../getting-started/running-locally.md#run-without-google).
+- A request with any other `Authorization` header uses bearer tokens.
+- Any other request uses a cookie, issued by Google OpenID Connect login, when `Authentication:Google:ClientId` and `ClientSecret` are both set. Without them there is no cookie login, so such a request gets a plain 401 from the Dev scheme.
+
+In Development the Google settings are optional: the bearer handler is still registered, but with no client id its audience list is empty and every Google token is rejected. The OpenAPI document declares the Dev scheme so Scalar can send its header, and the Scalar banner says when Google login isn't configured.
 
 That cookie login is what lets Scalar call authenticated endpoints. The login cookie is `Secure` and `SameSite=Strict`. The OpenID Connect correlation and nonce cookies are `Secure` and `SameSite=Lax`, which works because Google returns the code in a top-level GET (`response_mode=query`), and the nonce in the ID token is validated. Production only accepts bearer tokens, and unauthenticated requests get a plain 401.
 

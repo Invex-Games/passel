@@ -4,6 +4,7 @@ global using System.Security.Claims;
 global using System.Text.Json;
 global using System.Text.Json.Serialization;
 global using Google.Apis.Auth.AspNetCore3;
+global using Invex.Passel.WebApi.Authentication;
 global using Invex.Passel.WebApi.Endpoints;
 global using Invex.Passel.WebApi.Services;
 global using Asp.Versioning;

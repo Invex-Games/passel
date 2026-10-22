@@ -1,6 +1,7 @@
 using System.Net;
 using Microsoft.AspNetCore.HostFiltering;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
+using Microsoft.Extensions.Primitives;
 using Microsoft.IdentityModel.Protocols.OpenIdConnect;
 using ForwardedHeaders = Microsoft.AspNetCore.HttpOverrides.ForwardedHeaders;
 
@@ -38,10 +39,42 @@ internal static class HostWebExtensions
         // No CORS: the extension's host permissions bypass it and the mobile app is not a browser. The web app will
         // add an allowlist of its own origin when it arrives.
 
-        // Clients authenticate with Google ID tokens. Cookie + Google OIDC browser login only exists in
-        // development so Scalar can call authenticated endpoints; in production, unauthenticated API
-        // requests get a plain 401 rather than a redirect to Google.
+        builder.AddPasselAuthentication();
+        builder.Services.AddAuthorization();
+
         var isDevelopment = builder.Environment.IsDevelopment();
+
+        builder
+            .Services
+            .AddApiVersioning(options =>
+            {
+                options.AssumeDefaultVersionWhenUnspecified = true;
+                options.DefaultApiVersion = ApiVersion.Default;
+            })
+            .AddApiExplorer(options => options.GroupNameFormat = "'v'VVV")
+            .AddOpenApi(options =>
+            {
+                // Lets Scalar offer the Dev scheme; the document is only served in Development anyway
+                if (isDevelopment)
+                    options.Document.AddDocumentTransformer(HostDevExtensions.AddDevSecurityScheme);
+            });
+    }
+
+    /// <summary>
+    ///     Whether the development browser login can work: it needs the Google web client id and its secret.
+    /// </summary>
+    internal static bool GoogleLoginConfigured(IConfiguration configuration) =>
+        !string.IsNullOrEmpty(configuration["Authentication:Google:ClientId"]) &&
+        !string.IsNullOrEmpty(configuration["Authentication:Google:ClientSecret"]);
+
+    private static void AddPasselAuthentication(this WebApplicationBuilder builder)
+    {
+        // Clients authenticate with Google ID tokens. In Development a policy scheme also accepts
+        // "Authorization: Dev <user>", and a cookie issued by Google OpenID Connect login when the Google client is
+        // configured, so Scalar can call authenticated endpoints. Production only has the bearer handler, so
+        // unauthenticated requests get a plain 401 rather than a redirect to Google.
+        var isDevelopment = builder.Environment.IsDevelopment();
+        var googleLoginConfigured = isDevelopment && GoogleLoginConfigured(builder.Configuration);
 
         var authentication = builder
             .Services
@@ -55,8 +88,6 @@ internal static class HostWebExtensions
             })
             .AddJwtBearer(options =>
             {
-                var clientId = builder.Configuration["Authentication:Google:ClientId"]!;
-
                 var additionalAudiences = builder
                     .Configuration
                     .GetSection("Authentication:Google:AdditionalAudiences")
@@ -64,59 +95,90 @@ internal static class HostWebExtensions
 
                 options.Authority = "https://accounts.google.com";
 
+                // Without a client id (allowed in Development) the audience list is empty and every token is
+                // rejected, which is the right way to fail
                 options.TokenValidationParameters = new()
                 {
                     ValidIssuers = ["https://accounts.google.com", "accounts.google.com"],
-                    ValidAudiences = [clientId, ..additionalAudiences],
+                    ValidAudiences = ValidAudiences(builder.Configuration["Authentication:Google:ClientId"],
+                        additionalAudiences),
                 };
             });
 
-        if (isDevelopment)
-            authentication
-                .AddPolicyScheme(DevelopmentAuthenticationScheme,
-                    "Cookie or Bearer",
-                    options =>
-                    {
-                        options.ForwardDefaultSelector = ctx => ctx.Request.Headers.ContainsKey("Authorization")
-                            ? JwtBearerDefaults.AuthenticationScheme
-                            : CookieAuthenticationDefaults.AuthenticationScheme;
-                    })
-                .AddCookie(cookieOptions =>
+        if (!isDevelopment)
+            return;
+
+        authentication
+            .AddScheme<AuthenticationSchemeOptions, DevAuthenticationHandler>(DevAuthenticationHandler.SchemeName,
+                "Development user",
+                _ => { })
+            .AddPolicyScheme(DevelopmentAuthenticationScheme,
+                "Dev, Bearer or Cookie",
+                options => options.ForwardDefaultSelector = ctx =>
+                    SelectDevelopmentScheme(ctx.Request.Headers.Authorization, googleLoginConfigured))
+            .AddCookie(cookieOptions =>
+            {
+                if (googleLoginConfigured)
                 {
                     cookieOptions.ForwardChallenge = GoogleOpenIdConnectDefaults.AuthenticationScheme;
                     cookieOptions.ForwardForbid = GoogleOpenIdConnectDefaults.AuthenticationScheme;
+                }
 
-                    // Only ever sent back to this origin over HTTPS; Scalar lives on the same origin, so Strict
-                    // costs nothing
-                    cookieOptions.Cookie.SecurePolicy = CookieSecurePolicy.Always;
-                    cookieOptions.Cookie.SameSite = SameSiteMode.Strict;
-                })
-                .AddGoogleOpenIdConnect(googleOptions =>
-                {
-                    googleOptions.ClientId = builder.Configuration["Authentication:Google:ClientId"];
-                    googleOptions.ClientSecret = builder.Configuration["Authentication:Google:ClientSecret"];
+                // Only ever sent back to this origin over HTTPS; Scalar lives on the same origin, so Strict
+                // costs nothing
+                cookieOptions.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+                cookieOptions.Cookie.SameSite = SameSiteMode.Strict;
+            });
 
-                    // The correlation and nonce cookies only need to come back with the callback from Google. Lax
-                    // cookies ride along with a top-level GET, so the code is returned in the query rather than
-                    // by the form post the OIDC handler would otherwise ask for
-                    googleOptions.ResponseMode = OpenIdConnectResponseMode.Query;
-                    googleOptions.CorrelationCookie.SameSite = SameSiteMode.Lax;
-                    googleOptions.CorrelationCookie.SecurePolicy = CookieSecurePolicy.Always;
-                    googleOptions.NonceCookie.SameSite = SameSiteMode.Lax;
-                    googleOptions.NonceCookie.SecurePolicy = CookieSecurePolicy.Always;
-                });
+        if (!googleLoginConfigured)
+            return;
 
-        builder.Services.AddAuthorization();
+        authentication.AddGoogleOpenIdConnect(googleOptions =>
+        {
+            googleOptions.ClientId = builder.Configuration["Authentication:Google:ClientId"];
+            googleOptions.ClientSecret = builder.Configuration["Authentication:Google:ClientSecret"];
 
-        builder
-            .Services
-            .AddApiVersioning(options =>
-            {
-                options.AssumeDefaultVersionWhenUnspecified = true;
-                options.DefaultApiVersion = ApiVersion.Default;
-            })
-            .AddApiExplorer(options => options.GroupNameFormat = "'v'VVV")
-            .AddOpenApi();
+            // The correlation and nonce cookies only need to come back with the callback from Google. Lax cookies
+            // ride along with a top-level GET, so the code is returned in the query rather than by the form post
+            // the OIDC handler would otherwise ask for
+            googleOptions.ResponseMode = OpenIdConnectResponseMode.Query;
+            googleOptions.CorrelationCookie.SameSite = SameSiteMode.Lax;
+            googleOptions.CorrelationCookie.SecurePolicy = CookieSecurePolicy.Always;
+            googleOptions.NonceCookie.SameSite = SameSiteMode.Lax;
+            googleOptions.NonceCookie.SecurePolicy = CookieSecurePolicy.Always;
+        });
+    }
+
+    /// <summary>
+    ///     Which scheme authenticates a request in Development: the Dev scheme for its own header, bearer tokens for
+    ///     any other Authorization header, and otherwise the cookie login when Google is configured, or the Dev
+    ///     scheme (whose challenge is a plain 401) when it is not.
+    /// </summary>
+    internal static string SelectDevelopmentScheme(StringValues authorization, bool googleLoginConfigured)
+    {
+        if (DevAuthenticationHandler.IsDevAuthorization(authorization))
+            return DevAuthenticationHandler.SchemeName;
+
+        if (!StringValues.IsNullOrEmpty(authorization))
+            return JwtBearerDefaults.AuthenticationScheme;
+
+        return googleLoginConfigured
+            ? CookieAuthenticationDefaults.AuthenticationScheme
+            : DevAuthenticationHandler.SchemeName;
+    }
+
+    /// <summary>
+    ///     The audiences a bearer token may carry: the web client id and the extras, skipping anything blank.
+    /// </summary>
+    internal static string[] ValidAudiences(string? clientId, IEnumerable<string?> additionalAudiences)
+    {
+        var audiences = new List<string>();
+
+        foreach (var audience in additionalAudiences.Prepend(clientId))
+            if (!string.IsNullOrWhiteSpace(audience))
+                audiences.Add(audience);
+
+        return [..audiences];
     }
 
     private static void AddConnectionLimits(this WebApplicationBuilder builder)
