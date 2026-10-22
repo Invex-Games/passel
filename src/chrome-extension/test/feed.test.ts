@@ -1,10 +1,12 @@
 import {beforeEach, describe, expect, it} from "vitest";
-import {FeedRequestError, FeedStore, type FeedCache} from "../src/feed.js";
+import {FeedRequestError, FeedStore, PAGE_SIZE, type FeedCache} from "../src/feed.js";
 import type {CachedFeed} from "../src/cache.js";
 import type {Packet, PacketPage} from "../src/types.js";
 
 const text = (id: string): Packet => ({id, type: "text", title: null, payload: `body ${id}`, isImage: false});
 const page = (ids: string[], nextCursor: string | null = null): PacketPage => ({packets: ids.map(text), nextCursor});
+/** Ids for a full page: `${prefix}1` to `${prefix}50`. */
+const fullPage = (prefix: string) => Array.from({length: PAGE_SIZE}, (_, i) => `${prefix}${i + 1}`);
 
 /** A promise the test resolves or rejects by hand. */
 function deferred<T>() {
@@ -64,7 +66,7 @@ describe("loading", () => {
         expect(ids()).toEqual(["a", "b"]);
         expect(feed.state.nextCursor).toBe("c1");
         expect(feed.state.lastSyncedAt).toBe(1000);
-        expect(cache.feed?.packets.map(p => p.id)).toEqual(["a", "b"]);
+        expect(cache.feed).toEqual({packets: [text("a"), text("b")], nextCursor: "c1", lastSyncedAt: 1000});
     });
 
     it("a slower, older refresh does not overwrite a newer one", async () => {
@@ -178,6 +180,8 @@ describe("live updates", () => {
 
         expect(ids()).toEqual(["new", "a", "b", "c"]);
         expect(feed.state.nextCursor).toBe("c2");
+        // The cache holds the first page, so it's saved with the cursor that followed the fresh first page.
+        expect(cache.feed?.nextCursor).toBe("x");
     });
 
     it("syncLatest replaces the list when the page doesn't overlap it", async () => {
@@ -275,5 +279,42 @@ describe("delete with undo", () => {
         feed.unhide("b");
 
         expect(ids()).toEqual(["a", "c"]);
+    });
+});
+
+describe("cache", () => {
+    const cachedIds = () => cache.feed?.packets.map(p => p.id);
+
+    it("saves only the first page and its cursor, however many pages are loaded", async () => {
+        onFetch = async cursor => cursor ? page(fullPage("old"), "c2") : page(fullPage("p"), "c1");
+        await feed.refresh();
+
+        await feed.loadMore();
+
+        expect(ids()).toHaveLength(2 * PAGE_SIZE);
+        expect(feed.state.nextCursor).toBe("c2");
+        expect(cachedIds()).toEqual(fullPage("p"));
+        expect(cache.feed?.nextCursor).toBe("c1");
+    });
+
+    it("a packet that arrives pushes the oldest one out of the cache, keeping the first page's cursor", async () => {
+        onFetch = async () => page(fullPage("p"), "c1");
+        await feed.refresh();
+
+        feed.applyCreated(text("live"));
+
+        expect(ids()).toHaveLength(PAGE_SIZE + 1);
+        expect(cachedIds()).toEqual(["live", ...fullPage("p").slice(0, -1)]);
+        expect(cache.feed?.nextCursor).toBe("c1");
+    });
+
+    it("keeps the cached cursor when a change is saved before the first fetch", async () => {
+        cache.feed = {packets: [text("a")], nextCursor: "c0", lastSyncedAt: 1};
+        await feed.showCached();
+
+        feed.applyCreated(text("live"));
+
+        expect(cachedIds()).toEqual(["live", "a"]);
+        expect(cache.feed?.nextCursor).toBe("c0");
     });
 });

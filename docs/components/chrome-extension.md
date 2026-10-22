@@ -21,6 +21,8 @@
 
 The ID token is kept in `chrome.storage.session`, which is cleared when the browser closes. Only a login hint goes in local storage, so the extension can sign the user back in silently.
 
+The feed cache holds only the first page (50 packets) and the cursor after it, so it never grows as the user scrolls through older pages; the in-memory list keeps every page loaded while the popup is open.
+
 ## Build
 
 `build.mjs` bundles `src/background.ts` and `src/popup.ts` into `dist/` and copies `static/` alongside them. It needs two values. Values already in the environment take precedence over a local `.env`:
