@@ -42,7 +42,7 @@ In Development the three Google values are optional, so a fresh clone runs witho
 curl -H "Authorization: Dev alice" https://localhost:7030/api/packets
 ```
 
-Scalar opens with the **Dev** scheme selected and filled in with `Dev alice`, so its requests go out as alice straight away; open **Auth** (or the lock on a request) to change the user. Once you log in with Google from the banner, the page leaves the scheme empty and sends your login cookie instead, so requests go as your Google account. Fill the scheme in again to act as a development user while logged in: a `Dev` header wins over the cookie. The banner at the top says who you are logged in as, and when Google login isn't configured.
+Scalar opens with the **Dev** scheme selected and filled in with `Dev alice`, so its requests go out as alice straight away; open **Auth** (or the lock on a request) to change the user. With Google login configured the document also declares a **GoogleLogin** scheme, which stands for the login cookie: once you log in with Google from the banner, the page selects it, the browser sends the cookie by itself, and requests go as your Google account with nothing to enter. Pick the **Dev** scheme again to act as a development user while logged in: a `Dev` header wins over the cookie. The banner at the top says who you are logged in as, and when Google login isn't configured.
 
 The clients can use the scheme too, in their development builds only:
 

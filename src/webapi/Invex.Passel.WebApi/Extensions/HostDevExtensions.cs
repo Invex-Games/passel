@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.OpenApi;
+using Microsoft.Extensions.Options;
 
 namespace Invex.Passel.WebApi.Extensions;
 
@@ -70,13 +71,12 @@ internal static class HostDevExtensions
                 options.AddDocument(description.GroupName, description.GroupName, isDefault: isDefault);
             }
 
-            // The Dev scheme is declared in the document by AddDevSecurityScheme, so Scalar always offers it. The
-            // visitor is logged in only through the Google login cookie (a browser sends no Authorization header
-            // to this page), and then the scheme is left empty so the page sends the cookie, since a Dev header
-            // would win over it (HostWebExtensions.SelectDevelopmentScheme)
+            // The visitor is logged in only through the Google login cookie: a browser sends no Authorization
+            // header to this page. The page then selects that login rather than the Dev scheme, since a Dev
+            // header would win over the cookie (HostWebExtensions.SelectDevelopmentScheme)
             var loggedIn = httpContext.User.Identity?.IsAuthenticated is true;
 
-            PrefillDevScheme(options, prefill: !loggedIn);
+            SelectSecurityScheme(options, loggedIn);
 
             options.CustomCss = """
                                 .login-banner {
@@ -101,9 +101,9 @@ internal static class HostDevExtensions
                 ? $"""<a href="/auth/login">Login with Google</a> to use authenticated endpoints, or authorize with the <strong>Dev</strong> scheme (<code>{DevSchemeExample}</code>)"""
                 : $"""Google login is not configured (set <code>Authentication:Google:ClientId</code> and <code>ClientSecret</code>); authorize with the <strong>Dev</strong> scheme instead (<code>{DevSchemeExample}</code>)""";
 
-            // Requests go as the login unless the developer fills the Dev scheme in on purpose
+            // Requests go as the login unless the developer picks the Dev scheme on purpose
             var signedInBanner =
-                $"""Requests go as that account; to act as a development user instead, authorize with the <strong>Dev</strong> scheme (<code>{DevSchemeExample}</code>). <a href="/auth/logout">Logout</a>""";
+                $"""Scalar sends that login (the <strong>{GoogleLoginSchemeName}</strong> scheme); to act as a development user instead, pick the <strong>Dev</strong> scheme (<code>{DevSchemeExample}</code>). <a href="/auth/logout">Logout</a>""";
 
             options.AddHeadContent($$"""
                                      <script>
@@ -132,28 +132,40 @@ internal static class HostDevExtensions
     internal const string DevSchemeExample = "Dev alice";
 
     /// <summary>
-    ///     Selects the Dev scheme in Scalar with <see cref="DevSchemeExample" /> ready to send, or leaves it empty
-    ///     so the page sends nothing of its own and the login cookie authenticates its requests.
+    ///     The security scheme the OpenAPI document declares for the Google login cookie, so Scalar can show and
+    ///     select it. The browser sends the cookie by itself; the scheme is there to be seen, not filled in.
     /// </summary>
-    internal static void PrefillDevScheme(ScalarOptions options, bool prefill)
+    internal const string GoogleLoginSchemeName = "GoogleLogin";
+
+    /// <summary>
+    ///     Selects the scheme Scalar sends with: the Google login for a logged-in visitor, otherwise the Dev scheme
+    ///     with <see cref="DevSchemeExample" /> ready to go.
+    /// </summary>
+    internal static void SelectSecurityScheme(ScalarOptions options, bool loggedIn)
     {
-        if (!prefill)
+        if (loggedIn)
+        {
+            options.AddPreferredSecuritySchemes([GoogleLoginSchemeName]);
+
             return;
+        }
 
         options.AddPreferredSecuritySchemes([DevAuthenticationHandler.SchemeName]);
         options.AddApiKeyAuthentication(DevAuthenticationHandler.SchemeName, scheme => scheme.WithValue(DevSchemeExample));
     }
 
     /// <summary>
-    ///     Declares the Dev scheme in the OpenAPI document, so Scalar offers it and sends its header.
+    ///     Declares the Development schemes in the OpenAPI document, so Scalar offers them: the Dev scheme, and the
+    ///     Google login cookie when Google login is configured. Either one satisfies the document's requirement.
     /// </summary>
-    internal static Task AddDevSecurityScheme(
+    internal static Task AddDevelopmentSecuritySchemes(
         OpenApiDocument document,
         OpenApiDocumentTransformerContext context,
         CancellationToken cancellationToken)
     {
         document.Components ??= new();
         document.Components.SecuritySchemes ??= new Dictionary<string, IOpenApiSecurityScheme>();
+        document.Security ??= [];
 
         document.Components.SecuritySchemes[DevAuthenticationHandler.SchemeName] = new OpenApiSecurityScheme
         {
@@ -163,11 +175,34 @@ internal static class HostDevExtensions
             Description = "Development only: \"Dev <user-id>\" signs the request in as that user.",
         };
 
-        document.Security ??= [];
-
         document.Security.Add(new()
         {
             [new OpenApiSecuritySchemeReference(DevAuthenticationHandler.SchemeName, document)] = [],
+        });
+
+        var services = context.ApplicationServices;
+
+        if (!HostWebExtensions.GoogleLoginConfigured(services.GetRequiredService<IConfiguration>()))
+            return Task.CompletedTask;
+
+        var cookieName = services
+            .GetRequiredService<IOptionsMonitor<CookieAuthenticationOptions>>()
+            .Get(CookieAuthenticationDefaults.AuthenticationScheme)
+            .Cookie
+            .Name ?? CookieAuthenticationDefaults.CookiePrefix + CookieAuthenticationDefaults.AuthenticationScheme;
+
+        document.Components.SecuritySchemes[GoogleLoginSchemeName] = new OpenApiSecurityScheme
+        {
+            Type = SecuritySchemeType.ApiKey,
+            In = ParameterLocation.Cookie,
+            Name = cookieName,
+            Description = "Development only: your Google login, from \"Login with Google\" in the banner. The browser " +
+                          "sends the cookie with every request from this page, so there is nothing to enter.",
+        };
+
+        document.Security.Add(new()
+        {
+            [new OpenApiSecuritySchemeReference(GoogleLoginSchemeName, document)] = [],
         });
 
         return Task.CompletedTask;

@@ -54,9 +54,9 @@ internal static class HostWebExtensions
             .AddApiExplorer(options => options.GroupNameFormat = "'v'VVV")
             .AddOpenApi(options =>
             {
-                // Lets Scalar offer the Dev scheme; the document is only served in Development anyway
+                // Lets Scalar offer the Development schemes; the document is only served in Development anyway
                 if (isDevelopment)
-                    options.Document.AddDocumentTransformer(HostDevExtensions.AddDevSecurityScheme);
+                    options.Document.AddDocumentTransformer(HostDevExtensions.AddDevelopmentSecuritySchemes);
             });
     }
 
