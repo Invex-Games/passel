@@ -4,7 +4,7 @@
 
 ## What it does
 
-- **Popup:** sign in and out, send the current page, send typed text or a link, and browse the live packet feed. Tiles can be opened, copied or deleted, and a delete can be undone for 4 seconds.
+- **Popup:** sign in and out, send the current page, send typed text or a link, and browse the live packet feed. Tiles can be opened, copied or deleted, and a delete can be undone for 4 seconds. All feedback (send and sign-in results, copies, deletes with their undo) goes through one snackbar that overlays the bottom of the popup, so nothing shifts the layout.
 - **Context menus:** send a link, the selected text, or an image's URL.
 
 ## Modules

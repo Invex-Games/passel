@@ -420,6 +420,7 @@ main {
 }
 
 /* ── Toast (snackbar) ──────────────────────────────────── */
+/* All of the popup's feedback goes through the toast. It overlays the bottom of the popup, so it never shifts the layout. */
 .toast {
     position: fixed;
     left: 12px;
@@ -438,6 +439,16 @@ main {
     font-size: 14px;
     box-shadow: 0 3px 8px rgba(0, 0, 0, 0.25);
     animation: slideIn 0.15s ease-out;
+}
+
+.toast.success {
+    background: var(--md-sys-color-tertiary-container);
+    color: var(--md-sys-color-on-tertiary-container);
+}
+
+.toast.error {
+    background: var(--md-sys-color-error-container);
+    color: var(--md-sys-color-on-error-container);
 }
 
 .toast-message {
@@ -630,28 +641,6 @@ main {
 
 .text-field textarea:not(:focus):not(:placeholder-shown)+label {
     color: var(--md-sys-color-on-surface-variant);
-}
-
-/* ── Status Bar (snackbar-style) ───────────────────────── */
-.status-bar {
-    flex-shrink: 0;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 12px 20px;
-    font-size: 14px;
-    letter-spacing: 0.02em;
-    animation: slideIn 0.2s ease-out;
-}
-
-.status-bar.success {
-    background: var(--md-sys-color-tertiary-container);
-    color: var(--md-sys-color-on-tertiary-container);
-}
-
-.status-bar.error {
-    background: var(--md-sys-color-error-container);
-    color: var(--md-sys-color-on-error-container);
 }
 
 .hidden {

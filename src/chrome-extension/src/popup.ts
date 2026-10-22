@@ -37,7 +37,6 @@ const mainEl = document.getElementById("main") as HTMLElement;
 const sendPageBtn = document.getElementById("send-page") as HTMLButtonElement;
 const sendTextBtn = document.getElementById("send-text") as HTMLButtonElement;
 const freetextEl = document.getElementById("freetext") as HTMLTextAreaElement;
-const statusEl = document.getElementById("status") as HTMLDivElement;
 const signInBtn = document.getElementById("sign-in-btn") as HTMLButtonElement;
 const signOutBtn = document.getElementById("sign-out-btn") as HTMLButtonElement;
 const refreshBtn = document.getElementById("refresh-btn") as HTMLButtonElement;
@@ -105,7 +104,7 @@ async function loadMore(retry = false): Promise<void> {
 function handleFeedError(err: unknown, toastPrefix: string | null): void {
     if (err instanceof FeedRequestError && err.signedOut) {
         setAuthState({signedIn: false});
-        showStatus(err.message, false);
+        showError(err.message);
         return;
     }
     if (toastPrefix) showToast(`${toastPrefix}: ${(err as Error).message}`);
@@ -228,12 +227,12 @@ signInBtn.addEventListener("click", async () => {
             await feed.clear();
             loadError = null;
             setAuthState({signedIn: true, email: response.email});
-            showStatus("Signed in!", true);
+            showSuccess("Signed in!");
         } else {
-            showStatus(response?.error || "Sign-in failed.", false);
+            showError(response?.error || "Sign-in failed.");
         }
     } catch (err) {
-        showStatus(`Error: ${(err as Error).message}`, false);
+        showError(`Error: ${(err as Error).message}`);
     } finally {
         setLoading(signInBtn, false);
     }
@@ -244,7 +243,7 @@ signOutBtn.addEventListener("click", async () => {
     setAuthState({signedIn: false});
     await feed.clear();
     loadError = null;
-    showStatus("Signed out.", true);
+    showSuccess("Signed out.");
 });
 
 // ── Send page ─────────────────────────────────────────────
@@ -254,12 +253,12 @@ sendPageBtn.addEventListener("click", async () => {
     try {
         const [tab] = await chrome.tabs.query({active: true, currentWindow: true});
         if (!tab?.url) {
-            showStatus("Could not get current tab.", false);
+            showError("Could not get current tab.");
             return;
         }
         await send({$type: "Link", name: tab.title || null, url: tab.url}, "Page sent!");
     } catch (err) {
-        showStatus(`Error: ${(err as Error).message}`, false);
+        showError(`Error: ${(err as Error).message}`);
     } finally {
         setLoading(sendPageBtn, false);
     }
@@ -288,7 +287,7 @@ sendTextBtn.addEventListener("click", async () => {
             freetextEl.value = "";
         }
     } catch (err) {
-        showStatus(`Error: ${(err as Error).message}`, false);
+        showError(`Error: ${(err as Error).message}`);
     } finally {
         setLoading(sendTextBtn, false);
     }
@@ -300,11 +299,11 @@ async function send(data: PacketData, successMessage: string): Promise<boolean> 
 
     if (response?.success) {
         if (response.packet) applyArrived(response.packet);
-        showStatus(successMessage, true);
+        showSuccess(successMessage);
         return true;
     }
 
-    showStatus(response?.error || "Failed to send.", false);
+    showError(response?.error || "Failed to send.");
     return false;
 }
 
@@ -582,13 +581,16 @@ async function deleteWithUndo(packet: Packet): Promise<void> {
     if (!feed.hide(packet.id)) return;
 
     showToast("Packet deleted", {
-        label: "Undo",
-        onClick: async () => {
-            const response = await sendMessage<CancelDeleteResponse>({action: "cancelDelete", id: packet.id});
-            // Too late if it was already sent; the deletion's own response then removes it for good.
-            if (response?.cancelled) feed.unhide(packet.id);
+        action: {
+            label: "Undo",
+            onClick: async () => {
+                const response = await sendMessage<CancelDeleteResponse>({action: "cancelDelete", id: packet.id});
+                // Too late if it was already sent; the deletion's own response then removes it for good.
+                if (response?.cancelled) feed.unhide(packet.id);
+            },
         },
-    }, UNDO_DELETE_MS);
+        durationMs: UNDO_DELETE_MS,
+    });
 
     const response = await sendMessage<DeletePacketResponse>({
         action: "deletePacket", id: packet.id, delayMs: UNDO_DELETE_MS,
@@ -607,29 +609,39 @@ async function deleteWithUndo(packet: Packet): Promise<void> {
 
 // ── UI helpers ────────────────────────────────────────────
 
-let statusTimer: ReturnType<typeof setTimeout> | undefined;
-
-function showStatus(message: string, success: boolean): void {
-    clearTimeout(statusTimer);
-    statusEl.textContent = message;
-    statusEl.className = `status-bar ${success ? "success" : "error"}`;
-    statusTimer = setTimeout(() => {
-        statusEl.className = "status-bar hidden";
-    }, success ? 3000 : 6000);
-}
-
 let toastTimer: ReturnType<typeof setTimeout> | undefined;
 let toastActionHandler: (() => void) | null = null;
 
-/** Shows a snackbar-style toast, replacing any current one. */
-function showToast(message: string, action?: { label: string; onClick: () => void }, durationMs = 3000): void {
+interface ToastOptions {
+    /** Colours the toast as a success or an error; by default it's the neutral snackbar. */
+    tone?: "success" | "error";
+    action?: { label: string; onClick: () => void };
+    /** How long the toast stays. Errors stay longer by default, so there's time to read them. */
+    durationMs?: number;
+}
+
+/**
+ * Shows a snackbar-style toast, replacing any current one. All of the popup's feedback goes through it: it
+ * overlays the bottom of the popup, so nothing shifts the layout.
+ */
+function showToast(message: string, {tone, action, durationMs = tone === "error" ? 6000 : 3000}: ToastOptions = {}): void {
     clearTimeout(toastTimer);
     toastMessage.textContent = message;
     toastAction.textContent = action?.label ?? "";
     toastAction.classList.toggle("hidden", !action);
     toastActionHandler = action?.onClick ?? null;
-    toastEl.classList.remove("hidden");
+    toastEl.className = tone ? `toast ${tone}` : "toast";
+    // An error interrupts a screen reader; other feedback waits its turn.
+    toastEl.setAttribute("aria-live", tone === "error" ? "assertive" : "polite");
     toastTimer = setTimeout(hideToast, durationMs);
+}
+
+function showSuccess(message: string): void {
+    showToast(message, {tone: "success"});
+}
+
+function showError(message: string): void {
+    showToast(message, {tone: "error"});
 }
 
 function hideToast(): void {
