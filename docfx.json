@@ -18,7 +18,9 @@
     "resource": [
       {
         "files": [
-          "resources/*.png"
+          "resources/*.png",
+          "docs/**/*.jpg",
+          "docs/**/*.png"
         ]
       }
     ],

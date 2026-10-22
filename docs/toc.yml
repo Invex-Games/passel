@@ -32,3 +32,26 @@
             href: reference/configuration.md
         -   name: HTTP API
             href: reference/http-api.md
+-   name: Evaluation
+    href: evaluation/index.md
+    items:
+        -   name: Overview
+            href: evaluation/index.md
+        -   name: Performance
+            href: evaluation/performance.md
+        -   name: Security
+            href: evaluation/security.md
+        -   name: User Experience
+            href: evaluation/ux.md
+        -   name: UI Design
+            href: evaluation/ui-design.md
+        -   name: Codebase Health
+            href: evaluation/codebase-health.md
+        -   name: Developer Experience
+            href: evaluation/developer-experience.md
+        -   name: Feature Ideas
+            href: evaluation/features.md
+        -   name: Web App Plan
+            href: evaluation/web-app.md
+        -   name: Roadmap
+            href: evaluation/roadmap.md
