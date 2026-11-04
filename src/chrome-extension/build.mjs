@@ -1,8 +1,8 @@
 import * as esbuild from "esbuild";
 import {readFileSync, writeFileSync, existsSync, rmSync, mkdirSync, cpSync} from "fs";
 
-// Produces a self-contained, loadable extension in OUT_DIR (manifest.json, popup.html, popup.css,
-// icons/ and the compiled scripts). Load it unpacked for development, or zip its contents to publish.
+// Produces a self-contained, loadable extension in OUT_DIR (manifest.json, popup.html, sidepanel.html,
+// popup.css, icons/ and the compiled scripts). Load it unpacked for development, or zip its contents to publish.
 const OUT_DIR = "dist";
 
 // ── Load environment variables ───────────────────────────────
@@ -87,9 +87,20 @@ function writeManifest() {
     writeFileSync(`${OUT_DIR}/manifest.json`, JSON.stringify(manifest, null, 2));
 }
 
+// The side panel is the popup's page with a class on the body, so the two never drift apart: the same
+// popup.js runs in both, and popup.css lays the page out for a tall, narrow panel (see inSidePanel in popup/dom.ts).
+function writeSidePanel() {
+    const html = readFileSync(`${STATIC_DIR}/popup.html`, "utf-8");
+    if (!html.includes("<body>")) {
+        throw new Error(`${STATIC_DIR}/popup.html must have a plain <body> tag for the side panel to be made from it`);
+    }
+    writeFileSync(`${OUT_DIR}/sidepanel.html`, html.replace("<body>", `<body class="side-panel">`));
+}
+
 function copyStatic() {
     cpSync(STATIC_DIR, OUT_DIR, {recursive: true});
     writeManifest();
+    writeSidePanel();
 }
 
 // Re-copies static files after every (re)build so watch mode picks up HTML/CSS/manifest edits

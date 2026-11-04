@@ -8,8 +8,8 @@ On Windows the generator writes CRLF line endings, so after an interactive run g
 
 | Workflow | Runs on | Jobs |
 |---|---|---|
-| `Validate` | Pull requests into `main`, manual dispatch | `TestWebApi`, `TestChromeExtension`, `TestMobileApp` (its coverage report attached to the run as `MobileAppCoverage`), `PublishAzureInfrastructure` (the Azure deployment's Bicep attached as `AzureInfrastructure`, nothing signed in to) and `BuildDocs`, in parallel; nothing is published |
-| `Build` | Pushes to `main`, manual dispatch | The three test suites (the mobile app's coverage report attached to the run), `BuildWebApi` and `BuildChromeExtension` (artifacts attached to the run), `BuildDocs` and `PublishDocs` (the site force-pushed to the `gh-pages` branch) |
+| `Validate` | Pull requests into `main`, manual dispatch | `TestWebApi`, `TestChromeExtension` and `TestMobileApp` (their coverage reports attached to the run as `ChromeExtensionCoverage` and `MobileAppCoverage`), `PublishAzureInfrastructure` (the Azure deployment's Bicep attached as `AzureInfrastructure`, nothing signed in to) and `BuildDocs`, in parallel; nothing is published |
+| `Build` | Pushes to `main`, manual dispatch | The three test suites (the extension's and the mobile app's coverage reports attached to the run), `BuildWebApi` and `BuildChromeExtension` (artifacts attached to the run), `BuildDocs` and `PublishDocs` (the site force-pushed to the `gh-pages` branch) |
 | `Deploy` | Manual dispatch only | `SetupBuildInfo`, then `DeployWebApi` in the `production` environment: signs in to Azure with OIDC and deploys the API; see [Releasing and Deploying](deploying.md). One run at a time; a second waits instead of cancelling the first |
 | Dependabot | Weekly, Monday 06:00 Brisbane time | One grouped pull request each for NuGet, npm, pub and GitHub Actions, with `build(...)` commit prefixes so versions don't bump |
 

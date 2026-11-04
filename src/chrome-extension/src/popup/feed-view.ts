@@ -418,9 +418,10 @@ export function createFeedView(deps: FeedViewDeps): FeedView {
         syncLatest,
         applyArrived,
         applyDeleted: id => feed.applyDeleted(id),
+        // The list goes at once; only the cache is waited for.
         async clear() {
-            await feed.clear();
             loadError = null;
+            await feed.clear();
         },
         render: () => renderFeed(feed.state),
         updateSyncLabel,

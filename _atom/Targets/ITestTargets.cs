@@ -27,7 +27,9 @@ internal interface ITestTargets : IChromeExtensionHelper, IFlutterHelper, IMobil
 
     Target TestChromeExtension =>
         t => t
-            .DescribedAs("Type-checks and runs the tests of the npm workspace: the shared packages, the Chrome Extension and the web app")
+            .DescribedAs(
+                "Type-checks and runs the tests of the npm workspace (the shared packages, the Chrome Extension and the web app) with coverage, keeping the lcov reports")
+            .ProducesArtifact(ChromeExtensionCoverageArtifactName)
             .Executes(async cancellationToken =>
             {
                 var npmPath = await RestoreChromeExtensionPackages(cancellationToken);
@@ -39,11 +41,25 @@ internal interface ITestTargets : IChromeExtensionHelper, IFlutterHelper, IMobil
                     },
                     cancellationToken);
 
-                await ProcessRunner.RunAsync(new(npmPath, "test")
+                // Each member with tests writes coverage/lcov.info (line and branch coverage of its src/) next to them
+                await ProcessRunner.RunAsync(new(npmPath, "run test:coverage")
                     {
                         WorkingDirectory = WebWorkspaceDirectory,
                     },
                     cancellationToken);
+
+                var publishDirectory = RootedFileSystem.AtomPublishDirectory / ChromeExtensionCoverageArtifactName;
+
+                RootedFileSystem.CleanOrCreateDirectory(publishDirectory);
+
+                RootedFileSystem.File.Copy(ChromeExtensionDirectory / "coverage" / "lcov.info",
+                    publishDirectory / "chrome-extension.lcov.info");
+
+                RootedFileSystem.File.Copy(WebWorkspaceDirectory / "packages" / "core" / "coverage" / "lcov.info",
+                    publishDirectory / "core.lcov.info");
+
+                RootedFileSystem.File.Copy(WebWorkspaceDirectory / "web" / "coverage" / "lcov.info",
+                    publishDirectory / "web.lcov.info");
             });
 
     Target TestMobileApp =>
@@ -79,4 +95,10 @@ internal interface ITestTargets : IChromeExtensionHelper, IFlutterHelper, IMobil
     ///     The mobile app's lcov report, attached to the workflow run so the coverage of a change can be read.
     /// </summary>
     const string MobileAppCoverageArtifactName = "MobileAppCoverage";
+
+    /// <summary>
+    ///     The lcov reports of the Chrome extension and of @passel/core, attached to the workflow run like the mobile
+    ///     app's.
+    /// </summary>
+    const string ChromeExtensionCoverageArtifactName = "ChromeExtensionCoverage";
 }

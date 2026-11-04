@@ -1,7 +1,8 @@
 // Serves the built popup (dist/) with chrome.* stubbed, so it can be looked at and clicked through in any
-// browser without loading the extension: `npm run harness`, then open http://127.0.0.1:8765/.
+// browser without loading the extension: `npm run harness`, then open http://127.0.0.1:8765/ for the popup or
+// http://127.0.0.1:8765/sidepanel.html for the side panel.
 //
-// Query parameters: ?state=signedout shows the signed-out popup, ?state=empty an empty feed, and
+// Query parameters, on either page: ?state=signedout shows the signed-out popup, ?state=empty an empty feed, and
 // &lastDevUser=alice offers that development user in the signed-out form. Build first (`npm run dev`).
 import {createServer} from "node:http";
 import {readFile} from "node:fs/promises";
@@ -22,26 +23,29 @@ const types = {
     ".json": "application/json",
 };
 
-// The stub runs before popup.js, and the body is framed like the real 380 by 600 popup.
+// The stub runs before popup.js. The body is framed like the real 380 by 600 popup, or like a side panel of
+// Chrome's default width, as tall as the browser tab.
 const injected = `
     <style>
         html { background: #888; }
         body { margin: 24px auto; box-shadow: 0 8px 32px rgba(0, 0, 0, .45); height: 600px; }
+        body.side-panel { width: 360px; height: calc(100vh - 48px); }
     </style>
     <script src="chrome-stub.js"></script>
 `;
 
-async function page() {
-    const html = await readFile(join(dist, "popup.html"), "utf8");
+async function page(name) {
+    const html = await readFile(join(dist, name), "utf8");
     return html.replace("</head>", `${injected}</head>`);
 }
 
 createServer(async (req, res) => {
     const path = normalize(decodeURIComponent(new URL(req.url, "http://x").pathname)).replace(/^([/\\])+/, "");
     try {
-        if (!path || path === "popup.html") {
+        if (!path || path === "popup.html" || path === "sidepanel.html") {
+            const body = await page(path || "popup.html");
             res.writeHead(200, {"Content-Type": types[".html"]});
-            res.end(await page());
+            res.end(body);
             return;
         }
         const file = path === "chrome-stub.js" ? join(here, "chrome-stub.js") : join(dist, path);

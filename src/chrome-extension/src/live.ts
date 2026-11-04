@@ -1,9 +1,9 @@
 import {SignedOutError, watchEvents} from "./api.js";
 import type {FeedPortMessage} from "@passel/core";
 
-// Only the service worker uses this module. While at least one popup holds a feed port, the API's event
-// stream is kept open and its events are forwarded to every port; it's closed once the last port goes.
-// The popup pings over its port to keep the service worker alive while it's open.
+// Only the service worker uses this module. While at least one page (the popup or the side panel) holds a feed
+// port, the API's event stream is kept open and its events are forwarded to every port; it's closed once the
+// last port goes. Each page pings over its port to keep the service worker alive while it's open.
 
 const MAX_RETRY_DELAY_MS = 60_000;
 
@@ -25,6 +25,17 @@ export function addFeedPort(port: chrome.runtime.Port): void {
 
     post(port, {type: "status", live});
     if (!stream && retryTimer === undefined) void connect();
+}
+
+/**
+ * Opens the stream again after a sign-in or sign-out. The one open was opened with the previous session's token,
+ * and the API keeps it open, sending that account's events, until the token expires; a page can stay open across
+ * the change (the side panel beside a popup), so its port alone doesn't end the stream. Signed out, the new
+ * stream fails at once and tells every port.
+ */
+export function restartLive(): void {
+    stop();
+    if (ports.size > 0) void connect();
 }
 
 async function connect(): Promise<void> {
