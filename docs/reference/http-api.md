@@ -216,7 +216,7 @@ A parcel is an uploaded file. Sending a file takes two requests: upload it to `P
 { "parcelId": "qrjMmYBVnK8m3coMo0hiMeN", "fileName": "screenshot.png", "contentType": "image/png", "size": 48213, "isImage": true, "width": 1280, "height": 720 }
 ```
 
-An image larger than 40 megapixels, or more than 16,384 pixels on a side, is not decoded: it is stored with its type but as `isImage: false`, with no thumbnail and with `width` and `height` null. So is one that fails to decode.
+An image larger than 40 megapixels, or more than 16,384 pixels on a side, is not decoded: it is stored with its type but as `isImage: false`, with no thumbnail and with `width` and `height` null. So is one that fails to decode, and one uploaded while the server's image decoder stays busy with other uploads for more than five seconds (`Parcels:DecodeSlotTimeout`).
 
 ### `POST /api/parcels`
 
