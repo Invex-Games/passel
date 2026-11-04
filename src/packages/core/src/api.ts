@@ -174,9 +174,14 @@ export class PacketsApi {
     }
 }
 
-/** The user-facing message for a failed call: the API's own, or OFFLINE_MESSAGE when it never answered. */
+/**
+ * The user-facing message for a failed call: the API's own (or the feed's, which is already user-facing), or
+ * OFFLINE_MESSAGE when it never answered.
+ */
 export function errorMessage(err: unknown): string {
-    return err instanceof ApiError || err instanceof SignedOutError ? err.message : OFFLINE_MESSAGE;
+    return err instanceof ApiError || err instanceof SignedOutError || err instanceof FeedRequestError
+        ? err.message
+        : OFFLINE_MESSAGE;
 }
 
 async function ensureOk(response: Response): Promise<void> {

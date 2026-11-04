@@ -178,6 +178,7 @@ describe("readError", () => {
     it("errorMessage shows the API's message and hides anything else behind the offline message", () => {
         expect(errorMessage(new ApiError("Nope.", 400))).toBe("Nope.");
         expect(errorMessage(new SignedOutError("Sign in."))).toBe("Sign in.");
+        expect(errorMessage(new FeedRequestError("Too many requests."))).toBe("Too many requests.");
         expect(errorMessage(new TypeError("Failed to fetch"))).toBe(OFFLINE_MESSAGE);
     });
 });
