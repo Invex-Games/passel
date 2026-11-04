@@ -19,6 +19,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- The images the unit tests generate, so the upload tests send the same bytes the inspector tests check -->
+    <Compile Include="..\Invex.Passel.WebApi.Tests\TestImages.cs" Link="TestImages.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Using Include="Xunit" />
   </ItemGroup>
 

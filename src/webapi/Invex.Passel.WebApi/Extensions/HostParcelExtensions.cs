@@ -47,6 +47,7 @@ internal static class HostParcelExtensions
             .AddSingleton<ParcelUploadGate>()
             .AddSingleton<IParcelQuotaService, ParcelQuotaService>()
             .AddSingleton<ParcelSweepSignal>()
-            .AddSingleton<IParcelSweepSignal>(services => services.GetRequiredService<ParcelSweepSignal>());
+            .AddSingleton<IParcelSweepSignal>(services => services.GetRequiredService<ParcelSweepSignal>())
+            .AddScoped<IParcelStoreService, ParcelStoreService>();
     }
 }
