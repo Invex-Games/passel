@@ -58,6 +58,11 @@ internal sealed class AzureBlobParcelStore(BlobServiceClient service, IOptions<P
             throw new InvalidOperationException($"A blob named {key} exists already; parcels are never overwritten.",
                 exception);
         }
+        catch (RequestFailedException exception) when (exception.ErrorCode == BlobErrorCode.InvalidBlockList)
+        {
+            // The commit named blocks that DeleteAsync discarded: the sweep erased this parcel mid-upload
+            throw new ParcelWriteDiscardedException(key, exception);
+        }
     }
 
     public async Task<ParcelContent?> OpenReadAsync(string key, CancellationToken cancellationToken)

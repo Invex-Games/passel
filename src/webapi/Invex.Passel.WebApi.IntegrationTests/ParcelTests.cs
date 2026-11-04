@@ -1114,6 +1114,26 @@ public sealed class ParcelTests(PasselApiFixture fixture)
     }
 
     [Fact]
+    public async Task An_upload_whose_staged_bytes_the_sweep_erased_is_discarded_with_503()
+    {
+        var connectionString = await fixture.CreateEmptyDatabaseAsync("passel_parcels_discarded", CancellationToken);
+        var user = PasselApiFixture.User("alice");
+
+        await using var api = new PasselApiFactory(connectionString, parcelStore: new DiscardingParcelStore());
+        using var alice = api.CreateClientFor(user);
+
+        using (var upload = await alice.PostParcelAsync(TestImages.Png(16, 16), "a.png", "image/png", CancellationToken))
+        {
+            Assert.Equal(("Upload discarded", "The upload took too long and was discarded. Upload the file again."),
+                await ReadProblemAsync(upload, HttpStatusCode.ServiceUnavailable));
+        }
+
+        // The upload was failed, so it holds nothing against the user
+        Assert.Equal(new ParcelQuotaUsage(0, 0),
+            await api.Services.GetRequiredService<IParcelQuotaService>().GetUsageAsync(user, CancellationToken));
+    }
+
+    [Fact]
     public async Task Storage_being_down_answers_503_for_files_while_texts_still_work()
     {
         var connectionString = await fixture.CreateEmptyDatabaseAsync("passel_parcels_down", CancellationToken);

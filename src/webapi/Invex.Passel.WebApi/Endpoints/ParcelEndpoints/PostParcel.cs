@@ -280,13 +280,22 @@ public static partial class ParcelEndpoints
                 if (inspection.Failure is { } failure)
                     LogNoThumbnail(logger, id, failure);
 
-                buffer.Position = 0;
-                await store.PutAsync(ParcelKeys.Original(id), buffer, inspection.ContentType, cancellationToken);
-
-                if (inspection.Thumbnail is { } thumbnail)
+                try
                 {
-                    thumbnail.Position = 0;
-                    await store.PutAsync(ParcelKeys.Thumbnail(id), thumbnail, ParcelSniffer.Webp, cancellationToken);
+                    buffer.Position = 0;
+                    await store.PutAsync(ParcelKeys.Original(id), buffer, inspection.ContentType, cancellationToken);
+
+                    if (inspection.Thumbnail is { } thumbnail)
+                    {
+                        thumbnail.Position = 0;
+                        await store.PutAsync(ParcelKeys.Thumbnail(id), thumbnail, ParcelSniffer.Webp,
+                            cancellationToken);
+                    }
+                }
+                catch (ParcelWriteDiscardedException)
+                {
+                    // The sweep expired and erased this upload while it was still sending
+                    return (null, Discarded());
                 }
             }
 
@@ -306,11 +315,14 @@ public static partial class ParcelEndpoints
             var parcel = await parcelStoreService.CompleteUploadAsync(id, inspection, size, sha256, cancellationToken);
 
             return parcel is null
-                ? (null, Results.Problem("The upload took too long and was discarded. Upload the file again.",
-                    statusCode: StatusCodes.Status503ServiceUnavailable,
-                    title: "Upload discarded"))
+                ? (null, Discarded())
                 : (parcel, null);
         }
+
+        private static IResult Discarded() =>
+            Results.Problem("The upload took too long and was discarded. Upload the file again.",
+                statusCode: StatusCodes.Status503ServiceUnavailable,
+                title: "Upload discarded");
 
         /// <summary>
         ///     Copies the file to the buffer. Returns the refusal of a file over the limit or a body that is not

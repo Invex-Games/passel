@@ -31,6 +31,13 @@ internal interface IParcelStore
 }
 
 /// <summary>
+///     A write that lost its staged bytes: the sweep erased the parcel while its upload was still sending, and the
+///     erase discarded the blocks the upload had staged. The upload is over; the parcel is already deleted.
+/// </summary>
+internal sealed class ParcelWriteDiscardedException(string key, Exception innerException)
+    : Exception($"The bytes staged for {key} were discarded before they were committed.", innerException);
+
+/// <summary>
 ///     A blob opened for reading: a seekable stream and its length.
 /// </summary>
 internal sealed record ParcelContent(Stream Stream, long Length);
