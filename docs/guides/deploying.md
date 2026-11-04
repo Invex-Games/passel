@@ -145,7 +145,7 @@ Each release deploys with its own compose files, because they come from the depl
 
 ### Rolling back to an earlier release
 
-Run `DeployCompose` with `image-tag` set to the release to go back to and `migrate` off. `release.env.previous` and `releases.log` on the server name the earlier tags; any tag the registry still has works. That release's images start with that release's compose files, on the database as the newer migration left it.
+Run `DeployCompose` with `image-tag` set to the release to go back to and `migrate` off. `releases.log` on the server names the earlier tags (`release.env.previous` holds only the last one, which is the same tag after a repeat deploy or a restore); any tag the registry still has works. That release's images start with that release's compose files, on the database as the newer migration left it.
 
 That only works because of one rule for every change to the schema: a release may add tables and columns, but a new column must be nullable or have a default, so that the release before it, which doesn't know the column, can still insert rows. `db-migrate` never drops a column, an index or a foreign key, and the API's startup check accepts what a newer migration added. With `migrate` off, the older migration doesn't run either; run it (`migrate` on) only if the older release needs Marten functions put back, which its startup check would say.
 
@@ -186,16 +186,16 @@ The API exports logs, traces and metrics over OTLP when `OTEL_EXPORTER_OTLP_ENDP
 
 The directory and the log's directory must exist and belong to the deploy user. Shipping the files off the server and pruning old ones is for an offsite tool such as restic or rclone, run after it. The database and the parcels are consistent only as a pair from the same run. The backups leave out `/opt/passel/.env`, which holds the passwords and `ENCODING_ALPHABET`: keep a copy of it off the server, apart from the backup files (step 5 of [Server setup](#server-setup)). The passwords can be set anew, but every packet, parcel and device id a client holds, and every shared link, depends on the alphabet, and a restore with another one brings the data back with none of them decoding.
 
-To restore, or to rehearse a restore on a spare server, from `/opt/passel/current` with `dc` standing for `docker compose --env-file ../../.env --env-file ../../release.env`:
+To restore, or to rehearse a restore on a spare server, from `/opt/passel/current` with `dc` standing for `docker compose --env-file ../../.env --env-file ../../release.env` and `$backups` for the directory the backup files are in (`/var/backups/passel` with the cron line above, `/opt/passel/backups` by default):
 
 0. On a new server, set it up as in [Server setup](#server-setup), but put the kept copy of `.env` at `/opt/passel/.env` instead of a new one, with the same `ENCODING_ALPHABET`, and deploy the release the backup came from once, so that `current` and `release.env` exist.
 1. `dc down`, and for a full restore remove the old volumes too (`dc down -v`).
 2. `dc up -d --wait postgres`, which creates an empty database.
 3. `dc run --rm --no-deps -T db-roles` for the two logins.
-4. `dc exec -T postgres sh -c 'pg_restore --username="$POSTGRES_USER" --dbname="$POSTGRES_DB" --no-owner --no-privileges --role=passel_owner' < db-<time>.dump`. The tables then belong to `passel_owner`; the dump's grants are left out because `passel_app` doesn't exist yet.
+4. `dc exec -T postgres sh -c 'pg_restore --username="$POSTGRES_USER" --dbname="$POSTGRES_DB" --no-owner --no-privileges --role=passel_owner' < "$backups"/db-<time>.dump`. The tables then belong to `passel_owner`; the dump's grants are left out because `passel_app` doesn't exist yet.
 5. `dc run --rm --no-deps -T db-migrate`, which creates `passel_app` and puts back the grants and default privileges.
-6. `dc run --rm --no-deps -T parcels-init`, then `dc run --rm --no-deps -T parcels-init sh -c 'cd /v && tar -xzf -' < parcels-<time>.tgz`.
-7. Deploy the release again (`deploy <tag> --no-migrate`), which starts the rest and checks it.
+6. `dc run --rm --no-deps -T parcels-init`, then `dc run --rm --no-deps -T parcels-init sh -c 'cd /v && tar -xzf -' < "$backups"/parcels-<time>.tgz`.
+7. Deploy the release again (`deploy <tag> --no-migrate`), which starts the rest and checks it. This redeploy makes `release.env.previous` name the same tag, so after a restore look in `releases.log` for the releases before it.
 
 ### Disk space
 
