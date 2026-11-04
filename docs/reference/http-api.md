@@ -78,7 +78,7 @@ A `File` packet sends a file uploaded to [`POST /api/parcels`](#post-apiparcels)
 | `parcelId` | A file the caller uploaded, has not discarded, and has not sent yet |
 | `fileName` | At most 256 characters |
 
-A `parcelId` that isn't one of the caller's uploaded files (another user's, one still uploading, one discarded or expired, or not an id at all) gets **400** with a validation problem on `parcelId`, one message for all of them so ids can't be probed. A file that is already in a packet gets **409 Conflict** ("File already sent"): a file is sent once, so upload it again to send it twice. Two sends of the same file at the same moment get one 200 and one 409.
+A `parcelId` that isn't one of the caller's uploaded files (another user's, one still uploading, one discarded or expired, or not an id at all) gets **400** with a validation problem on `parcelId`. A missing file and another user's get the same answer, so ids can't be probed. A file that is already in a packet gets **409 Conflict** ("File already sent"): a file is sent once, so upload it again to send it twice. Two sends of the same file at the same moment get one 200 and one 409.
 
 Validation failures return a validation problem keyed by field. A create that would exceed the caller's quota returns 429 or 413; see [Limits](#limits). A File packet counts against the packet quota for its name only; its bytes count against the file quota when uploaded.
 
@@ -216,7 +216,7 @@ A parcel is an uploaded file. Sending a file takes two requests: upload it to `P
 { "parcelId": "qrjMmYBVnK8m3coMo0hiMeN", "fileName": "screenshot.png", "contentType": "image/png", "size": 48213, "isImage": true, "width": 1280, "height": 720 }
 ```
 
-An image larger than 40 megapixels, or more than 16,384 pixels on a side, is not decoded: it is stored with its type but as `isImage: false`, with no thumbnail and no size. So is one that fails to decode.
+An image larger than 40 megapixels, or more than 16,384 pixels on a side, is not decoded: it is stored with its type but as `isImage: false`, with no thumbnail and with `width` and `height` null. So is one that fails to decode.
 
 ### `POST /api/parcels`
 

@@ -70,7 +70,7 @@ The migration job gets the database's connection string (as its own identity, an
 | `Quotas:MaxPendingParcelsPerUser` | No | The most files a user may have uploaded but not sent, from 1 to 1000; they expire after `Parcels:UnattachedLifetime`, so this bounds what an abandoned client leaves behind. Default 20. |
 | `Quotas:MaxDevicesPerUser` | No | The most devices a user may have registered at once, from 1 to 1000; the device list is not paged, so this also bounds its length. Default 20. |
 | `Parcels:ContainerName` | No | The blob container files are kept in. The API creates it if it's missing. Default `parcels`. |
-| `Parcels:MaxParcelBytes` | No | The largest file one upload may carry, at most 1 GiB. Default 26214400 (25 MB). Above about 30 MB, raise `Kestrel:Limits:MaxRequestBodySize` too, or Kestrel refuses the body before the upload endpoint sees it. |
+| `Parcels:MaxParcelBytes` | No | The largest file one upload may carry, at most 1 GiB. Default 26214400 (25 MB). Above about 30 MB (Kestrel's default body limit), raise `Kestrel:Limits:MaxRequestBodySize` with it. |
 | `Parcels:UnattachedLifetime` | No | How long an uploaded file waits to be sent before it is deleted, from a second to seven days. Default `01:00:00`. |
 | `Parcels:UploadingGrace` | No | How long an upload may stay unfinished (its instance stopped part way) before it is taken to have failed and deleted, from a second to a day, and shorter than `Parcels:UnattachedLifetime`. Default `00:15:00`. |
 | `Parcels:SweepEnabled` | No | Whether the sweep runs. Off, deleted and expired files keep their bytes until it is on again. Default `true`. |
