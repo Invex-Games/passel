@@ -1,11 +1,19 @@
 using System.Net;
 using System.Security.Claims;
 using Invex.Passel.WebApi.Extensions;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.TestHost;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Invex.Passel.WebApi.Tests;
 
 public sealed class RateLimitingTests
 {
+    private static CancellationToken CancellationToken =>
+        TestContext.Current.CancellationToken;
+
     private static ClaimsPrincipal Principal(params Claim[] claims) =>
         new(new ClaimsIdentity(claims, "test"));
 
@@ -43,5 +51,39 @@ public sealed class RateLimitingTests
         var key = RateLimitingExtensions.PartitionKey(new ClaimsPrincipal(), null);
 
         Assert.Equal("ip:unknown", key);
+    }
+
+    /// <summary>
+    ///     An endpoint that names a policy nobody registered fails every request, so each parcel policy is exercised
+    ///     through a host with the API's registration: at a limit of one, the second request in the minute is refused.
+    /// </summary>
+    [Theory]
+    [InlineData(RateLimitPolicies.ParcelUploads, "RateLimits:ParcelUploadsPerMinute")]
+    [InlineData(RateLimitPolicies.ParcelReads, "RateLimits:ParcelReadsPerMinute")]
+    public async Task The_parcel_policies_are_registered_with_their_own_limits(string policy, string setting)
+    {
+        var builder = WebApplication.CreateSlimBuilder();
+        builder.WebHost.UseTestServer();
+
+        // The API's appsettings.json is copied next to the tests, and its AllowedHosts would answer 400 to the test
+        // server's host
+        builder.Configuration["AllowedHosts"] = "*";
+        builder.Configuration[setting] = "1";
+
+        builder.Services.AddProblemDetails();
+        builder.AddPacketRateLimiting();
+
+        await using var app = builder.Build();
+        app.UseRateLimiter();
+        app.MapGet("/limited", () => Results.Ok()).RequireRateLimiting(policy);
+
+        await app.StartAsync(CancellationToken);
+        using var client = app.GetTestClient();
+
+        using var first = await client.GetAsync("/limited", CancellationToken);
+        using var second = await client.GetAsync("/limited", CancellationToken);
+
+        Assert.Equal(HttpStatusCode.OK, first.StatusCode);
+        Assert.Equal(HttpStatusCode.TooManyRequests, second.StatusCode);
     }
 }

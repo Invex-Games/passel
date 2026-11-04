@@ -7,7 +7,7 @@ using Microsoft.Extensions.Options;
 namespace Invex.Passel.WebApi.Extensions;
 
 /// <summary>
-///     The rate-limiting policies that the packet and device endpoints opt into with <c>RequireRateLimiting</c>.
+///     The rate-limiting policies that the packet, device and parcel endpoints opt into with <c>RequireRateLimiting</c>.
 /// </summary>
 internal static class RateLimitPolicies
 {
@@ -15,6 +15,8 @@ internal static class RateLimitPolicies
     public const string Reads = "packet-reads";
     public const string Streams = "packet-streams";
     public const string DeviceWrites = "device-writes";
+    public const string ParcelUploads = "parcel-uploads";
+    public const string ParcelReads = "parcel-reads";
 }
 
 internal static class RateLimitingExtensions
@@ -44,6 +46,8 @@ internal static class RateLimitingExtensions
             options.AddPolicy(RateLimitPolicies.Reads, context => Partition(context, limits => limits.ReadsPerMinute));
             options.AddPolicy(RateLimitPolicies.Streams, context => Partition(context, limits => limits.StreamsPerMinute));
             options.AddPolicy(RateLimitPolicies.DeviceWrites, context => Partition(context, limits => limits.DeviceWritesPerMinute));
+            options.AddPolicy(RateLimitPolicies.ParcelUploads, context => Partition(context, limits => limits.ParcelUploadsPerMinute));
+            options.AddPolicy(RateLimitPolicies.ParcelReads, context => Partition(context, limits => limits.ParcelReadsPerMinute));
         });
     }
 

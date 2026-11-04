@@ -35,4 +35,17 @@ internal sealed class RateLimitOptions
     /// </summary>
     [Range(1, int.MaxValue)]
     public int StreamsPerMinute { get; set; } = 10;
+
+    /// <summary>
+    ///     File uploads and discards a user may make per minute.
+    /// </summary>
+    [Range(1, int.MaxValue)]
+    public int ParcelUploadsPerMinute { get; set; } = 10;
+
+    /// <summary>
+    ///     File downloads and thumbnails a user may fetch per minute. A page of the feed shows up to 50 thumbnails, so
+    ///     the limit is high.
+    /// </summary>
+    [Range(1, int.MaxValue)]
+    public int ParcelReadsPerMinute { get; set; } = 600;
 }
