@@ -32,7 +32,7 @@ The self-hosted deployment ([Releasing and Deploying](../guides/deploying.md#sel
 | `GOOGLE_WEB_CLIENT_ID` | Yes | `Authentication__Google__ClientId` |
 | `CHROME_EXTENSION_CLIENT_ID` | No | `Authentication__Google__AdditionalAudiences__0` |
 | `API_HOST` | Yes | `AllowedHosts`, as `<API_HOST>;localhost` (the healthcheck sends `localhost`); the edge's site for the API; the smoke check's default `https://<API_HOST>/health` |
-| `WEB_HOST` | With the edge | The edge's site for the web app |
+| `WEB_HOST` | Yes | The edge's site for the web app. Only the edge uses it, but the compose file requires it in every setup |
 | `WEB_ORIGIN` | Yes | `Cors__AllowedOrigins__0`, written as a browser sends it |
 | `PROXY_TRUSTED_CIDR` | No | `ForwardedHeaders__KnownNetworks__0`, with `ForwardedHeaders__Enabled=true`. Default `172.30.0.2/32`, the bundled edge. `compose.ports.yaml` replaces it with the host's addresses on the two networks, `172.30.0.1/32` and `172.30.1.1/32` |
 | `PROXY_NETWORK` | With `compose.external-proxy.yaml` | The existing Docker network the `edge` network becomes |
