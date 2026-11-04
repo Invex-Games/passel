@@ -5,6 +5,9 @@ builder.AddWebDefaults();
 
 builder.AddPasselDatabase();
 
+// Uploaded files: the documents live in the database above, their bytes in blob storage
+builder.AddPasselParcels();
+
 builder
     .Services
     .AddOptions<QuotaOptions>()

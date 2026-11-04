@@ -15,8 +15,9 @@ namespace Invex.Passel.WebApi.Tests;
 public sealed class DatabaseSetupTests
 {
     /// <summary>
-    ///     The store as <c>Program.cs</c> registers it in <paramref name="environment" />. Nothing connects: the
-    ///     connection string points at a port no database listens on.
+    ///     The store as <c>Program.cs</c> registers it in <paramref name="environment" />, with the file services
+    ///     beside it as the db-migrate job builds them: without blob settings. Nothing connects: the connection string
+    ///     points at a port no database listens on.
     /// </summary>
     private static WebApplication BuildHost(string environment)
     {
@@ -29,6 +30,7 @@ public sealed class DatabaseSetupTests
             "Host=localhost;Port=1;Username=x;Password=x;Database=x";
 
         builder.AddPasselDatabase();
+        builder.AddPasselParcels();
 
         return builder.Build();
     }
@@ -100,6 +102,18 @@ public sealed class DatabaseSetupTests
         Assert.Contains(store.Storage.AllObjects(), table => table.Identifier.Name == "mt_doc_parcel");
         Assert.Contains(mapping.Indexes,
             index => index is ComputedIndex { Name: "mt_doc_parcel_uidx_attached_packet_id", IsUnique: true });
+    }
+
+    /// <summary>
+    ///     The db-migrate job runs all of <c>Program.cs</c> with no blob storage configured; the host must still
+    ///     build, with a store that refuses every use instead of failing at startup.
+    /// </summary>
+    [Fact]
+    public void The_api_host_builds_without_blob_settings()
+    {
+        using var app = BuildHost(Environments.Production);
+
+        Assert.IsType<UnavailableParcelStore>(app.Services.GetRequiredService<IParcelStore>());
     }
 
     [Theory]
