@@ -27,18 +27,31 @@ var postgres = builder
 
 var postgresdb = postgres.AddDatabase("passel-db");
 
+// Azurite locally, kept across runs in a volume like passel-pg, so stored files outlive the AppHost as their documents
+// do; a storage account when the AppHost is published or deployed. The API reads the blob service endpoint as
+// passel-blobs and keeps its files in the parcels container, which it also creates if it is missing
+var storage = builder
+    .AddAzureStorage("passel-storage")
+    .RunAsEmulator(emulator => emulator
+        .WithDataVolume()
+        .WithLifetime(ContainerLifetime.Persistent));
+
+var blobs = storage.AddBlobs("passel-blobs");
+var parcelContainer = storage.AddBlobContainer("passel-parcels", blobContainerName: "parcels");
+
 // The https profile pins https://localhost:7030, so the unpacked extension (whose host permissions are derived from
 // API_URL) keeps working across runs
 var webApi = builder
     .AddProject<Projects.Invex_Passel_WebApi>("invex-passel-webapi", launchProfileName: "https")
     .WithEnvironment("Authentication__Google__ClientId", googleClientId)
-    .WithEnvironment("Authentication__Google__AdditionalAudiences__0", extensionClientId);
+    .WithEnvironment("Authentication__Google__AdditionalAudiences__0", extensionClientId)
+    .WithReference(blobs);
 
 // `aspire publish` and `aspire deploy` describe the Azure deployment (AzureHosting.cs and
 // docs/guides/deploying.md); everything below it is for local development only
 if (builder.ExecutionContext.IsPublishMode)
 {
-    builder.AddAzureHosting(webApi, postgres, postgresdb);
+    builder.AddAzureHosting(webApi, postgres, postgresdb, storage);
 
     builder
         .Build()
@@ -54,6 +67,7 @@ var googleClientSecret = AddGoogleParameter("google-client-secret", secret: true
 webApi
     .WithReference(postgresdb)
     .WaitFor(postgresdb)
+    .WaitFor(parcelContainer)
     .WithEnvironment("Authentication__Google__ClientSecret", googleClientSecret);
 
 // Rebuilds src/chrome-extension/dist on every change; load that folder unpacked in Chrome. These variables take
