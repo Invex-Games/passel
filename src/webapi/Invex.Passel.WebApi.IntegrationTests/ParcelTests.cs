@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Headers;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using Invex.Passel.WebApi.Services;
@@ -10,8 +11,9 @@ namespace Invex.Passel.WebApi.IntegrationTests;
 
 /// <summary>
 ///     Uploaded files through the real API, against a real database and Azurite: uploading, the checks on the way
-///     in, and the quotas. The factory holds files to 1 MiB, a user to 3 MiB of them and five unsent files, so every
-///     limit is cheap to reach. The tests act as users of their own, so the quotas of one never see another.
+///     in, the quotas, downloads and thumbnails, and discarding. The factory holds files to 1 MiB, a user to 3 MiB
+///     of them and five unsent files, so every limit is cheap to reach. The tests act as users of their own, so the
+///     quotas of one never see another.
 /// </summary>
 [Collection(PasselApiCollection.Name)]
 public sealed class ParcelTests(PasselApiFixture fixture)
@@ -55,6 +57,12 @@ public sealed class ParcelTests(PasselApiFixture fixture)
 
         return copy.ToArray();
     }
+
+    /// <summary>
+    ///     The Cache-Control header as the API wrote it, which the client would otherwise reorder.
+    /// </summary>
+    private static string CacheControl(HttpResponseMessage response) =>
+        response.Headers.NonValidated["Cache-Control"].ToString();
 
     private static byte[] RandomBytes(int length)
     {
@@ -114,14 +122,18 @@ public sealed class ParcelTests(PasselApiFixture fixture)
 
         Assert.Equal(png, await ReadBlobAsync(ParcelKeys.Original(id)));
 
-        var thumbnail = await ReadBlobAsync(ParcelKeys.Thumbnail(id));
+        using var response = await alice.GetThumbnailAsync(parcel.ParcelId, CancellationToken);
 
-        Assert.NotNull(thumbnail);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal("image/webp", response.Content.Headers.ContentType?.MediaType);
+        Assert.Equal("inline; filename=thumbnail.webp; filename*=UTF-8''thumbnail.webp",
+            response.Content.Headers.ContentDisposition?.ToString());
 
+        var thumbnail = await response.Content.ReadAsByteArrayAsync(CancellationToken);
         using var decoded = SkiaSharp.SKBitmap.Decode(thumbnail);
 
         Assert.Equal((512, 256), (decoded.Width, decoded.Height));
-        Assert.Equal("RIFF", Encoding.ASCII.GetString(thumbnail, 0, 4));
+        Assert.Equal(thumbnail, await ReadBlobAsync(ParcelKeys.Thumbnail(id)));
 
         // Counted as one unsent file of its exact size
         Assert.Equal(new ParcelQuotaUsage(1, png.Length), await UsageAsync(user));
@@ -146,8 +158,222 @@ public sealed class ParcelTests(PasselApiFixture fixture)
         Assert.Equal(new ParcelJson(truncated.ParcelId, "broken.png", "image/png", broken.Length, false, null, null),
             truncated);
 
-        Assert.Null(await Store.OpenReadAsync(ParcelKeys.Thumbnail(Decode(named.ParcelId)), CancellationToken));
-        Assert.Null(await Store.OpenReadAsync(ParcelKeys.Thumbnail(Decode(truncated.ParcelId)), CancellationToken));
+        foreach (var parcel in new[] { named, truncated })
+        {
+            Assert.Null(await Store.OpenReadAsync(ParcelKeys.Thumbnail(Decode(parcel.ParcelId)), CancellationToken));
+
+            using var thumbnail = await alice.GetThumbnailAsync(parcel.ParcelId, CancellationToken);
+
+            Assert.Equal(HttpStatusCode.NotFound, thumbnail.StatusCode);
+
+            using var download = await alice.DownloadParcelAsync(parcel.ParcelId, CancellationToken);
+
+            Assert.Equal(HttpStatusCode.OK, download.StatusCode);
+            Assert.Equal("attachment", download.Content.Headers.ContentDisposition?.DispositionType);
+        }
+    }
+
+    [Fact]
+    public async Task An_uploaded_file_downloads_byte_for_byte_with_an_etag_immutable_caching_a_sandbox_and_nosniff()
+    {
+        using var alice = fixture.Api.CreateClientFor(PasselApiFixture.User("alice"));
+        var png = TestImages.Png(64, 32);
+        var parcel = await alice.UploadAsync(png, "Café.png", "image/png", CancellationToken);
+
+        using var response = await alice.DownloadParcelAsync(parcel.ParcelId, CancellationToken);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal(png, await response.Content.ReadAsByteArrayAsync(CancellationToken));
+
+        Assert.Equal($"\"{Convert.ToHexStringLower(SHA256.HashData(png))}\"", response.Headers.ETag?.Tag);
+        Assert.False(response.Headers.ETag?.IsWeak);
+        Assert.Equal("private, max-age=31536000, immutable", CacheControl(response));
+        Assert.Contains("Authorization", response.Headers.Vary);
+        Assert.Equal("bytes", Assert.Single(response.Headers.AcceptRanges));
+        Assert.Equal("sandbox; default-src 'none'", Assert.Single(response.Headers.GetValues("Content-Security-Policy")));
+        Assert.Equal("nosniff", Assert.Single(response.Headers.GetValues("X-Content-Type-Options")));
+        Assert.Equal("no-referrer", Assert.Single(response.Headers.GetValues("Referrer-Policy")));
+
+        Assert.Equal("image/png", response.Content.Headers.ContentType?.MediaType);
+        Assert.Equal(png.Length, response.Content.Headers.ContentLength);
+
+        // An image is shown in place, under its name exactly and in ASCII for older clients
+        Assert.Equal("inline; filename=Caf_.png; filename*=UTF-8''Caf%C3%A9.png",
+            response.Content.Headers.ContentDisposition?.ToString());
+    }
+
+    [Fact]
+    public async Task A_range_request_gets_206_and_an_unsatisfiable_one_416()
+    {
+        using var alice = fixture.Api.CreateClientFor(PasselApiFixture.User("alice"));
+        var bytes = RandomBytes(1000);
+        var parcel = await alice.UploadAsync(bytes, "data.bin", "application/octet-stream", CancellationToken);
+
+        using var partial = await alice.DownloadParcelAsync(parcel.ParcelId,
+            CancellationToken,
+            request => request.Headers.Range = new(100, 199));
+
+        Assert.Equal(HttpStatusCode.PartialContent, partial.StatusCode);
+        Assert.Equal("bytes 100-199/1000", partial.Content.Headers.ContentRange?.ToString());
+        Assert.Equal(bytes[100..200], await partial.Content.ReadAsByteArrayAsync(CancellationToken));
+        Assert.Equal("private, max-age=31536000, immutable", CacheControl(partial));
+
+        using var beyond = await alice.DownloadParcelAsync(parcel.ParcelId,
+            CancellationToken,
+            request => request.Headers.Range = new(5000, null));
+
+        Assert.Equal(HttpStatusCode.RequestedRangeNotSatisfiable, beyond.StatusCode);
+        Assert.Equal("bytes */1000", beyond.Content.Headers.ContentRange?.ToString());
+        Assert.Equal("no-store", CacheControl(beyond));
+    }
+
+    [Fact]
+    public async Task A_request_with_the_etag_gets_304()
+    {
+        using var alice = fixture.Api.CreateClientFor(PasselApiFixture.User("alice"));
+        var parcel = await alice.UploadAsync(TestImages.Png(600, 300), "wide.png", "image/png", CancellationToken);
+
+        using var first = await alice.DownloadParcelAsync(parcel.ParcelId, CancellationToken);
+        using var firstThumbnail = await alice.GetThumbnailAsync(parcel.ParcelId, CancellationToken);
+
+        var tag = first.Headers.ETag!;
+        var thumbnailTag = firstThumbnail.Headers.ETag!;
+
+        // The thumbnail has a tag of its own
+        Assert.NotEqual(tag.Tag, thumbnailTag.Tag);
+        Assert.Equal($"\"{tag.Tag.Trim('"')}-t512\"", thumbnailTag.Tag);
+
+        using var again = await alice.DownloadParcelAsync(parcel.ParcelId,
+            CancellationToken,
+            request => request.Headers.IfNoneMatch.Add(tag));
+
+        Assert.Equal(HttpStatusCode.NotModified, again.StatusCode);
+        Assert.Empty(await again.Content.ReadAsByteArrayAsync(CancellationToken));
+        Assert.Equal("private, max-age=31536000, immutable", CacheControl(again));
+
+        using var thumbnailRequest = new HttpRequestMessage(HttpMethod.Get,
+            $"{ParcelApi.ParcelsPath}/{parcel.ParcelId}/thumbnail");
+        thumbnailRequest.Headers.IfNoneMatch.Add(thumbnailTag);
+
+        using var thumbnailAgain = await alice.SendAsync(thumbnailRequest, CancellationToken);
+
+        Assert.Equal(HttpStatusCode.NotModified, thumbnailAgain.StatusCode);
+    }
+
+    [Fact]
+    public async Task An_html_file_is_stored_as_octet_stream_and_served_as_an_attachment_uncompressed()
+    {
+        using var alice = fixture.Api.CreateClientFor(PasselApiFixture.User("alice"));
+        var page = Encoding.UTF8.GetBytes(string.Concat(Enumerable.Repeat("<html><script>alert(1)</script></html>\n", 200)));
+
+        var parcel = await alice.UploadAsync(page, "page.html", "text/html", CancellationToken);
+
+        Assert.Equal("application/octet-stream", parcel.ContentType);
+        Assert.False(parcel.IsImage);
+
+        using var response = await alice.DownloadParcelAsync(parcel.ParcelId,
+            CancellationToken,
+            request => request.Headers.AcceptEncoding.Add(new("gzip")));
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Empty(response.Content.Headers.ContentEncoding);
+        Assert.Equal(page.Length, response.Content.Headers.ContentLength);
+        Assert.Equal(page, await response.Content.ReadAsByteArrayAsync(CancellationToken));
+        Assert.Equal("application/octet-stream", response.Content.Headers.ContentType?.MediaType);
+        Assert.Equal("attachment; filename=page.html; filename*=UTF-8''page.html",
+            response.Content.Headers.ContentDisposition?.ToString());
+    }
+
+    [Fact]
+    public async Task An_image_thumbnail_carries_no_metadata()
+    {
+        using var alice = fixture.Api.CreateClientFor(PasselApiFixture.User("alice"));
+
+        // Turned a quarter clockwise by its EXIF orientation, with a GPS position
+        var jpeg = TestImages.JpegWithExif(2000, 1000, 6);
+        var parcel = await alice.UploadAsync(jpeg, "camera.jpg", "image/jpeg", CancellationToken);
+
+        Assert.Equal(new ParcelJson(parcel.ParcelId, "camera.jpg", "image/jpeg", jpeg.Length, true, 1000, 2000), parcel);
+
+        // The original keeps every byte, its metadata included
+        using (var download = await alice.DownloadParcelAsync(parcel.ParcelId, CancellationToken))
+            Assert.Equal(jpeg, await download.Content.ReadAsByteArrayAsync(CancellationToken));
+
+        using var response = await alice.GetThumbnailAsync(parcel.ParcelId, CancellationToken);
+        var thumbnail = await response.Content.ReadAsByteArrayAsync(CancellationToken);
+
+        Assert.Equal(["VP8 "], TestImages.RiffChunks(thumbnail));
+
+        using var decoded = SkiaSharp.SKBitmap.Decode(thumbnail);
+
+        Assert.Equal((256, 512), (decoded.Width, decoded.Height));
+    }
+
+    [Fact]
+    public async Task Another_users_parcel_is_not_found()
+    {
+        using var alice = fixture.Api.CreateClientFor(PasselApiFixture.User("alice"));
+        using var bob = fixture.Api.CreateClientFor(PasselApiFixture.User("bob"));
+
+        var parcel = await alice.UploadAsync(TestImages.Png(16, 16), "mine.png", "image/png", CancellationToken);
+
+        using (var download = await bob.DownloadParcelAsync(parcel.ParcelId, CancellationToken))
+            Assert.Equal(HttpStatusCode.NotFound, download.StatusCode);
+
+        using (var thumbnail = await bob.GetThumbnailAsync(parcel.ParcelId, CancellationToken))
+            Assert.Equal(HttpStatusCode.NotFound, thumbnail.StatusCode);
+
+        Assert.Equal(HttpStatusCode.NotFound, await bob.DiscardParcelAsync(parcel.ParcelId, CancellationToken));
+
+        // Still there for its owner
+        using var own = await alice.DownloadParcelAsync(parcel.ParcelId, CancellationToken);
+
+        Assert.Equal(HttpStatusCode.OK, own.StatusCode);
+    }
+
+    [Fact]
+    public async Task An_id_that_is_not_a_parcel_of_the_user_is_not_found()
+    {
+        using var alice = fixture.Api.CreateClientFor(PasselApiFixture.User("alice"));
+
+        var packet = await alice.CreateTextAsync(null, "not a file", CancellationToken);
+        var unknown = fixture.Api.Services.GetRequiredService<IIdEncodingService>().Encode(Guid.CreateVersion7());
+
+        foreach (var id in new[] { "not-a-parcel-id", unknown, packet.Id })
+        {
+            using var download = await alice.DownloadParcelAsync(id, CancellationToken);
+            using var thumbnail = await alice.GetThumbnailAsync(id, CancellationToken);
+
+            Assert.Equal(HttpStatusCode.NotFound, download.StatusCode);
+            Assert.Equal(HttpStatusCode.NotFound, thumbnail.StatusCode);
+            Assert.Equal(HttpStatusCode.NotFound, await alice.DiscardParcelAsync(id, CancellationToken));
+
+            // Even a miss is not cached, and is sandboxed like a file
+            Assert.Equal("no-store", CacheControl(download));
+            Assert.Equal("sandbox; default-src 'none'", Assert.Single(download.Headers.GetValues("Content-Security-Policy")));
+        }
+    }
+
+    [Fact]
+    public async Task A_discarded_upload_cannot_be_downloaded()
+    {
+        var user = PasselApiFixture.User("alice");
+        using var alice = fixture.Api.CreateClientFor(user);
+
+        var parcel = await alice.UploadAsync(TestImages.Png(16, 16), "mistake.png", "image/png", CancellationToken);
+
+        Assert.Equal(HttpStatusCode.NoContent, await alice.DiscardParcelAsync(parcel.ParcelId, CancellationToken));
+
+        using (var download = await alice.DownloadParcelAsync(parcel.ParcelId, CancellationToken))
+            Assert.Equal(HttpStatusCode.NotFound, download.StatusCode);
+
+        using (var thumbnail = await alice.GetThumbnailAsync(parcel.ParcelId, CancellationToken))
+            Assert.Equal(HttpStatusCode.NotFound, thumbnail.StatusCode);
+
+        Assert.Equal(HttpStatusCode.NotFound, await alice.DiscardParcelAsync(parcel.ParcelId, CancellationToken));
+
+        // No longer counted: neither as unsent nor in the storage used
+        Assert.Equal(new ParcelQuotaUsage(0, 0), await UsageAsync(user));
     }
 
     [Fact]
@@ -331,7 +557,7 @@ public sealed class ParcelTests(PasselApiFixture fixture)
             Assert.Equal("no-referrer", Assert.Single(response.Headers.GetValues("Referrer-Policy")));
 
             // Neither is a file, so neither may be cached
-            Assert.Equal("no-store", response.Headers.CacheControl?.ToString());
+            Assert.Equal("no-store", CacheControl(response));
         }
 
         Assert.Equal(HttpStatusCode.Created, created.StatusCode);

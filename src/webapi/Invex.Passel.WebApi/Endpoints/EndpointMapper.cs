@@ -57,6 +57,9 @@ internal static class EndpointMapper
                 .AddEndpointFilter<ParcelResponseHeadersFilter>();
 
             group.MapPostParcel();
+            group.MapGetParcel();
+            group.MapGetParcelThumbnail();
+            group.MapDeleteParcel();
         }
     }
 }
