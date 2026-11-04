@@ -79,15 +79,47 @@ public sealed class DeviceTests(PasselApiFixture fixture)
         Assert.Equal([again], await alice.ListDevicesAsync(CancellationToken));
     }
 
+    // Each round of a race lets one writer through, so this many racers would use up the store's three attempts if
+    // the losers wrote again rather than take the winner's device
+    private const int Racers = 10;
+
     [Fact]
     public async Task Registrations_of_one_installation_at_the_same_time_make_one_device()
     {
         using var alice = fixture.Api.CreateClientFor(PasselApiFixture.User("alice"));
         var installationId = DeviceApi.NewInstallationId();
 
+        var (statuses, ids) = await RegisterAtOnceAsync(alice, installationId);
+
+        Assert.Equal(1, statuses.Count(status => status == HttpStatusCode.Created));
+        Assert.Equal(Racers - 1, statuses.Count(status => status == HttpStatusCode.OK));
+        Assert.Single(ids.Distinct());
+        Assert.Equal(ids[0], Assert.Single(await alice.ListDevicesAsync(CancellationToken)).Id);
+    }
+
+    [Fact]
+    public async Task Registrations_of_a_registered_installation_at_the_same_time_all_find_its_device()
+    {
+        using var alice = fixture.Api.CreateClientFor(PasselApiFixture.User("alice"));
+        var installationId = DeviceApi.NewInstallationId();
+
+        var device = await alice.RegisterAsync(installationId, "Phone", "android", HttpStatusCode.Created, CancellationToken);
+        await PacketApi.NextMillisecondAsync(CancellationToken);
+
+        var (statuses, ids) = await RegisterAtOnceAsync(alice, installationId);
+
+        Assert.All(statuses, status => Assert.Equal(HttpStatusCode.OK, status));
+        Assert.All(ids, id => Assert.Equal(device.Id, id));
+        Assert.True(Assert.Single(await alice.ListDevicesAsync(CancellationToken)).LastSeenAt > device.LastSeenAt);
+    }
+
+    private static async Task<(HttpStatusCode[] Statuses, string[] Ids)> RegisterAtOnceAsync(
+        HttpClient client,
+        string installationId)
+    {
         var responses = await Task.WhenAll(Enumerable
-            .Range(0, 5)
-            .Select(_ => alice.PostDeviceAsync(DeviceApi.Registration(installationId, "Phone", "android"), CancellationToken)));
+            .Range(0, Racers)
+            .Select(_ => client.PostDeviceAsync(DeviceApi.Registration(installationId, "Phone", "android"), CancellationToken)));
 
         var ids = new List<string>();
 
@@ -100,9 +132,7 @@ public sealed class DeviceTests(PasselApiFixture fixture)
                 ids.Add(DeviceJson.Parse(document.RootElement).Id);
             }
 
-        Assert.Single(responses, response => response.StatusCode == HttpStatusCode.Created);
-        Assert.Single(ids.Distinct());
-        Assert.Equal(ids[0], Assert.Single(await alice.ListDevicesAsync(CancellationToken)).Id);
+        return ([..responses.Select(response => response.StatusCode)], [..ids]);
     }
 
     [Fact]

@@ -32,5 +32,6 @@ public static partial class DeviceEndpoints
                 })
             .Produces(StatusCodes.Status204NoContent)
             .Produces(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status409Conflict)
             .RequireRateLimiting(RateLimitPolicies.DeviceWrites);
 }

@@ -187,6 +187,7 @@ public static partial class DeviceEndpoints
             .Produces(StatusCodes.Status204NoContent)
             .ProducesValidationProblem()
             .Produces(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status409Conflict)
             // Declared as the union, so the examples carry the discriminator
             .AcceptsJson<PutDevicePushRequestBody>(nameof(PutDevicePushRequestBody.Fcm),
                 new PutDevicePushRequestBody.Fcm

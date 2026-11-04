@@ -54,6 +54,7 @@ public static partial class DeviceEndpoints
             .Produces<DeviceResponse>()
             .ProducesValidationProblem()
             .Produces(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status409Conflict)
             .AcceptsJson("Rename",
                 new RenameDeviceRequestBody
                 {

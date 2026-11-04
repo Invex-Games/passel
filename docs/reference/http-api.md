@@ -116,7 +116,8 @@ The installation id is the client's own: generate it once per installation (a ra
 
 - An installation id the caller has not registered makes a new device: **201 Created**, with a `Location` of `/api/devices/{id}`.
 - One the caller has registered returns the same device as **200 OK**, with `lastSeenAt` moved on. The `name` sent is ignored, because the user may have renamed the device since; it is only the name of a new device.
-- One the caller has registered with another platform gets **409 Conflict**.
+- One the caller has registered with another platform gets **409 Conflict**, whose `detail` names the client it is registered for.
+- Registrations of one installation sent at the same moment all get the same device: one gets **201** and the rest **200**.
 - The same installation id under another account is a separate device of that account. Signing out and in as someone else therefore adds a device to the second account and leaves the first account's device where it was, to be removed from its settings.
 - A removed device is gone: when its installation registers again, it gets a new device with a new `id`.
 
@@ -176,6 +177,10 @@ Send the token again whenever the client starts or the platform gives it a new o
 ### `DELETE /api/devices/{id}/push`
 
 Removes the device's push token and returns **204**, also when it had none. Returns 404 for a device the caller doesn't have.
+
+### Conflicts
+
+A registration, a rename, or setting or removing a push token, that keeps colliding with other requests changing the same device at the same moment gets **409 Conflict** with a problem saying to send it again. That is safe: each of these requests can be repeated without a different outcome. Registrations of one installation never collide with each other this way.
 
 ## Other endpoints
 

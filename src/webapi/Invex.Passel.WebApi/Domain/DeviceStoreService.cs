@@ -77,7 +77,7 @@ internal interface IDeviceStoreService
 ///     which refuses one that is gone (so a device removed by a concurrent request stays removed) or that has changed
 ///     since it was read (optimistic concurrency, so one change never undoes another). Registering and setting a push
 ///     token can also race requests that write the same unique key. A change that loses a race reads again and
-///     decides afresh.
+///     decides afresh; one that loses every time is a <see cref="DeviceWriteConflictException" />.
 /// </summary>
 internal sealed partial class DeviceStoreService(
     IDocumentSession session,
@@ -85,13 +85,20 @@ internal sealed partial class DeviceStoreService(
     ILogger<DeviceStoreService> logger) : IDeviceStoreService
 {
     /// <summary>
-    ///     How often a write that lost a race is decided again before the request fails. One retry settles any
-    ///     ordinary race; the third attempt only covers a device removed and registered again in between.
+    ///     How often a write is decided before the request gives up. Registrations of one installation settle in two
+    ///     attempts however many of them race, because the losers take the winner's device; the third covers a
+    ///     rename, a push token change or a removal in between. Only several requests changing one device at the same
+    ///     moment use up every attempt.
     /// </summary>
     private const int MaxAttempts = 3;
 
     public async Task<RegisterDeviceResult> Handle(RegisterDevice command)
     {
+        // Once this request has lost a race: the LastSeenAt of the device it failed to update, or null when it
+        // failed to insert one
+        var lostRace = false;
+        DateTimeOffset? lastSeenRead = null;
+
         for (var attempt = 1; attempt <= MaxAttempts; attempt++)
         {
             var now = DateTimeOffset.UtcNow;
@@ -102,6 +109,12 @@ internal sealed partial class DeviceStoreService(
                 if (existing.Platform != command.Platform)
                     return new RegisterDeviceResult.PlatformMismatch(existing.Platform);
 
+                // Lost to another registration of this installation, which has just registered the device or marked
+                // it seen. Writing again would only race the other losers, so its device is the answer. A rename or a
+                // push token change leaves LastSeenAt as it was, and losing to one of those writes again
+                if (lostRace && existing.LastSeenAt != lastSeenRead)
+                    return new RegisterDeviceResult.Existing(existing);
+
                 // The name stays as it is: the user may have renamed the device since it first registered
                 var seen = existing with
                 {
@@ -110,9 +123,11 @@ internal sealed partial class DeviceStoreService(
 
                 session.Update(seen);
 
-                // Removed since it was read: registering again makes a new device
                 if (await TrySaveAsync(attempt))
                     return new RegisterDeviceResult.Existing(seen);
+
+                // Changed since it was read, or removed, in which case registering again makes a new device
+                (lostRace, lastSeenRead) = (true, existing.LastSeenAt);
 
                 continue;
             }
@@ -138,12 +153,15 @@ internal sealed partial class DeviceStoreService(
 
             session.Insert(device);
 
-            // The same installation registered by a request that raced this one: its device is found next time round
             if (await TrySaveAsync(attempt))
                 return new RegisterDeviceResult.Registered(device);
+
+            // The same installation registered by a request that raced this one: its device is found next time round
+            (lostRace, lastSeenRead) = (true, null);
         }
 
-        throw LostEveryRace();
+        // The last attempt throws rather than lose quietly
+        throw new UnreachableException();
     }
 
     public async Task<Device?> Handle(RenameDevice command)
@@ -166,7 +184,7 @@ internal sealed partial class DeviceStoreService(
                 return renamed;
         }
 
-        throw LostEveryRace();
+        throw new UnreachableException();
     }
 
     public async Task<bool> Handle(RemoveDevice command)
@@ -222,7 +240,7 @@ internal sealed partial class DeviceStoreService(
             return new SetDevicePushResult.Stored();
         }
 
-        throw LostEveryRace();
+        throw new UnreachableException();
     }
 
     public async Task<bool> Handle(ClearDevicePush command)
@@ -243,7 +261,7 @@ internal sealed partial class DeviceStoreService(
                 return true;
         }
 
-        throw LostEveryRace();
+        throw new UnreachableException();
     }
 
     /// <summary>
@@ -274,7 +292,8 @@ internal sealed partial class DeviceStoreService(
     /// <summary>
     ///     Saves the pending changes. Returns <c>false</c>, with the changes dropped, when they lost a race: an update
     ///     of a document that is gone or has changed since it was read, or a write of a unique key another request has
-    ///     just written. The caller reads again and decides afresh; on the last attempt the failure is thrown instead.
+    ///     just written. The caller reads again and decides afresh. A race lost on the last attempt is thrown as a
+    ///     <see cref="DeviceWriteConflictException" />, which the API answers with 409.
     /// </summary>
     private async Task<bool> TrySaveAsync(int attempt)
     {
@@ -284,16 +303,16 @@ internal sealed partial class DeviceStoreService(
 
             return true;
         }
-        catch (Exception exception) when (attempt < MaxAttempts && IsLostRace(exception))
+        catch (Exception exception) when (IsLostRace(exception))
         {
             session.EjectAllPendingChanges();
 
-            return false;
+            if (attempt < MaxAttempts)
+                return false;
+
+            throw new DeviceWriteConflictException(MaxAttempts, exception);
         }
     }
-
-    private static InvalidOperationException LostEveryRace() =>
-        new($"A device write lost a race {MaxAttempts} times in a row.");
 
     private static bool IsLostRace(Exception exception)
     {
