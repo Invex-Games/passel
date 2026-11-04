@@ -3,8 +3,8 @@ namespace Atom.Helpers;
 internal interface IChromeExtensionHelper : IProcessHelper
 {
     /// <summary>
-    ///     The npm workspace holding the TypeScript code: the shared packages, the Chrome extension and, later,
-    ///     the web app. Packages are installed here, once, for every workspace member.
+    ///     The npm workspace holding the TypeScript code: the shared packages, the Chrome extension and the web
+    ///     app. Packages are installed here, once, for every workspace member.
     /// </summary>
     RootedPath WebWorkspaceDirectory => RootedFileSystem.AtomRootDirectory / "src";
 
