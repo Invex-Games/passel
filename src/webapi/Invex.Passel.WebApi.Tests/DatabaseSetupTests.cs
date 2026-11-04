@@ -49,7 +49,10 @@ public sealed class DatabaseSetupTests
 
         Assert.Equal(AutoCreate.None, options.AutoCreateSchemaObjects);
         Assert.False(StartupFlag(options, "ShouldApplyChangesOnStartup"));
-        Assert.True(StartupFlag(options, "ShouldAssertDatabaseMatchesConfigurationOnStartup"));
+
+        // Its own check rather than Marten's, which refuses a schema a newer release has added to
+        Assert.False(StartupFlag(options, "ShouldAssertDatabaseMatchesConfigurationOnStartup"));
+        Assert.Contains(app.Services.GetServices<IHostedService>(), service => service is DatabaseSchemaCheck);
     }
 
     [Fact]
@@ -61,6 +64,7 @@ public sealed class DatabaseSetupTests
         Assert.Equal(AutoCreate.All, options.AutoCreateSchemaObjects);
         Assert.True(StartupFlag(options, "ShouldApplyChangesOnStartup"));
         Assert.False(StartupFlag(options, "ShouldAssertDatabaseMatchesConfigurationOnStartup"));
+        Assert.DoesNotContain(app.Services.GetServices<IHostedService>(), service => service is DatabaseSchemaCheck);
     }
 
     /// <summary>

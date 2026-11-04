@@ -13,8 +13,8 @@ internal static class HostDatabaseExtensions
     ///     The PostgreSQL data source and the Marten store over it. Development creates and updates the schema at
     ///     startup, so local work needs no extra step. Everywhere else the schema belongs to the deployment's
     ///     migration job (<see cref="MigrateDatabaseCommand" />): the API changes nothing (<c>AutoCreate.None</c>), so
-    ///     its database role needs no more than DML, and it checks at startup that the schema it finds is the one it
-    ///     expects. See docs/components/web-api.md.
+    ///     its database role needs no more than DML, and it checks at startup that the schema it finds has what it
+    ///     needs (<see cref="DatabaseSchemaCheck" />). See docs/components/web-api.md.
     /// </summary>
     public static void AddPasselDatabase(this WebApplicationBuilder builder)
     {
@@ -34,12 +34,13 @@ internal static class HostDatabaseExtensions
             .UseNpgsqlDataSource();
 
         // The packet table exists before the first request either way: the quota check reads it with plain SQL,
-        // which Marten's lazy, on-first-use schema creation would not cover. Outside Development a missing or
-        // outdated schema stops the start, so a revision deployed without its migration never takes traffic
+        // which Marten's lazy, on-first-use schema creation would not cover. Outside Development a schema that lacks
+        // what this build needs stops the start, so a revision deployed without its migration never takes traffic;
+        // one that a newer release's migration has added to does not (DatabaseSchemaCheck)
         if (isDevelopment)
             marten.ApplyAllDatabaseChangesOnStartup();
         else
-            marten.AssertDatabaseMatchesConfigurationOnStartup();
+            builder.Services.AddHostedService<DatabaseSchemaCheck>();
 
         builder
             .Services

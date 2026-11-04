@@ -1,6 +1,8 @@
 using System.Net;
+using Invex.Passel.WebApi.Domain;
 using Invex.Passel.WebApi.Extensions;
 using Invex.Passel.WebApi.Services;
+using Marten;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -15,6 +17,11 @@ namespace Invex.Passel.WebApi.IntegrationTests;
 [Collection(PasselApiCollection.Name)]
 public sealed class DatabaseMigrationTests(PasselApiFixture fixture)
 {
+    /// <summary>
+    ///     The column Marten gives a duplicated <c>CreatedAt</c>, which the "newer release" of the rollback test adds.
+    /// </summary>
+    private const string NewerColumn = "created_at";
+
     private static CancellationToken CancellationToken =>
         TestContext.Current.CancellationToken;
 
@@ -72,10 +79,89 @@ public sealed class DatabaseMigrationTests(PasselApiFixture fixture)
         Assert.Equal(0L, await count.ExecuteScalarAsync(CancellationToken));
     }
 
+    [Fact]
+    public async Task A_column_the_api_needs_missing_stops_the_start()
+    {
+        var ownerConnectionString = await fixture.CreateEmptyDatabaseAsync("passel_missing_column", CancellationToken);
+        var apiConnectionString = await CreateLoginRoleAsync(ownerConnectionString, "passel_api_missing_column");
+
+        await MigrateAsync(ownerConnectionString, "passel_api_missing_column");
+        await ExecuteAsync(ownerConnectionString, "alter table mt_doc_packet drop column mt_dotnet_type");
+
+        await using var api = new PasselApiFactory(apiConnectionString, migratedSchema: true);
+
+        var refused = Assert.ThrowsAny<Exception>(() => api.CreateClient());
+
+        Assert.Contains("column mt_dotnet_type of public.mt_doc_packet", refused.ToString());
+    }
+
     /// <summary>
-    ///     What <c>db-migrate</c> does: the API's host, built but not started, running the migrator as the owner.
+    ///     A deployment whose migration ran and whose new revision then never took over, followed by a rollback: the
+    ///     running revision must keep starting on the newer schema, and its own migration must not drop what the
+    ///     newer release added.
     /// </summary>
-    private static async Task MigrateAsync(string ownerConnectionString, string apiRole)
+    [Fact]
+    public async Task The_api_starts_on_a_newer_schema_and_a_rollback_keeps_what_the_newer_release_added()
+    {
+        var ownerConnectionString = await fixture.CreateEmptyDatabaseAsync("passel_rollback", CancellationToken);
+        var apiConnectionString = await CreateLoginRoleAsync(ownerConnectionString, "passel_api_rollback");
+
+        // A newer release that duplicates a field into its own indexed column
+        await MigrateAsync(ownerConnectionString,
+            "passel_api_rollback",
+            newerRelease: options => options.Schema.For<Packet>().Duplicate(packet => packet.CreatedAt));
+
+        Assert.True(await HasColumnAsync(ownerConnectionString, NewerColumn));
+
+        // This build's API, a restart of the revision the deployment left running: it starts, and reads and writes
+        await using (var api = new PasselApiFactory(apiConnectionString, migratedSchema: true))
+        {
+            using var client = api.CreateClientFor(PasselApiFixture.User("rollback-before"));
+
+            var created = await client.CreateTextAsync("Newer schema", "sent by the older revision", CancellationToken);
+
+            Assert.Equal([created], (await client.ListAsync(null, CancellationToken)).Packets);
+        }
+
+        // The rollback: this build's migration leaves the column, and the data in it, where it is
+        await MigrateAsync(ownerConnectionString, "passel_api_rollback");
+
+        Assert.True(await HasColumnAsync(ownerConnectionString, NewerColumn));
+
+        await using (var api = new PasselApiFactory(apiConnectionString, migratedSchema: true))
+        {
+            using var client = api.CreateClientFor(PasselApiFixture.User("rollback-after"));
+
+            await api.WaitUntilLiveUpdatesFlowAsync(CancellationToken);
+
+            var created = await client.CreateTextAsync("Rolled back", "sent after the rollback", CancellationToken);
+
+            Assert.Equal([created], (await client.ListAsync(null, CancellationToken)).Packets);
+        }
+    }
+
+    private static async Task<bool> HasColumnAsync(string connectionString, string column)
+    {
+        await using var connection = new NpgsqlConnection(connectionString);
+        await connection.OpenAsync(CancellationToken);
+
+        await using var command = new NpgsqlCommand(
+            "select count(*) from information_schema.columns where table_name = 'mt_doc_packet' and column_name = @column",
+            connection);
+
+        command.Parameters.AddWithValue("column", column);
+
+        return (long)(await command.ExecuteScalarAsync(CancellationToken))! == 1;
+    }
+
+    /// <summary>
+    ///     What <c>db-migrate</c> does: the API's host, built but not started, running the migrator as the owner. With
+    ///     <paramref name="newerRelease" />, the store is configured as a later release would configure it.
+    /// </summary>
+    private static async Task MigrateAsync(
+        string ownerConnectionString,
+        string apiRole,
+        Action<StoreOptions>? newerRelease = null)
     {
         var builder = WebApplication.CreateSlimBuilder(new WebApplicationOptions
         {
@@ -87,6 +173,9 @@ public sealed class DatabaseMigrationTests(PasselApiFixture fixture)
         builder.Configuration["Logging:LogLevel:Default"] = "Warning";
 
         builder.AddPasselDatabase();
+
+        if (newerRelease is not null)
+            builder.Services.ConfigureMarten(newerRelease);
 
         await using var app = builder.Build();
 

@@ -1,6 +1,7 @@
 using System.Text.RegularExpressions;
 using Microsoft.Extensions.Options;
 using Npgsql;
+using Weasel.Core;
 
 namespace Invex.Passel.WebApi.Services;
 
@@ -24,8 +25,22 @@ internal sealed partial class DatabaseMigrator(
 
     public async Task MigrateAsync(CancellationToken cancellationToken)
     {
+        // Add-only: CreateOrUpdate would drop every column, index and foreign key the configuration no longer
+        // declares, so a rollback to an older release would delete what a newer one added, and the data in it. Left in
+        // place, they cost nothing: the older API's startup check accepts what it doesn't know. Removing one is a
+        // deliberate change by hand (docs/guides/deploying.md). Marten builds its schema objects once per store, so
+        // the flag set here is the one the migration below reads
+        foreach (var table in store.Storage.AllObjects().OfType<ITable>())
+            table.AddOnlyMigrations = true;
+
+        var migration = await store.Storage.Database.CreateMigrationAsync(cancellationToken);
+
+        foreach (var delta in migration.Deltas.OfType<ISchemaObjectDeltaWithWithheldDrops>())
+        foreach (var withheld in delta.WithheldDrops)
+            LogDropWithheld(withheld, ((ISchemaObjectDelta)delta).SchemaObject.Identifier.QualifiedName);
+
         // The configured AutoCreate is None outside Development, so the threshold is raised for this call only.
-        // CreateOrUpdate adds and changes, but never drops a table with data in it
+        // CreateOrUpdate adds and changes, and never drops a table
         await store.Storage.ApplyAllConfiguredChangesToDatabaseAsync(AutoCreate.CreateOrUpdate);
         LogSchemaApplied(store.Options.DatabaseSchemaName);
 
@@ -120,6 +135,10 @@ internal sealed partial class DatabaseMigrator(
 
     [GeneratedRegex("^[A-Za-z_][A-Za-z0-9_.-]{0,62}$")]
     private static partial Regex IdentifierPattern();
+
+    [LoggerMessage(LogLevel.Information,
+        "Left the {Withheld} of {Table} in place, which the configuration no longer declares; drop it by hand if it is no longer needed")]
+    private partial void LogDropWithheld(string withheld, string table);
 
     [LoggerMessage(LogLevel.Information, "Applied the configured schema to the '{Schema}' schema")]
     private partial void LogSchemaApplied(string schema);

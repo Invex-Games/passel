@@ -16,7 +16,7 @@ namespace Invex.Passel.WebApi.IntegrationTests;
 ///     The API as <c>Program.cs</c> builds it, in the Development environment, against the given database. Clients
 ///     from <see cref="CreateClientFor" /> are signed in through the Development <c>Dev</c> scheme. With
 ///     <paramref name="migratedSchema" />, the API treats the schema as every other environment does: it applies
-///     nothing and checks at startup that the schema matches, so it can run on a role that has only DML.
+///     nothing and checks at startup that the schema has what it needs, so it can run on a role that has only DML.
 /// </summary>
 internal sealed class PasselApiFactory(string connectionString, bool migratedSchema = false)
     : WebApplicationFactory<Program>
@@ -62,12 +62,15 @@ internal sealed class PasselApiFactory(string connectionString, bool migratedSch
         builder.ConfigureTestServices(services =>
         {
             if (migratedSchema)
+            {
                 services.ConfigureMarten(options =>
                 {
                     options.AutoCreateSchemaObjects = AutoCreate.None;
                     SetStartupFlag(options, "ShouldApplyChangesOnStartup", false);
-                    SetStartupFlag(options, "ShouldAssertDatabaseMatchesConfigurationOnStartup", true);
                 });
+
+                services.AddHostedService<DatabaseSchemaCheck>();
+            }
 
             services.AddSingleton<ILinkPreviewAddressPolicy, LoopbackAllowingAddressPolicy>();
 
@@ -77,8 +80,7 @@ internal sealed class PasselApiFactory(string connectionString, bool migratedSch
     }
 
     /// <summary>
-    ///     Sets what ApplyAllDatabaseChangesOnStartup and AssertDatabaseMatchesConfigurationOnStartup set; Marten keeps
-    ///     the flags internal.
+    ///     Sets what ApplyAllDatabaseChangesOnStartup sets; Marten keeps the flag internal.
     /// </summary>
     private static void SetStartupFlag(StoreOptions options, string name, bool value) =>
         (typeof(StoreOptions).GetProperty(name, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic) ??
