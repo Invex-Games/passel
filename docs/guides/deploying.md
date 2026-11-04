@@ -97,7 +97,7 @@ Once, as an administrator on the server, then on GitHub.
 
 The `DeployCompose` target checks the tag, checks that the registry has all three images at that tag, and connects to the server as `DEPLOY_USER`, checking its host key against `DEPLOY_KNOWN_HOSTS`. It sends `deploy <tag>` (with `--no-migrate` when `migrate` is off) and the job's token on standard input. The gate on the server signs in to the registry with the token in a temporary Docker configuration, which it deletes when it exits, so no credential stays on the server. It pulls `passel-deploy:<tag>`, copies its files to `/opt/passel/releases/<tag>/`, and runs that release's `deploy.sh`, which:
 
-1. Pulls the images. Passel's own are pulled only when the server lacks them, since a version tag never moves; PostgreSQL's, busybox's and Caddy's are always pulled, which brings their patches in.
+1. Pulls the images. Passel's own are pulled only when the server lacks them, since a version tag never moves. PostgreSQL's, busybox's, Caddy's and the dashboard's are pulled on every deploy, which brings their patches in, except with `--no-migrate`, when the server's own copies are used too. When Docker Hub or MCR can't be reached, the deploy goes on with the images the server has; only one it has never pulled fails it.
 2. Starts PostgreSQL and waits for it to be healthy.
 3. Runs `db-roles`, `parcels-init` and, unless `--no-migrate`, `db-migrate`, each to completion.
 4. Starts `api`, `web` and the profiles' services, and waits for them to be healthy.
@@ -115,7 +115,7 @@ That only works because of one rule for every change to the schema: a release ma
 
 ### Deploying by hand
 
-On the server, as the deploy user, the gate does the same as the workflow. A tag the server has deployed before needs no registry:
+On the server, as the deploy user, the gate does the same as the workflow. A tag the server has deployed before, with `--no-migrate`, needs no registry, neither GHCR nor Docker Hub nor MCR:
 
 ```
 SSH_ORIGINAL_COMMAND="deploy 0.2.0-rc.11 --no-migrate" /opt/passel/deploy-gate.sh </dev/null

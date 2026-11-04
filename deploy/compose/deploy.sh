@@ -7,7 +7,8 @@
 # passel-deploy image of the same tag, so the compose files always match the images. The server's settings are in
 # <root>/.env. In order it:
 #
-#   1. pulls the images (Passel's own only when missing, since a version tag never moves),
+#   1. pulls the images (Passel's own only when missing, since a version tag never moves; the others too with
+#      --no-migrate, and a cached one is used when its registry can't be reached),
 #   2. starts PostgreSQL and waits for it to be healthy,
 #   3. runs db-roles, parcels-init and db-migrate (skipped with --no-migrate, as a rollback does),
 #   4. starts the API, the web app and any profile's services and waits for them to be healthy,
@@ -127,10 +128,17 @@ for service in "${services[@]}"; do
     esac
 done
 
-# A version tag of Passel's images never moves, so one already on the server is never pulled again (and a rollback
-# to it needs no registry). The other images follow their moving tags, which brings their patches in
+# A version tag of Passel's images never moves, so one already on the server is never pulled again. The other images
+# follow their moving tags, which brings their patches in, except with --no-migrate: a rollback uses what the server
+# has, so it needs no registry and moves no image under the release. When Docker Hub or MCR can't be reached, a
+# deploy goes on with the images the server already has; only a missing one fails it, when it is started
 compose pull --quiet --policy missing "${ours[@]}"
-compose pull --quiet "${theirs[@]}"
+
+if [ "$migrate" = true ]; then
+    compose pull --quiet --ignore-pull-failures "${theirs[@]}"
+else
+    compose pull --quiet --policy missing "${theirs[@]}"
+fi
 
 compose up --detach --wait --wait-timeout 180 postgres
 
