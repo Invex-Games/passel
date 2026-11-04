@@ -142,7 +142,7 @@ The API exports logs, traces and metrics over OTLP when `OTEL_EXPORTER_OTLP_ENDP
 
 ### Backups and the restore drill
 
-`backup.sh` writes three files with the same UTC timestamp: `db-<time>.dump` (`pg_dump` in the custom format), `roles-<time>.sql` (`pg_dumpall --roles-only`, for reference: `db-roles` recreates the logins) and `parcels-<time>.tgz` (the parcels volume). It dumps the database first and archives the files second, so every file the dump records is in the archive; a file uploaded in between is in the archive without a record, and the orphan scan removes it after a restore. Run it from the deploy user's crontab:
+`backup.sh` writes three files with the same UTC timestamp: `db-<time>.dump` (`pg_dump` in the custom format), `roles-<time>.sql` (`pg_dumpall --roles-only`, for reference: `db-roles` recreates the logins) and `parcels-<time>.tgz` (the parcels volume). It writes them under temporary names and renames them only once all three are complete, so a failed run leaves no dump without its archive. The API keeps running throughout. The database is dumped first and the files archived second: a file uploaded in between is in the archive without a record, and the orphan scan removes it after a restore; a parcel deleted in between is in the dump without its file, and after a restore its download answers 404 (the API logs `Parcel <id> has no blob`). Uploads in flight (`.uploading`) are left out of the archive, and a file the API moves or deletes while the archive is written is skipped and named in the log; any other error from `tar` fails the run. Run it from the deploy user's crontab:
 
 ```
 15 3 * * * /opt/passel/current/backup.sh /var/backups/passel >>/var/log/passel/backup.log 2>&1

@@ -10,9 +10,13 @@
 #   roles-<time>.sql    pg_dumpall --roles-only: the logins and passel_app, with their password hashes
 #   parcels-<time>.tgz  the parcels volume
 #
-# The database goes first and the files second, so every file the dump records is in the archive; a file uploaded in
-# between is in the archive without a record, and the API's orphan scan removes it after a restore. Keeping copies
-# elsewhere and pruning old ones is left to the offsite tool (restic, rclone or the like).
+# All three are written under temporary names and renamed only once all three are complete, so a failed run leaves
+# no dump without its archive. The database goes first and the files second while the API keeps running: a file
+# uploaded in between is in the archive without a record, and the API's orphan scan removes it after a restore; a
+# parcel deleted in between is in the dump without its file. Uploads in flight (.uploading) are left out, and a file
+# the API moves or deletes while the archive is written is skipped. Keeping copies elsewhere and pruning old ones is
+# left to the offsite tool (restic, rclone or the like). The server's .env, with the ENCODING_ALPHABET every public id
+# depends on, is not part of the backup: keep a copy of it off the server separately.
 set -euo pipefail
 
 umask 077
@@ -41,9 +45,9 @@ compose() {
 
 stamp=$(date -u +%Y%m%dT%H%M%SZ)
 partial=()
+finished=()
 
-# A file is written under a temporary name and renamed once complete, so a backup that fails part way leaves nothing
-# that looks finished
+# Each file is written under a temporary name; whatever was not renamed at the end is removed on exit
 cleanup() {
     if [ "${#partial[@]}" -gt 0 ]; then
         rm -f "${partial[@]}"
@@ -58,8 +62,7 @@ write() {
     local temp="$backup_dir/.$name.partial"
     partial+=("$temp")
     "$@" >"$temp"
-    mv -f "$temp" "$backup_dir/$name"
-    echo "backup.sh: wrote $backup_dir/$name"
+    finished+=("$name")
 }
 
 # The user and database are expanded inside the container, from the variables PostgreSQL itself was started with
@@ -71,6 +74,28 @@ write "db-$stamp.dump" \
 write "roles-$stamp.sql" \
     compose exec -T postgres sh -c 'pg_dumpall --username="$POSTGRES_USER" --roles-only'
 
-# parcels-init has the parcels volume at /v and no network
+# parcels-init has the parcels volume at /v and no network. The API keeps running, so a file can vanish between tar
+# listing a directory and opening it: an upload renamed from .uploading into place, or a blob the sweep or a user
+# deleted. busybox tar reports each one, carries on, and exits 1 at the end with the archive complete. That exit is
+# accepted when every error is a vanished file, which is the only error a blob can cause, since the API never rewrites
+# one in place; any other error fails the backup. The temps under .uploading are never needed after a restore
+# shellcheck disable=SC2016
 write "parcels-$stamp.tgz" \
-    compose run --rm --no-deps -T parcels-init sh -c 'cd /v && tar -czf - .'
+    compose run --rm --no-deps -T parcels-init sh -c '
+        cd /v || exit 1
+        { errors=$(tar -czf - --exclude=./parcels/.uploading . 2>&1 >&3); status=$?; } 3>&1
+        if [ -n "$errors" ]; then
+            printf "%s\n" "$errors" >&2
+        fi
+        if [ "$status" -eq 1 ] && [ -n "$errors" ] &&
+            ! printf "%s\n" "$errors" |
+            grep -v -e "No such file or directory" -e "error exit delayed from previous errors" >/dev/null; then
+            echo "backup.sh: the files above were moved or deleted while the archive was written; it has the rest" >&2
+            status=0
+        fi
+        exit "$status"'
+
+for name in "${finished[@]}"; do
+    mv -f "$backup_dir/.$name.partial" "$backup_dir/$name"
+    echo "backup.sh: wrote $backup_dir/$name"
+done
