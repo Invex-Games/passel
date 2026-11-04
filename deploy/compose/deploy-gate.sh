@@ -42,6 +42,13 @@ fi
 
 [ -d "$root" ] || refuse "$root does not exist"
 
+# One deploy at a time, taken before releases/<tag> is replaced: a second deploy of the same tag would otherwise
+# delete the directory the first one's deploy.sh is running from. deploy.sh inherits the lock on descriptor 9
+if command -v flock >/dev/null; then
+    exec 9>"$root/.deploy.lock"
+    flock -n 9 || refuse "another deploy is running"
+fi
+
 DOCKER_CONFIG=$(mktemp -d)
 export DOCKER_CONFIG
 staging=""
