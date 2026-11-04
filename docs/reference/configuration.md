@@ -16,9 +16,37 @@ The AppHost reads one setting of its own:
 |---|---|---|
 | `DevTunnel:AllowAnonymous` | `true` | Whether the `passel-api-tunnel` resource lets anyone with the URL through. Set it to `false` (in user secrets, the git-ignored `appsettings.Development.json`, or the `DevTunnel__AllowAnonymous` environment variable) and the tunnel requires a Dev Tunnels access token, which the mobile app sends from `TUNNEL_ACCESS_TOKEN`; see [Requiring a token](../getting-started/running-locally.md#requiring-a-token). The tunnel only runs when started from the dashboard either way. |
 
+## Compose deployment
+
+The self-hosted deployment ([Releasing and Deploying](../guides/deploying.md#self-hosted-docker-compose)) reads every value from the server's `/opt/passel/.env`, whose template, with a comment on each key, is `deploy/compose/.env.example`; `release.env`, written by `deploy.sh`, adds `PASSEL_TAG`. `compose.yaml` gives the API and `db-migrate` an explicit environment built from those keys, never the whole file, so nothing else in `.env` reaches them.
+
+| `.env` key | Required | Becomes |
+|---|---|---|
+| `PASSEL_TAG` | Set by `deploy.sh` | The tag of the `passel-webapi` and `passel-web` images, and `service.version` in `OTEL_RESOURCE_ATTRIBUTES` |
+| `COMPOSE_FILE`, `COMPOSE_PROFILES` | Yes | Which files and profiles every compose command uses: the proxy setup, and `telemetry` for the dashboard |
+| `POSTGRES_USER`, `POSTGRES_DB` | No | The superuser and the database PostgreSQL creates on first start (`postgres`, `passel`); `POSTGRES_DB` is also the database in both connection strings |
+| `POSTGRES_PASSWORD` | Yes | The superuser's password, which `db-roles` signs in with. PostgreSQL only sets it when the database is first created |
+| `PASSEL_OWNER_DB_PASSWORD` | Yes | The password of `passel_owner`, and `db-migrate`'s `ConnectionStrings__passel-db` (`Username=passel_owner`) |
+| `PASSEL_API_DB_PASSWORD` | Yes | The password of `passel_api`, and the API's `ConnectionStrings__passel-db` (`Username=passel_api`). `db-migrate` gets `Database__ApiRole=passel_api` |
+| `ENCODING_ALPHABET` | Yes | `Encoding__Alphabet`. Never changed once ids are in use |
+| `GOOGLE_WEB_CLIENT_ID` | Yes | `Authentication__Google__ClientId` |
+| `CHROME_EXTENSION_CLIENT_ID` | No | `Authentication__Google__AdditionalAudiences__0` |
+| `API_HOST` | Yes | `AllowedHosts`, as `<API_HOST>;localhost` (the healthcheck sends `localhost`); the edge's site for the API; the smoke check's default `https://<API_HOST>/health` |
+| `WEB_HOST` | With the edge | The edge's site for the web app |
+| `WEB_ORIGIN` | Yes | `Cors__AllowedOrigins__0`, written as a browser sends it |
+| `PROXY_TRUSTED_CIDR` | No | `ForwardedHeaders__KnownNetworks__0`, with `ForwardedHeaders__Enabled=true`. Default `172.30.0.2/32`, the bundled edge |
+| `PROXY_NETWORK` | With `compose.external-proxy.yaml` | The existing Docker network the `edge` network becomes |
+| `API_PORT`, `WEB_PORT` | No | The loopback ports of `compose.ports.yaml` (18080, 18081) |
+| `SMOKE_URL` | No | What `deploy.sh` fetches after starting a release |
+| `OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_EXPORTER_OTLP_PROTOCOL`, `OTEL_EXPORTER_OTLP_HEADERS` | No | Passed to the API and `db-migrate` as they are; no endpoint, no export. `OTEL_SERVICE_NAME` is `passel-webapi` and `passel-migrate` |
+
+The compose file also sets, on the API and `db-migrate`, `ASPNETCORE_ENVIRONMENT` and `DOTNET_ENVIRONMENT` to `Production`, and on the API `Parcels__Store=FileSystem` with `Parcels__FileSystemRoot=/var/lib/passel/parcels`, in the `parcels` volume. To tune one of the Web API settings below on the server, add it to the API's `environment` in a compose override kept outside the releases, such as `/opt/passel/compose.local.yaml`, and add that file to `COMPOSE_FILE` by its absolute path (`COMPOSE_FILE=compose.yaml:/opt/passel/compose.local.yaml`); the release directories are replaced on every deploy.
+
+These stay unset in the compose deployment, since each belongs to Azure or to Development and would change how the API signs in, exports or trusts headers: `APPLICATIONINSIGHTS_CONNECTION_STRING`, every `AZURE_*` variable, `Database__ApiRoleObjectId`, `Authentication__Google__ClientSecret` and `ASPNETCORE_FORWARDEDHEADERS_ENABLED`.
+
 ## Azure deployment
 
-`aspire publish` and `aspire deploy` add the Azure resources to the AppHost ([Releasing and Deploying](../guides/deploying.md)). `DeployWebApi` supplies everything below from the Deploy workflow's variables and secret; nothing needs typing in.
+Legacy ([ADR 0003](../decisions/0003-hosting-on-azure.md)): this is the Azure deployment, which stays in the code but is no longer where Passel runs. `aspire publish` and `aspire deploy` add the Azure resources to the AppHost ([Releasing and Deploying](../guides/deploying.md)). `DeployWebApi` supplies everything below from the Deploy workflow's variables and secret; nothing needs typing in.
 
 | Setting | Secret | Source in the workflow | Description |
 |---|---|---|---|
@@ -27,11 +55,11 @@ The AppHost reads one setting of its own:
 | `Parameters:google-client-id` | No | `GOOGLE_WEB_CLIENT_ID` | The API's `Authentication:Google:ClientId` |
 | `Parameters:google-extension-client-id` | No | `CHROME_EXTENSION_CLIENT_ID` | The API's `Authentication:Google:AdditionalAudiences:0` |
 | `Parameters:encoding-alphabet` | Yes | `ENCODING_ALPHABET` (environment secret) | Stored in Key Vault as `encoding-alphabet`; the container app reads it as the API's `Encoding:Alphabet`. Must never change once ids are in use. |
-| `Deployment:ImageTag` | No | GitVersion's version for the commit | The tag both images are pushed with. Without it they are pushed as `latest`. |
+| `Deployment:ImageTag` | No | GitVersion's version for the commit | Azure only: the tag both images are pushed to the Azure registry with. Without it they are pushed as `latest`. The compose deployment's images are tagged by `PublishImages` instead. |
 | `Deployment:ApiDomain` | No | `API_DOMAIN` | The API's custom domain. Empty for none; when set, the container app binds it and `AllowedHosts` includes it. |
 | `Parameters:api-certificate-name` | No | `API_CERTIFICATE_NAME` | The managed certificate for the domain; empty for the first deployment with it. Only asked for when `Deployment:ApiDomain` is set. |
 
-In Azure the API's container gets:
+In Azure (legacy) the API's container gets:
 
 | Variable | Value |
 |---|---|

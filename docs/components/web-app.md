@@ -95,7 +95,7 @@ The image keeps the rules above:
 
 To build and look at it locally (nothing is pushed off `main`), run `dotnet atom SetupBuildInfo` (with `--skip`, `PublishImages` uses the version that last stored), then `dotnet atom BuildWebApp --server-client-id <id>.apps.googleusercontent.com`, then `dotnet atom PublishImages --skip`, and `docker run --rm -p 127.0.0.1:18081:8080 invex-games/passel-web:<version>`. Locally the images are named without the registry, as `invex-games/passel-webapi` and `invex-games/passel-web`.
 
-Nothing runs the image yet: the compose stack and the workflow that deploy it come next (ADR 0004), and with them the preview deployment in roadmap 1.E2. The production build is checked on every pull request: `build.test.ts` runs `build.mjs` as part of `npm test`. Before the site goes up:
+The compose stack runs the image as `web`, behind the proxy, and the `DeployCompose` workflow deploys it with the API ([Releasing and Deploying](../guides/deploying.md#self-hosted-docker-compose)); the preview deployment in roadmap 1.E2 is still to come. The production build is checked on every pull request: `build.test.ts` runs `build.mjs` as part of `npm test`. Before the site goes up:
 
 - `docs.passel.link`, which the static pages' footers link to as **Documentation**, must serve the DocFX site (`PublishDocs` pushes it to GitHub Pages).
 - The mobile app's **Privacy policy** and **Terms of service** tiles stay disabled until the pages are hosted; turn on `legalPagesPublished` in `settings_page.dart` then.
