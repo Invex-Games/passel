@@ -77,6 +77,42 @@ Once, as an administrator on the server, then on GitHub.
    | A proxy running on the host, such as nginx | `compose.yaml:compose.ports.yaml` (the API on `127.0.0.1:18080`, the web app on `127.0.0.1:18081`) | empty | Not used: Docker's port forwarding connects from the host's address on one of the API's two networks, which one depending on the Docker version, so the override trusts both, `172.30.0.1` and `172.30.1.1` |
 
    The API believes `X-Forwarded-For` and `X-Forwarded-Proto` from `PROXY_TRUSTED_CIDR` only. The stack's two networks have fixed subnets, `172.30.0.0/24` (`edge`) and `172.30.1.0/24` (`backend`), so no other Docker network on the server may use them. For the bundled edge, open 80/tcp, 443/tcp and 443/udp. Another proxy must pass the client address and scheme in those two headers, stream the event stream at `/api/packets/events` without buffering, keep it open for up to an hour and accept 25 MB uploads; It must also pass the client's original `Host` header (`API_HOST` for the API), since the API answers `400 Invalid Hostname` to any other. For nginx that is `proxy_set_header Host $host`, which nginx doesn't do by default (it sends the `proxy_pass` address, such as `127.0.0.1:18080`), then `proxy_buffering off`, `proxy_read_timeout 1h` and `client_max_body_size 32m`, besides the usual `proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for` and `X-Forwarded-Proto $scheme`. Caddy does all of it by default.
+
+   **IPv6 and the bundled edge.** The `edge` network is IPv4 only. On a server with an IPv6 address, Docker still publishes 80 and 443 on IPv6 too, and its userland proxy (`docker-proxy`) carries each IPv6 connection to the edge over IPv4, from the network's gateway, `172.30.0.1`. Caddy then sees every IPv6 client as that one address and passes it on in `X-Forwarded-For`, so the API logs it for all of them and counts all their unauthenticated requests against one rate limit. IPv6 is not turned on by default, since it needs settings that depend on the server. Pick one of these, in a file of your own such as `/opt/passel/compose.edge.yaml`, added to `COMPOSE_FILE` by its full path (`compose.yaml:/opt/passel/compose.edge.yaml`), since the release's files are replaced on every deploy:
+
+   - **IPv4 only.** Publish the edge's ports on IPv4 alone, and give `API_HOST` and `WEB_HOST` no AAAA record, so no client tries IPv6:
+     ```yaml
+     services:
+       edge:
+         ports: !override
+           - "0.0.0.0:80:80"
+           - "0.0.0.0:443:443"
+           - "0.0.0.0:443:443/udp"
+     ```
+   - **IPv6 on the edge network.** Give the network an IPv6 subnet of its own, a unique local (ULA) one such as `fdc4:9a3e:7b10::/64` or another `fd` prefix no other network on the server uses, and Docker forwards IPv6 clients to the edge with their own addresses. The edge needs a fixed IPv6 address like its IPv4 one, with dynamic addresses kept in the upper half, and the API must trust that address as well, since Caddy may reach `passel-api` over either:
+     ```yaml
+     networks:
+       edge:
+         enable_ipv6: true
+         ipam:
+           config: !override
+             - subnet: 172.30.0.0/24
+               gateway: 172.30.0.1
+               ip_range: 172.30.0.128/25
+             - subnet: fdc4:9a3e:7b10::/64
+               gateway: fdc4:9a3e:7b10::1
+               ip_range: fdc4:9a3e:7b10:0:8000::/65
+     services:
+       edge:
+         networks:
+           edge:
+             ipv4_address: 172.30.0.2
+             ipv6_address: fdc4:9a3e:7b10::2
+       api:
+         environment:
+           ForwardedHeaders__KnownNetworks__1: fdc4:9a3e:7b10::2/128
+     ```
+     The server's firewall must let IPv6 through to 80 and 443 as well. Changing the network's settings means recreating it, so `dc down` (the volumes stay) before the next deploy ([Troubleshooting](#troubleshooting-the-server)).
 7. **The `production` environment on GitHub** (Settings, Environments): required reviewers, and deployment branches limited to `main`. Add these to it:
 
    | Name | Kind | Value |
@@ -180,6 +216,7 @@ To restore, or to rehearse a restore on a spare server, from `/opt/passel/curren
 | Every request gets `401` | `GOOGLE_WEB_CLIENT_ID` or `CHROME_EXTENSION_CLIENT_ID` doesn't match the client the token was issued to |
 | File requests get `503`, while packets work | The parcels directory can't be written: the volume is full, or the directory belongs to root (it was created without `parcels-init`; deploying again fixes it) |
 | Rate limits hit everyone at once, or the API logs the proxy's address for every client | `PROXY_TRUSTED_CIDR` doesn't match the proxy, so the forwarded headers are ignored |
+| With the bundled edge, the API logs `172.30.0.1` for every IPv6 client, and they share one rate limit | The `edge` network has no IPv6, so Docker carries IPv6 clients to it from the gateway; see [IPv6 and the bundled edge](#server-setup) |
 | Clients can set their own address | The forwarded headers are applied twice: `ASPNETCORE_FORWARDEDHEADERS_ENABLED` must stay unset, or the API is reachable other than through the proxy |
 | `edge` fails with "address already in use" | Something else holds port 80 or 443 on the host |
 | A network fails to be created, saying its pool overlaps | Another Docker network on the server uses `172.30.0.0/24` or `172.30.1.0/24` |
@@ -195,7 +232,7 @@ Without the owner's server, the stack was run on a development machine as a sepa
 - The gate refusing `deploy local; id`, a tag with `;`, extra words and a second line, and `deploy.sh` refusing `x;rm`.
 - `backup.sh`, then the restore drill above onto empty volumes, with the data, the table owner, the grants and the files back.
 - In `compose.ports.yaml` mode, the forwarded headers believed from a request through the published port (HSTS sent for `X-Forwarded-Proto: https`) and ignored from another container on the `edge` network.
-- The bundled edge on a spare port, proxying both hosts, at its fixed address; and the `telemetry` profile, with the dashboard running without capabilities.
+- The bundled edge on a spare port, proxying both hosts at its fixed address with `NET_BIND_SERVICE` its only capability (with none, `caddy` cannot even start), across a restart with its certificates already stored; the IPv6 override above, with the edge at its fixed IPv6 address and the API trusting it; and the `telemetry` profile, with the dashboard running without capabilities.
 
 What only the server can show: the first pull from GHCR with the job's token, Let's Encrypt certificates for the real hosts, the deploy over SSH with the forced command, and the external-proxy setups.
 
