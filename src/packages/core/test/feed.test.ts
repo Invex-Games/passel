@@ -236,6 +236,78 @@ describe("live updates", () => {
     });
 });
 
+describe("live changes to a packet", () => {
+    const withPreview = (id: string): Packet => ({
+        id, type: "link", title: null, payload: "https://example.com", isImage: false,
+        preview: {title: `Preview ${id}`, description: null, imageUrl: null},
+    });
+
+    it("applyUpdated replaces the packet in place and saves it", async () => {
+        onFetch = async () => page(["a", "b", "c"]);
+        await feed.refresh();
+
+        feed.applyUpdated(withPreview("b"));
+
+        expect(ids()).toEqual(["a", "b", "c"]);
+        expect(feed.state.packets[1]).toEqual(withPreview("b"));
+        expect(cache.feed?.packets[1]).toEqual(withPreview("b"));
+    });
+
+    it("applyUpdated never adds a packet that isn't listed", async () => {
+        onFetch = async () => page(["a"]);
+        await feed.refresh();
+
+        feed.applyUpdated(withPreview("elsewhere"));
+
+        expect(ids()).toEqual(["a"]);
+    });
+
+    it("keeps a change that arrived while a fetch predating it was in flight", async () => {
+        const pending = deferred<PacketPage>();
+        let calls = 0;
+        onFetch = () => ++calls === 1 ? Promise.resolve(page(["a", "b"])) : pending.promise;
+        await feed.refresh();
+
+        const refresh = feed.refresh();
+        feed.applyUpdated(withPreview("a"));
+        pending.resolve(page(["a", "b"]));
+        await refresh;
+
+        expect(feed.state.packets[0]).toEqual(withPreview("a"));
+    });
+
+    it("a change to a packet that arrived live survives the fetch that follows", async () => {
+        const pending = deferred<PacketPage>();
+        let calls = 0;
+        onFetch = () => ++calls === 1 ? Promise.resolve(page(["a"])) : pending.promise;
+        await feed.refresh();
+
+        const sync = feed.syncLatest();
+        feed.applyCreated(text("live"));
+        feed.applyUpdated(withPreview("live"));
+        pending.resolve(page(["a"]));
+        await sync;
+
+        expect(ids()).toEqual(["live", "a"]);
+        expect(feed.state.packets[0]).toEqual(withPreview("live"));
+    });
+
+    it("a packet waiting to be undone comes back changed, and a deleted one stays deleted", async () => {
+        onFetch = async () => page(["a", "b"]);
+        await feed.refresh();
+
+        feed.hide("a");
+        feed.applyUpdated(withPreview("a"));
+        expect(ids()).toEqual(["b"]);
+        feed.unhide("a");
+        expect(feed.state.packets[0]).toEqual(withPreview("a"));
+
+        feed.applyDeleted("b");
+        feed.applyUpdated(withPreview("b"));
+        expect(ids()).toEqual(["a"]);
+    });
+});
+
 describe("delete with undo", () => {
     beforeEach(async () => {
         onFetch = async () => page(["a", "b", "c"]);

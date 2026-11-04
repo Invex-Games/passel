@@ -28,6 +28,19 @@ export interface Packet {
     payload: string;
     /** Whether a file packet holds an image (file packets only). */
     isImage: boolean;
+    /**
+     * What a link's page says about itself, once the API has fetched it (links only). Absent until then, and for
+     * good when the page gave nothing; it arrives with a packet-updated event, and the list has it from then on.
+     */
+    preview?: LinkPreview;
+}
+
+/** A link's preview, as parsed: at least one of the three is set. */
+export interface LinkPreview {
+    title: string | null;
+    description: string | null;
+    /** An absolute http(s) URL of an image on the linked site; the parser drops anything else. */
+    imageUrl: string | null;
 }
 
 export interface PacketPage {
@@ -145,6 +158,8 @@ export const FEED_PORT_NAME = "feed";
 export type LiveEvent =
     | { kind: "resync" }
     | { kind: "created"; packet: Packet }
+    /** A packet changed after it was created (a link got its preview): it is replaced where it is listed, never added. */
+    | { kind: "updated"; packet: Packet }
     | { kind: "deleted"; id: string };
 
 export type FeedPortMessage =
