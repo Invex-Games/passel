@@ -4,21 +4,26 @@ using Azure.Storage.Blobs.Models;
 using Azure.Storage.Blobs.Specialized;
 using Invex.Passel.WebApi.Options;
 using Invex.Passel.WebApi.Services;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 
 namespace Invex.Passel.WebApi.IntegrationTests;
 
 /// <summary>
-///     What the API relies on from a blob store, held against the real one on Azurite and the in-memory one the
-///     extra hosts use, so a test passing on the in-memory store means the same as one passing on Azurite. Each test
-///     uses keys of its own, and the Azure store a container of its own, so they share Azurite without seeing each
+///     What the API relies on from a blob store, held against the real one on Azurite, the filesystem store a
+///     self-hosted deployment uses and the in-memory one the extra hosts use, so a test passing on the in-memory store
+///     means the same as one passing on Azurite. Each test uses keys of its own, the Azure store a container of its
+///     own and the filesystem store a directory of its own, so they share Azurite and the disk without seeing each
 ///     other's blobs.
 /// </summary>
 [Collection(PasselApiCollection.Name)]
-public sealed class ParcelStoreContractTests(PasselApiFixture fixture)
+public sealed class ParcelStoreContractTests(PasselApiFixture fixture) : IDisposable
 {
     private const string Azure = "azure";
     private const string Memory = "memory";
+    private const string FileSystem = "filesystem";
+
+    private readonly List<string> _roots = [];
 
     private static CancellationToken CancellationToken =>
         TestContext.Current.CancellationToken;
@@ -33,8 +38,43 @@ public sealed class ParcelStoreContractTests(PasselApiFixture fixture)
                     ContainerName = $"contract-{Guid.NewGuid():N}",
                 })),
             Memory => new InMemoryParcelStore(),
+
+            // A directory that is not there yet, which the store creates on the first put as on a fresh volume
+            FileSystem => FileSystemStore(),
             _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, null),
         };
+
+    private FileSystemParcelStore FileSystemStore()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "passel-contract", Guid.NewGuid().ToString("N"));
+        _roots.Add(root);
+
+        return new(Microsoft.Extensions.Options.Options.Create(new ParcelOptions
+            {
+                Store = ParcelStoreKind.FileSystem,
+                FileSystemRoot = root,
+            }),
+            NullLogger<FileSystemParcelStore>.Instance);
+    }
+
+    public void Dispose()
+    {
+        foreach (var root in _roots)
+        {
+            try
+            {
+                if (Directory.Exists(root))
+                    Directory.Delete(root, recursive: true);
+            }
+            catch (IOException)
+            {
+                // A stream a failed test left open; the temp directory is cleared eventually anyway
+            }
+            catch (UnauthorizedAccessException)
+            {
+            }
+        }
+    }
 
     /// <summary>
     ///     The Azure store over a fresh container, with that container, to reach the blobs behind the store.
@@ -91,6 +131,7 @@ public sealed class ParcelStoreContractTests(PasselApiFixture fixture)
     [Theory]
     [InlineData(Azure)]
     [InlineData(Memory)]
+    [InlineData(FileSystem)]
     public async Task What_is_put_reads_back_seekable_with_its_length(string kind)
     {
         var store = Store(kind);
@@ -119,6 +160,7 @@ public sealed class ParcelStoreContractTests(PasselApiFixture fixture)
     [Theory]
     [InlineData(Azure)]
     [InlineData(Memory)]
+    [InlineData(FileSystem)]
     public async Task A_put_never_overwrites(string kind)
     {
         var store = Store(kind);
@@ -137,6 +179,7 @@ public sealed class ParcelStoreContractTests(PasselApiFixture fixture)
     [Theory]
     [InlineData(Azure)]
     [InlineData(Memory)]
+    [InlineData(FileSystem)]
     public async Task A_blob_that_is_not_there_reads_as_null(string kind)
     {
         var store = Store(kind);
@@ -152,6 +195,7 @@ public sealed class ParcelStoreContractTests(PasselApiFixture fixture)
     [Theory]
     [InlineData(Azure)]
     [InlineData(Memory)]
+    [InlineData(FileSystem)]
     public async Task A_delete_is_idempotent(string kind)
     {
         var store = Store(kind);
@@ -171,6 +215,7 @@ public sealed class ParcelStoreContractTests(PasselApiFixture fixture)
     [Theory]
     [InlineData(Azure)]
     [InlineData(Memory)]
+    [InlineData(FileSystem)]
     public async Task The_list_has_what_was_put_with_when_and_not_what_was_deleted(string kind)
     {
         var store = Store(kind);

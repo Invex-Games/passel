@@ -3,16 +3,38 @@ using System.ComponentModel.DataAnnotations;
 namespace Invex.Passel.WebApi.Options;
 
 /// <summary>
-///     How uploaded files are stored, checked, thumbnailed and swept, bound from the <c>Parcels</c> configuration
-///     section. The storage account itself comes from the <c>passel-blobs</c> connection string; the per-user limits
-///     are in <see cref="QuotaOptions" />.
+///     Where the bytes of uploaded files are kept, and how the files are checked, thumbnailed and swept, bound from
+///     the <c>Parcels</c> configuration section. <see cref="Store" /> picks the store: a directory on the local disk
+///     (<see cref="FileSystemRoot" />), or the Azure storage account behind the <c>passel-blobs</c> connection string,
+///     which is also what <see cref="ParcelStoreKind.Auto" /> picks when that connection string is set. The per-user
+///     limits are in <see cref="QuotaOptions" />.
 /// </summary>
 internal sealed class ParcelOptions : IValidatableObject
 {
     public const string SectionName = "Parcels";
 
     /// <summary>
-    ///     The blob container the files are stored in.
+    ///     Which store holds the bytes. <see cref="ParcelStoreKind.Auto" /> keeps them in Azure when the
+    ///     <c>passel-blobs</c> connection string is set and has no store otherwise, so every file request answers 503.
+    /// </summary>
+    public ParcelStoreKind Store { get; set; } = ParcelStoreKind.Auto;
+
+    /// <summary>
+    ///     The directory the files are kept in when <see cref="Store" /> is <see cref="ParcelStoreKind.FileSystem" />:
+    ///     an absolute path on a local disk, never a network share. It is created on the first upload if it is not
+    ///     there.
+    /// </summary>
+    public string? FileSystemRoot { get; set; }
+
+    /// <summary>
+    ///     Whether the <c>passel-blobs</c> connection string is set, which an explicit
+    ///     <see cref="ParcelStoreKind.AzureBlob" /> needs. Filled in from the connection strings when the options are
+    ///     configured, never bound from the section.
+    /// </summary>
+    internal bool BlobConnectionConfigured { get; set; }
+
+    /// <summary>
+    ///     The blob container the files are stored in, when they are stored in Azure.
     /// </summary>
     [Required]
     public string ContainerName { get; set; } = "parcels";
@@ -111,5 +133,39 @@ internal sealed class ParcelOptions : IValidatableObject
             yield return new($"{nameof(UploadingGrace)} must be shorter than {nameof(UnattachedLifetime)}, so an " +
                 "upload still in flight is never expired as unsent",
                 [nameof(UploadingGrace), nameof(UnattachedLifetime)]);
+
+        // Fully qualified rather than merely rooted: on Windows a path such as \parcels is rooted and still depends on
+        // the current drive
+        if (Store == ParcelStoreKind.FileSystem &&
+            (string.IsNullOrWhiteSpace(FileSystemRoot) || !Path.IsPathFullyQualified(FileSystemRoot)))
+            yield return new($"{nameof(Store)} {nameof(ParcelStoreKind.FileSystem)} needs {nameof(FileSystemRoot)} " +
+                "set to an absolute path", [nameof(FileSystemRoot)]);
+
+        // No silent fallback to no storage at all: a store asked for by name must be there
+        if (Store == ParcelStoreKind.AzureBlob && !BlobConnectionConfigured)
+            yield return new($"{nameof(Store)} {nameof(ParcelStoreKind.AzureBlob)} needs the passel-blobs " +
+                "connection string", [nameof(Store)]);
     }
+}
+
+/// <summary>
+///     The stores <see cref="ParcelOptions.Store" /> chooses between.
+/// </summary>
+internal enum ParcelStoreKind
+{
+    /// <summary>
+    ///     Azure when the <c>passel-blobs</c> connection string is set, and no store otherwise: what every host did
+    ///     before there was a choice, and what the AppHost and the Azure deployment still rely on.
+    /// </summary>
+    Auto,
+
+    /// <summary>
+    ///     The Azure storage account behind the <c>passel-blobs</c> connection string, which must be set.
+    /// </summary>
+    AzureBlob,
+
+    /// <summary>
+    ///     A directory on the local disk, <see cref="ParcelOptions.FileSystemRoot" />.
+    /// </summary>
+    FileSystem,
 }

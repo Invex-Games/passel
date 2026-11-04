@@ -53,6 +53,55 @@ public sealed class ParcelOptionsTests
     }
 
     [Fact]
+    public void The_store_is_chosen_by_the_connection_string_unless_it_is_named()
+    {
+        var options = new ParcelOptions();
+
+        Assert.Equal(ParcelStoreKind.Auto, options.Store);
+        Assert.Null(options.FileSystemRoot);
+    }
+
+    [Fact]
+    public void The_filesystem_store_without_a_root_is_refused()
+    {
+        var result = Assert.Single(Validate(new() { Store = ParcelStoreKind.FileSystem }));
+
+        Assert.Contains(nameof(ParcelOptions.FileSystemRoot), result.MemberNames);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    [InlineData("parcels")]
+    [InlineData("./parcels")]
+    public void The_filesystem_store_with_a_root_that_is_not_absolute_is_refused(string root)
+    {
+        var result = Assert.Single(Validate(new() { Store = ParcelStoreKind.FileSystem, FileSystemRoot = root }));
+
+        Assert.Contains(nameof(ParcelOptions.FileSystemRoot), result.MemberNames);
+    }
+
+    [Fact]
+    public void The_filesystem_store_with_an_absolute_root_is_valid()
+    {
+        Assert.Empty(Validate(new()
+        {
+            Store = ParcelStoreKind.FileSystem,
+            FileSystemRoot = Path.Combine(Path.GetTempPath(), "x"),
+        }));
+    }
+
+    [Fact]
+    public void The_azure_store_named_without_its_connection_string_is_refused()
+    {
+        var result = Assert.Single(Validate(new() { Store = ParcelStoreKind.AzureBlob }));
+
+        Assert.Contains(nameof(ParcelOptions.Store), result.MemberNames);
+
+        Assert.Empty(Validate(new() { Store = ParcelStoreKind.AzureBlob, BlobConnectionConfigured = true }));
+    }
+
+    [Fact]
     public void A_missing_container_name_is_refused()
     {
         var result = Assert.Single(Validate(new() { ContainerName = "" }));

@@ -7,10 +7,13 @@ namespace Invex.Passel.WebApi.Services;
 
 /// <summary>
 ///     Answers a failure of the file storage with a 503 problem saying to try again shortly: an error from the storage
-///     service (<see cref="RequestFailedException" />, alone or several of them after the client's retries) or a host
-///     with no storage configured (<see cref="ParcelStoreUnavailableException" />). Only file requests reach the
-///     storage, so texts and links keep working through an outage. Logged at Warning with the status and error code
-///     only: the storage's own messages carry blob addresses.
+///     service (<see cref="RequestFailedException" />, alone or several of them after the client's retries), a failure
+///     of the disk under the filesystem store (<see cref="ParcelStoreFailedException" />) or a host with no storage
+///     configured (<see cref="ParcelStoreUnavailableException" />). Only file requests reach the storage, so texts and
+///     links keep working through an outage. Logged at Warning with the status and error code, or the type and result
+///     code of the disk's error, only: the storage's own messages carry blob addresses, and the disk's carry paths.
+///     Other I/O errors are not storage failures: a client that stops sending its upload is an
+///     <see cref="IOException" /> as well.
 /// </summary>
 internal sealed partial class ParcelStoreUnavailableHandler(
     IProblemDetailsService problemDetailsService,
@@ -36,6 +39,9 @@ internal sealed partial class ParcelStoreUnavailableHandler(
         if (failed is RequestFailedException requestFailed)
             LogStorageFailed(httpContext.Request.Method, httpContext.Request.Path, requestFailed.Status,
                 requestFailed.ErrorCode);
+        else if (failed is ParcelStoreFailedException storeFailed)
+            LogStorageIoFailed(httpContext.Request.Method, httpContext.Request.Path, storeFailed.Operation,
+                storeFailed.Key, storeFailed.InnerException?.GetType().Name, storeFailed.InnerException?.HResult);
         else
             LogStorageMissing(httpContext.Request.Method, httpContext.Request.Path);
 
@@ -63,7 +69,7 @@ internal sealed partial class ParcelStoreUnavailableHandler(
     internal static bool IsStorageFailure(Exception exception) =>
         exception switch
         {
-            RequestFailedException or ParcelStoreUnavailableException => true,
+            RequestFailedException or ParcelStoreFailedException or ParcelStoreUnavailableException => true,
             AggregateException { InnerExceptions.Count: > 0 } aggregate => aggregate.InnerExceptions.All(IsStorageFailure),
             _ => false,
         };
@@ -71,6 +77,16 @@ internal sealed partial class ParcelStoreUnavailableHandler(
     [LoggerMessage(Level = LogLevel.Warning,
         Message = "File storage failed a request to {Method} {Path} with {Status} {ErrorCode}")]
     private partial void LogStorageFailed(string method, string path, int status, string? errorCode);
+
+    [LoggerMessage(Level = LogLevel.Warning,
+        Message = "File storage failed to {Operation} {Key} for a request to {Method} {Path} with {ExceptionType} {HResult}")]
+    private partial void LogStorageIoFailed(
+        string method,
+        string path,
+        string operation,
+        string key,
+        string? exceptionType,
+        int? hResult);
 
     [LoggerMessage(Level = LogLevel.Warning,
         Message = "A request to {Method} {Path} needed file storage, and none is configured")]
