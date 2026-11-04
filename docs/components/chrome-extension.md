@@ -63,10 +63,10 @@ The manifest's `omnibox` keyword is `passel`. Typing `passel` and a space in the
 | `activeTab` | Reading the address and title of the page the user asked to send, from the popup, a shortcut or a context menu. Granted only for that tab, only by that action. |
 | `contextMenus` | The three send entries in the page's context menu |
 | `identity` | Google sign-in through `chrome.identity.launchWebAuthFlow` |
-| `storage` | The ID token (session storage), the login hint and the feed cache (local storage) |
+| `storage` | The ID token (session storage), the login hint, the feed cache and whether the `tabs` permission was declined (local storage) |
 | `sidePanel` | The side panel. No install warning. |
 | `scripting` | Reading the text selected on the page for the send shortcut, by running one function in the tab. It only works where `activeTab` has been granted, so it reaches no page the user didn't act on. No install warning. |
-| `tabs`, optional | Asked for by the side panel the first time it sends the page: the panel stays open across tabs, and the `activeTab` grant doesn't follow it to the next one. Chrome shows its "Read your browsing history" prompt then, never at install. Declined, the side panel can still send a page Passel was opened from, and says how to send the others. |
+| `tabs`, optional | Asked for by the side panel the first time it sends the page: the panel stays open across tabs, and the `activeTab` grant doesn't follow it to the next one. Chrome shows its "Read your browsing history" prompt then, never at install. Chrome doesn't remember a refusal, so the panel does: once the prompt is declined, the panel doesn't ask by itself again, even in a panel opened later. It can still send a page Passel was opened from. For other pages it says why it can't send them and offers **Allow**, which shows the prompt again and sends the page once the permission is granted. |
 
 The only host permission is the API's origin (see [Build](#build)). The side panel and `sidePanel.open` need Chrome 116, so the manifest's `minimum_chrome_version` is 116.
 

@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import {beforeEach, describe, expect, it, vi} from "vitest";
 import type {PacketData} from "@passel/core";
-import {installChrome, type FakeChrome} from "./chrome.js";
+import {flushPromises, installChrome, type FakeChrome} from "./chrome.js";
 import {loadPopupPage, press, toastText, type} from "./popup-page.js";
 
 type Dom = Awaited<ReturnType<typeof loadPopupPage>>["dom"];
@@ -13,8 +13,9 @@ let dom: Dom;
 let signedIn: boolean;
 let send: ReturnType<typeof vi.fn<(data: PacketData, successMessage: string) => Promise<boolean>>>;
 
-async function open({sidePanel = false} = {}): Promise<void> {
+async function open({sidePanel = false, localData = {} as Record<string, unknown>} = {}): Promise<void> {
     fake = installChrome();
+    fake.storage.local.data = {...localData};
     const page = await loadPopupPage({sidePanel});
     dom = page.dom;
     signedIn = true;
@@ -22,6 +23,8 @@ async function open({sidePanel = false} = {}): Promise<void> {
     // Signed in, as the controller leaves the page: the field enabled and the buttons as the text allows.
     dom.freetextEl.disabled = false;
     page.composer.createComposer({isSignedIn: () => signedIn, send}).updateSendButtons();
+    // The side panel reads whether the tabs permission was declined as it opens.
+    await flushPromises();
 }
 
 describe("sending the page from the popup", () => {
@@ -85,6 +88,74 @@ describe("sending the page from the side panel", () => {
         dom.sendPageBtn.click();
 
         await vi.waitFor(() => expect(send).toHaveBeenCalled());
+        // Chrome couldn't ask, so the user didn't decline: the next send asks.
+        expect(fake.storage.local.data).toEqual({});
+    });
+
+    /** Clicks Send Current Page and waits for the click to be done with. */
+    async function sendPage(): Promise<void> {
+        dom.sendPageBtn.click();
+        await vi.waitFor(() => expect(dom.sendPageBtn.classList.contains("loading")).toBe(false));
+    }
+
+    it("asks once: declined, the next sends don't ask again, and still send a tab Passel was opened from", async () => {
+        fake.permissions.request.mockResolvedValue(false);
+        fake.tabs.query.mockResolvedValue([{title: "Widgets | Flutter"}]);
+
+        await sendPage();
+        expect(fake.storage.local.data).toEqual({tabsPermissionDeclined: true});
+
+        await sendPage();
+        expect(toastText()).toBe(
+            "To send pages from the side panel, allow Passel to see your tabs, or send this one from the toolbar button.");
+
+        fake.tabs.query.mockResolvedValue([PAGE]);
+        await sendPage();
+        expect(send).toHaveBeenCalledTimes(1);
+
+        expect(fake.permissions.request).toHaveBeenCalledTimes(1);
+        expect(fake.tabs.query).toHaveBeenCalledTimes(3);
+    });
+
+    it("doesn't ask in a side panel opened after an earlier decline", async () => {
+        await open({sidePanel: true, localData: {tabsPermissionDeclined: true}});
+        fake.tabs.query.mockResolvedValue([PAGE]);
+
+        await sendPage();
+
+        expect(fake.permissions.request).not.toHaveBeenCalled();
+        expect(send).toHaveBeenCalled();
+    });
+
+    it("offers Allow after a decline, which asks again straight from its click and sends the page once granted", async () => {
+        await open({sidePanel: true, localData: {tabsPermissionDeclined: true}});
+        fake.tabs.query.mockResolvedValue([{title: "Widgets | Flutter"}]);
+        await sendPage();
+        expect(dom.toastAction.textContent).toBe("Allow");
+        expect(dom.toastAction.classList.contains("hidden")).toBe(false);
+
+        fake.permissions.request.mockResolvedValue(true);
+        fake.tabs.query.mockResolvedValue([PAGE]);
+        dom.toastAction.click();
+        expect(fake.permissions.request).toHaveBeenCalledWith({permissions: ["tabs"]});
+
+        await vi.waitFor(() => expect(send).toHaveBeenCalledWith(
+            {$type: "Link", name: "Widgets | Flutter", url: PAGE.url}, "Page sent!"));
+        expect(fake.storage.local.data).toEqual({});
+    });
+
+    it("keeps not asking when Allow is declined too", async () => {
+        await open({sidePanel: true, localData: {tabsPermissionDeclined: true}});
+        fake.tabs.query.mockResolvedValue([{title: "Widgets | Flutter"}]);
+        await sendPage();
+
+        dom.toastAction.click();
+        await flushPromises();
+        expect(send).not.toHaveBeenCalled();
+
+        await sendPage();
+        expect(fake.permissions.request).toHaveBeenCalledTimes(1);
+        expect(fake.storage.local.data).toEqual({tabsPermissionDeclined: true});
     });
 });
 
