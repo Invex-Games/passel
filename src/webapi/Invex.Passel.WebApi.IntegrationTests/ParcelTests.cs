@@ -469,6 +469,38 @@ public sealed class ParcelTests(PasselApiFixture fixture)
         Assert.Equal(MaxParcelBytes, atLimit.Size);
     }
 
+    /// <summary>
+    ///     Further over the limit than one byte, the read that crosses it carries more than the one byte past it, and
+    ///     the count of the file still decides: the multipart reader must not refuse it first as a malformed body. With
+    ///     a length, the larger two are refused before the body is read; without one, all three are read until the
+    ///     count stops them.
+    /// </summary>
+    [Theory]
+    [InlineData(2, true)]
+    [InlineData(2, false)]
+    [InlineData(100 * 1024, true)]
+    [InlineData(100 * 1024, false)]
+    [InlineData(MaxParcelBytes, true)]
+    [InlineData(MaxParcelBytes, false)]
+    public async Task A_file_well_over_the_upload_limit_is_refused_with_413_and_nothing_is_kept(int over, bool withLength)
+    {
+        var user = PasselApiFixture.User("alice");
+        using var alice = fixture.Api.CreateClientFor(user);
+        var blobs = await CountBlobsAsync();
+
+        using var response = await alice.PostParcelAsync(RandomBytes(MaxParcelBytes + over),
+            "big.bin",
+            "application/octet-stream",
+            CancellationToken,
+            withLength);
+
+        Assert.Equal(("File too large", "Files can be at most 1 MB."),
+            await ReadProblemAsync(response, HttpStatusCode.RequestEntityTooLarge));
+
+        Assert.Equal(new ParcelQuotaUsage(0, 0), await UsageAsync(user));
+        Assert.Equal(blobs, await CountBlobsAsync());
+    }
+
     [Fact]
     public async Task A_body_declaring_more_than_the_limit_is_refused_before_it_is_read()
     {

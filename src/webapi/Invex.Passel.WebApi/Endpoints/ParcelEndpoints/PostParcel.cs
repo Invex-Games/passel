@@ -157,7 +157,10 @@ public static partial class ParcelEndpoints
                 {
                     HeadersLengthLimit = MaxPartHeadersLength,
                     HeadersCountLimit = MaxPartHeadersCount,
-                    BodyLengthLimit = options.MaxParcelBytes + 1,
+                    // No limit of the reader's own: it would refuse a read that crosses the limit before the count
+                    // saw the bytes, as a malformed body rather than a file too large. The count holds the file, and
+                    // Kestrel the body as a whole
+                    BodyLengthLimit = null,
                 },
                 encodingService,
                 cancellationToken);
