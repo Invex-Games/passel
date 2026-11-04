@@ -30,7 +30,7 @@ Azure names are derived from these and made unique per resource group, so the se
 2. Writes the Bicep with `aspire publish` and attaches it to the run as `AzureInfrastructure`, a record of what was provisioned.
 3. Runs `aspire deploy --environment Production`. Aspire provisions or updates every resource in the resource group, builds the two images with `dotnet publish` (the .NET SDK's container support) and pushes them with the version tag, updates the migration job and runs it, and only once the migration has succeeded updates the API's container app. Container Apps then starts the new revision and moves traffic to it when its readiness probe passes.
 
-If the migration fails, the deployment stops before the API is touched, and the running revision keeps serving. If a new revision never becomes ready (it refuses to start on a schema it doesn't expect, for example), the previous one keeps serving too.
+If the migration fails, the deployment stops before the API is touched, and the running revision keeps serving. If a new revision never becomes ready (a missing setting, for example), or the deployment fails after the migration, the previous revision keeps serving too, and can still restart: the API's startup check accepts a schema a newer migration has added to, and only refuses one that lacks something it needs.
 
 To see the Bicep without deploying, run `dotnet atom PublishAzureInfrastructure`; it writes the files to `atom-publish/AzureInfrastructure` without signing in to anything. Every pull request runs it too, so a change that breaks the Azure model fails in review.
 
@@ -133,9 +133,9 @@ Three kinds of role exist on the server:
 | `passel_app` | Nobody logs in as it | Select, insert, update and delete rows, use the sequences and run the functions in the store's schema |
 | The API's role, named after `passel-api-identity` | The API, with an Entra token | What `passel_app` can, nothing more |
 
-`db-migrate` ([Web API](../components/web-api.md#schema-in-production)) creates the last two the first time and is a no-op for them afterwards. The API checks at startup that the schema matches what it expects and refuses to start otherwise, so a revision deployed without its migration never takes traffic.
+`db-migrate` ([Web API](../components/web-api.md#schema-in-production)) creates the last two the first time and is a no-op for them afterwards. The API checks at startup that the database has every table, column and function it needs and refuses to start otherwise, so a revision deployed without its migration never takes traffic. Anything more, such as a column or an index a newer release added, it accepts.
 
-A schema change reaches production at the next deployment, applied by the migration job while the previous revision is still serving. So a change must work with the code before it as well as after it: add a column or a table in one release, and stop using or drop the old one in a later one. Marten's `CreateOrUpdate` adds and alters, but never drops a table.
+A schema change reaches production at the next deployment, applied by the migration job while the previous revision is still serving. So a change must work with the code before it as well as after it: add a column or a table in one release, and stop using the old one in a later one. `db-migrate` never drops a table, or a column, index or foreign key the configuration no longer declares; it logs each one it leaves in place. To remove one for good, once no release that could be rolled back to uses it, write the statement with `db-patch`, which lists the drops `db-migrate` leaves out, and run it yourself as described below.
 
 To see what a migration would change without applying it, run `db-patch` against the database: it writes the statements to a file instead of running them. Locally it uses the connection string from `ConnectionStrings__passel-db` or the API's `appsettings.Development.json` ([Configuration](../reference/configuration.md#web-api)):
 
@@ -162,7 +162,19 @@ The deployment keeps pointing at the original server, so copy what you need back
 
 ## Rolling back
 
-Run the Deploy workflow on the commit to go back to (the branch or tag picker of the run dialog). Its image is rebuilt with its own version tag, and its migration job brings the schema back to what that release expects: an index or a function the newer release added is dropped, a table it added stays and is ignored. A column is never dropped, and the API's startup check counts one it doesn't know as a mismatch, so rolling back across a release that added columns to a table means dropping them by hand first; `db-patch` (below) writes the statements.
+The Deploy workflow deploys only from `main`: the `production` environment refuses any other branch, and the run dialog offers branches and tags, never a commit. So a rollback is a change on `main`:
+
+1. Revert the commits to undo (`git revert`) in a pull request, and merge it once `Validate` passes.
+2. Run the Deploy workflow from `main`. It deploys the reverted code under a new version, and its migration puts back the older release's Marten functions. Tables, columns, indexes and foreign keys the newer release added stay where they are, data included, and the older code ignores them.
+
+While that goes through review, the API alone can go back to an earlier image straight away, without a deployment. The older code starts on the newer schema, because the startup check accepts what a newer migration added. List the revisions with their images, then point the container app at the one to go back to:
+
+```
+az containerapp revision list --name invex-passel-webapi --resource-group <rg> --query "[].{name:name, created:properties.createdTime, image:properties.template.containers[0].image}" --output table
+az containerapp update --name invex-passel-webapi --resource-group <rg> --image <image>
+```
+
+The next Deploy run replaces that image with whatever `main` holds, so follow it with the revert.
 
 ## Logs and telemetry
 
@@ -177,7 +189,7 @@ None of it holds what users send: requests are recorded by path (packet ids, nev
 | The workflow fails at Azure login | The federated credential's subject doesn't match: the job must run in the `production` environment of this repository |
 | `AuthorizationFailed` while provisioning | A missing role on the resource group, or an unregistered resource provider |
 | The deployment fails at `run-database-migration` | The migration job failed; its output is in the workspace. The API was not changed |
-| The new revision never becomes ready | The API refused to start: usually a schema it doesn't expect, or a missing setting. The revision's console log says which |
+| The new revision never becomes ready | The API refused to start: usually a missing setting, or a schema that lacks a table, column or function it needs (the migration didn't run). The revision's console log says which |
 | Every request gets `400 Invalid Hostname` | The host isn't in `AllowedHosts`: set `API_DOMAIN` for a custom domain |
 | Every request gets `401` | `GOOGLE_WEB_CLIENT_ID` or `CHROME_EXTENSION_CLIENT_ID` doesn't match the client the token was issued to |
 
@@ -188,6 +200,6 @@ Nothing has been deployed yet: the setup above needs the owner's subscription. W
 - `aspire publish` writes the Bicep, `aspire do diagnostics` shows the migration ordered between the job and the API, and the run-mode model of the AppHost is the same as before.
 - The image built with `dotnet publish -t:PublishContainer` runs `db-migrate` against PostgreSQL 18 and then serves `/health` as a role that only has DML, refusing other hosts with 400.
 - The API in Production refuses to start on a database that hasn't been migrated, and starts with an Application Insights connection string set.
-- The integration tests run the migration twice and the API on the DML-only role, and check that the role can't create or alter tables.
+- The integration tests run the migration twice and the API on the DML-only role, and check that the role can't create or alter tables. They also run a newer release's migration, then this build's API on it, then this build's migration as a rollback, and check that the API serves throughout and the newer column survives.
 
 What can only be checked in Azure: the first `aspire deploy`, the Entra mapping of the API's role (a security label set by `db-migrate`), the probes' `Host` header, and the custom-domain steps.
