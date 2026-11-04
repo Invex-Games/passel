@@ -49,6 +49,10 @@ if command -v flock >/dev/null; then
     flock -n 9 || refuse "another deploy is running"
 fi
 
+# The CLI also looks for plugins in its configuration directory, so a Compose plugin installed for this user alone
+# (~/.docker/cli-plugins) would vanish with the empty one. Its plugins are linked in; nothing else of the user's
+# configuration, credentials least of all, is
+user_plugins="${DOCKER_CONFIG:-${HOME:-}/.docker}/cli-plugins"
 DOCKER_CONFIG=$(mktemp -d)
 export DOCKER_CONFIG
 staging=""
@@ -62,6 +66,10 @@ cleanup() {
 }
 
 trap cleanup EXIT
+
+if [ -d "$user_plugins" ]; then
+    ln -s "$user_plugins" "$DOCKER_CONFIG/cli-plugins"
+fi
 
 # The token is the workflow's own, valid only while its job runs. Without one, only images already on the server or
 # public ones can be used
