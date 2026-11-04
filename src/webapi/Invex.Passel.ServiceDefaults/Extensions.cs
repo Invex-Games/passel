@@ -1,5 +1,6 @@
 // ReSharper disable CheckNamespace
 
+using Azure.Monitor.OpenTelemetry.AspNetCore;
 using JetBrains.Annotations;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
@@ -20,6 +21,11 @@ public static class Extensions
 {
     private const string HealthEndpointPath = "/health";
     private const string AlivenessEndpointPath = "/alive";
+
+    /// <summary>
+    ///     Set by the Azure deployment, from the Application Insights resource.
+    /// </summary>
+    private const string ApplicationInsightsConnectionStringKey = "APPLICATIONINSIGHTS_CONNECTION_STRING";
 
     /// <summary>
     ///     The packet event stream. A stream stays open for up to a day, so its request would hold an activity open,
@@ -98,22 +104,22 @@ public static class Extensions
 
         private TBuilder AddOpenTelemetryExporters()
         {
-            var useOtlpExporter = !string.IsNullOrWhiteSpace(builder.Configuration["OTEL_EXPORTER_OTLP_ENDPOINT"]);
-
-            if (useOtlpExporter)
+            // Application Insights in Azure (the deployment sets its connection string), the Aspire dashboard's OTLP
+            // endpoint locally. One or the other: both exporters take over the whole OpenTelemetry pipeline
+            if (!string.IsNullOrWhiteSpace(builder.Configuration[ApplicationInsightsConnectionStringKey]))
+            {
+                builder
+                    .Services
+                    .AddOpenTelemetry()
+                    .UseAzureMonitor();
+            }
+            else if (!string.IsNullOrWhiteSpace(builder.Configuration["OTEL_EXPORTER_OTLP_ENDPOINT"]))
             {
                 builder
                     .Services
                     .AddOpenTelemetry()
                     .UseOtlpExporter();
             }
-
-            // Uncomment the following lines to enable the Azure Monitor exporter (requires the Azure.Monitor.OpenTelemetry.AspNetCore package)
-            //if (!string.IsNullOrEmpty(builder.Configuration["APPLICATIONINSIGHTS_CONNECTION_STRING"]))
-            //{
-            //    builder.Services.AddOpenTelemetry()
-            //       .UseAzureMonitor();
-            //}
 
             return builder;
         }

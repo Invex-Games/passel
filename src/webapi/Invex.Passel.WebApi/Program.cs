@@ -1,9 +1,16 @@
+using Npgsql;
+
 var builder = WebApplication.CreateBuilder(args);
 
 builder.AddServiceDefaults();
 builder.AddWebDefaults();
 
-builder.AddNpgsqlDataSource(connectionName: "passel-db");
+// A connection string without a password (the Azure deployment) signs in with a Microsoft Entra token for the managed
+// identity; one with a password (the AppHost's container, the tests) is used as it is. Nothing uses Kerberos, so
+// Npgsql does not try GSS encryption first (and log that the library for it is missing)
+builder.AddAzureNpgsqlDataSource("passel-db",
+    configureDataSourceBuilder: dataSource =>
+        dataSource.ConnectionStringBuilder.GssEncryptionMode = GssEncryptionMode.Disable);
 
 builder
     .Services

@@ -8,7 +8,7 @@
     <PackageReference Include="Asp.Versioning.Http" />
     <PackageReference Include="Asp.Versioning.Mvc.ApiExplorer" />
     <PackageReference Include="Asp.Versioning.OpenApi" />
-    <PackageReference Include="Aspire.Npgsql" />
+    <PackageReference Include="Aspire.Azure.Npgsql" />
     <PackageReference Include="Dunet" />
     <PackageReference Include="Google.Apis.Auth.AspNetCore3" />
     <PackageReference Include="JetBrains.Annotations" />
@@ -36,6 +36,9 @@
 
   <ItemGroup>
     <Content Update="appsettings.Development.json">
+      <DependentUpon>appsettings.json</DependentUpon>
+    </Content>
+    <Content Update="appsettings.Production.json">
       <DependentUpon>appsettings.json</DependentUpon>
     </Content>
   </ItemGroup>
