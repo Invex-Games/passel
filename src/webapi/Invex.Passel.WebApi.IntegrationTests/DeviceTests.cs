@@ -487,6 +487,24 @@ public sealed class DeviceTests(PasselApiFixture fixture)
         Assert.Null((await alice.ListedAsync(device.Id, CancellationToken)).PushUpdatedAt);
     }
 
+    [Fact]
+    public async Task A_push_token_the_API_cannot_read_is_refused_with_a_problem()
+    {
+        using var alice = fixture.Api.CreateClientFor(PasselApiFixture.User("alice"));
+        var device = await alice.RegisterAsync(DeviceApi.NewInstallationId(), "Browser", "web", HttpStatusCode.Created, CancellationToken);
+
+        // PushSubscription.toJSON() as the browser gives it, without the discriminator, and an unknown kind
+        foreach (var body in new[]
+                 {
+                     $$"""{ "endpoint": "{{NewPushEndpoint()}}", "expirationTime": null, "keys": { "p256dh": "BNcRdreALRFXTkOOUHK1EtK2wtaz5Ry4YfYCA_0QTpQtUbVlUls0VJXg7A8u-Ts1XbjhazAkj7I99e8QcYP7DkM", "auth": "tBHItJI5svbpez7KI4CCXg" } }""",
+                     """{ "$type": "Apns", "token": "abc" }""",
+                 })
+            using (var response = await alice.PutPushAsync(device.Id, JsonNode.Parse(body)!.AsObject(), CancellationToken))
+                await AssertProblemAsync(response, HttpStatusCode.BadRequest);
+
+        Assert.Null((await alice.ListedAsync(device.Id, CancellationToken)).PushUpdatedAt);
+    }
+
     /// <summary>
     ///     The response is a problem with the expected status; returns its <c>detail</c>.
     /// </summary>

@@ -1,4 +1,5 @@
 using System.Net;
+using System.Text.Json.Serialization.Metadata;
 using Microsoft.AspNetCore.HostFiltering;
 using Microsoft.AspNetCore.OpenApi;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
@@ -27,6 +28,11 @@ internal static class HostWebExtensions
 
             // Clients aren't required to send the "$type" discriminator as the first property
             options.SerializerOptions.AllowOutOfOrderMetadataProperties = true;
+
+            // ...and a body without it gets a 400, like any other body the API cannot read
+            options.SerializerOptions.TypeInfoResolver = (options.SerializerOptions.TypeInfoResolver ??
+                                                          new DefaultJsonTypeInfoResolver())
+                .WithAddedModifier(RequireTypeDiscriminator);
         });
 
         // Development would otherwise throw on a body it can't read, and the exception handler would answer 500; this
@@ -65,6 +71,20 @@ internal static class HostWebExtensions
                 if (isDevelopment)
                     options.Document.AddDocumentTransformer(HostDevExtensions.AddDevelopmentSecuritySchemes);
             });
+    }
+
+    /// <summary>
+    ///     Makes a union body without its <c>$type</c> discriminator unreadable JSON. System.Text.Json cannot create
+    ///     the abstract base of a union and says so with a <see cref="NotSupportedException" />, which body binding
+    ///     does not count as a bad request, so it reached the exception handler as a 500. A
+    ///     <see cref="JsonException" /> gets the 400 of any other body the API cannot read.
+    /// </summary>
+    internal static void RequireTypeDiscriminator(JsonTypeInfo typeInfo)
+    {
+        if (typeInfo is { Kind: JsonTypeInfoKind.Object, PolymorphismOptions: not null, CreateObject: null } &&
+            typeInfo.Type.IsAbstract)
+            typeInfo.CreateObject = () =>
+                throw new JsonException($"A {typeInfo.Type.Name} must say what it is with a \"$type\" discriminator.");
     }
 
     /// <summary>

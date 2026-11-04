@@ -113,15 +113,16 @@ public sealed class PacketTests(PasselApiFixture fixture)
         Assert.Equal(400, problem.RootElement.GetProperty("status").GetInt32());
     }
 
-    [Fact]
-    public async Task A_packet_the_API_cannot_read_is_refused_with_a_problem()
+    // An unknown kind, and a body without one, fail before validation; the suite runs in Development, which answers
+    // as Production does
+    [Theory]
+    [InlineData("""{ "$type": "Video", "url": "https://example.com" }""")]
+    [InlineData("""{ "url": "https://example.com" }""")]
+    public async Task A_packet_the_API_cannot_read_is_refused_with_a_problem(string body)
     {
         using var alice = fixture.Api.CreateClientFor(PasselApiFixture.User("alice"));
 
-        // An unknown kind fails before validation; the suite runs in Development, which answers as Production does
-        using var content = new StringContent("""{ "$type": "Video", "url": "https://example.com" }""",
-            Encoding.UTF8,
-            "application/json");
+        using var content = new StringContent(body, Encoding.UTF8, "application/json");
         using var response = await alice.PostAsync(PacketApi.PacketsPath, content, CancellationToken);
         using var problem = await PacketApi.ReadJsonAsync(response, HttpStatusCode.BadRequest, CancellationToken);
 

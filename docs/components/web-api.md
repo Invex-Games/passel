@@ -16,7 +16,7 @@
 
 Every packet endpoint lives under `/api/packets` and every device endpoint under `/api/devices`; all of them require authentication and are API version 1. The user id is the Google `sub` claim. See [HTTP API](../reference/http-api.md) for the endpoints themselves.
 
-A body that cannot be read (malformed JSON, an unknown discriminator or enum name, a missing required property) is a 400 in every environment: the web defaults turn off `RouteHandlerOptions.ThrowOnBadRequest`, which Development otherwise sets, so the request never reaches the exception handler as a 500, and the status code pages write the problem.
+A body that cannot be read (malformed JSON, a missing or unknown discriminator, an unknown enum name, a missing required property) is a 400 in every environment: the web defaults turn off `RouteHandlerOptions.ThrowOnBadRequest`, which Development otherwise sets, so the request never reaches the exception handler as a 500, and the status code pages write the problem. A union body without its `$type` needs one more step, because System.Text.Json cannot create the union's abstract base and reports that with a `NotSupportedException`, which body binding does not count as a bad request. A type info modifier on the HTTP JSON options (`HostWebExtensions.RequireTypeDiscriminator`) gives every such base a factory that throws a `JsonException` instead.
 
 ## Abuse controls
 

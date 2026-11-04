@@ -10,7 +10,7 @@ Each endpoint is rate limited per user, over a sliding window of one minute. The
 
 Each user also has a quota: by default 5,000 packets and 50 MB of stored packets. A create at the packet limit gets **429**, and one that would pass the byte limit gets **413 Content Too Large**; the problem `detail` says which, and that deleting packets frees the quota. Neither has a `Retry-After`, because only a delete changes the outcome. In the same way, a user may have 20 devices; registering another gets **429** without a `Retry-After` until one is removed.
 
-A request body the API cannot read at all (malformed JSON, an unknown `$type` or enum value, a missing required field) gets **400** with a plain problem; one it can read but refuses gets **400** with a validation problem, whose `errors` are keyed by field.
+A request body the API cannot read at all (malformed JSON, a missing or unknown `$type`, an unknown enum value, a missing required field) gets **400** with a plain problem; one it can read but refuses gets **400** with a validation problem, whose `errors` are keyed by field.
 
 ## Packets
 
@@ -173,6 +173,8 @@ Extension and web devices send their Web Push subscription, which is `PushSubscr
 | `keys.auth` | Base64url of a 16-byte secret |
 
 Send the token again whenever the client starts or the platform gives it a new one; `pushUpdatedAt` then shows how fresh it is. A push token belongs to one device at a time. When a token (an FCM token, or a subscription's endpoint) is set on a device while another device holds it, under this account or any other, the other device loses it. That is what happens when one installation signs in as another account: its token follows the new account, and the old account's device stops receiving pushes. Nothing in the response says that a token moved.
+
+A body without `$type`, such as `PushSubscription.toJSON()` sent as it is, gets **400**.
 
 ### `DELETE /api/devices/{id}/push`
 
