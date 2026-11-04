@@ -46,6 +46,19 @@ builder
     // The popup of this development build can also sign in as a development user (the API's Dev scheme)
     .WithEnvironment("DEV_SIGN_IN", "true");
 
+// The web app's dev server, which rebuilds src/web/dist on every change and reloads the page. Its port is fixed and not
+// proxied, so the origin stays http://localhost:5245: Google only signs in from the Authorized JavaScript origins of
+// the web client, and the API lets the web app's origin through CORS. The web app signs in with the web client id,
+// the API's main audience, and its development build can also sign in as a development user
+var webApp = builder
+    .AddJavaScriptApp("web-app", "../../web", "dev")
+    .WithHttpEndpoint(port: 5245, env: "PORT", isProxied: false)
+    .WithEnvironment("API_URL", ReferenceExpression.Create($"{webApi.GetEndpoint("https")}/api/packets"))
+    .WithEnvironment("GOOGLE_CLIENT_ID", googleClientId)
+    .WithEnvironment("DEV_SIGN_IN", "true");
+
+webApi.WithEnvironment("Cors__AllowedOrigins__0", webApp.GetEndpoint("http"));
+
 // Gives a phone that is not on USB a stable public URL for the API, to use as the mobile app's API_BASE_URL.
 // It only runs when started from the dashboard: while it runs, anyone with the URL can reach the Development
 // API (docs/getting-started/running-locally.md says what that exposes). A phone on USB and an emulator use
