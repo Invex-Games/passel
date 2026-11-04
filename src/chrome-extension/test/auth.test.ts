@@ -20,6 +20,7 @@ import {
     getStoredToken,
     getToken,
     isExpired,
+    onSessionChanged,
     parseJwtPayload,
     refreshToken,
     signIn,
@@ -27,6 +28,10 @@ import {
 } from "../src/auth.js";
 
 const CACHED_FEED = {packets: [], nextCursor: null, lastSyncedAt: 1};
+
+// The module is loaded once, so the listener stays registered; mockReset clears its calls for each test.
+const sessionChanged = vi.fn();
+onSessionChanged(() => sessionChanged());
 
 let fake: FakeChrome;
 
@@ -229,6 +234,72 @@ describe("tokens", () => {
         fake.storage.session.data.idToken = idToken();
         await refreshToken(false);
         expect(fake.storage.session.data.idToken).toBeUndefined();
+    });
+});
+
+describe("telling the service worker the session changed", () => {
+    it("tells it after a sign-out, once everything is forgotten", async () => {
+        fake.storage.local.data = {loginHint: "ann@example.com", packetsCache: CACHED_FEED};
+        sessionChanged.mockImplementation(() => {
+            expect(fake.storage.local.data).toEqual({});
+        });
+
+        await signOut();
+
+        expect(sessionChanged).toHaveBeenCalledTimes(1);
+    });
+
+    it("tells it after an explicit sign-in, once the token is stored, even as the same account", async () => {
+        fake.storage.local.data.loginHint = "ann@example.com";
+        googleSignsIn({email: "ann@example.com"});
+        sessionChanged.mockImplementation(() => {
+            expect(fake.storage.session.data.idToken).toBeTypeOf("string");
+        });
+
+        await signIn();
+
+        expect(sessionChanged).toHaveBeenCalledTimes(1);
+    });
+
+    it("tells it after an interactive sign-in that a send needed, as from a shortcut while signed out", async () => {
+        googleSignsIn();
+
+        expect(await getToken(true)).toBeTypeOf("string");
+        expect(sessionChanged).toHaveBeenCalledTimes(1);
+    });
+
+    it("doesn't tell it about a silent refresh of the same account", async () => {
+        fake.storage.local.data.loginHint = "ann@example.com";
+        googleSignsIn({email: "ann@example.com"});
+
+        await refreshToken(false);
+
+        expect(sessionChanged).not.toHaveBeenCalled();
+    });
+
+    it("tells it when a silent refresh comes back as another account", async () => {
+        fake.storage.local.data.loginHint = "ann@example.com";
+        googleSignsIn({email: "bob@example.com"});
+
+        await refreshToken(false);
+
+        expect(sessionChanged).toHaveBeenCalledTimes(1);
+    });
+
+    it("doesn't tell it about a sign-in that failed", async () => {
+        fake.identity.launchWebAuthFlow.mockRejectedValue(new Error("The user did not approve access."));
+
+        await expect(signIn()).rejects.toThrow();
+
+        expect(sessionChanged).not.toHaveBeenCalled();
+    });
+
+    it("tells it after signing in as a development user", async () => {
+        config.devSignIn = true;
+
+        await signIn("alice");
+
+        expect(sessionChanged).toHaveBeenCalledTimes(1);
     });
 });
 

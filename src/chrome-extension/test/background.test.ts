@@ -6,11 +6,12 @@ const auth = vi.hoisted(() => ({
     getAccountName: vi.fn(),
     getLastDevUser: vi.fn(),
     getToken: vi.fn(),
+    onSessionChanged: vi.fn(),
     signIn: vi.fn(),
     signOut: vi.fn(),
 }));
 const api = vi.hoisted(() => ({deletePacket: vi.fn(), getPackets: vi.fn(), sendPacket: vi.fn()}));
-const live = vi.hoisted(() => ({addFeedPort: vi.fn()}));
+const live = vi.hoisted(() => ({addFeedPort: vi.fn(), restartLive: vi.fn()}));
 vi.mock("../src/auth.js", () => auth);
 vi.mock("../src/api.js", () => api);
 vi.mock("../src/live.js", () => live);
@@ -130,6 +131,28 @@ describe("messages from the popup", () => {
         fake.runtime.onConnect.fire(fakePort("feed", "another-extension"));
 
         expect(live.addFeedPort.mock.calls).toEqual([[feed]]);
+    });
+});
+
+describe("session changes", () => {
+    /** Signs someone in or out, as auth.ts reports it. */
+    function sessionChanges(): void {
+        const [[listener]] = auth.onSessionChanged.mock.calls;
+        listener();
+    }
+
+    it("start the event stream again and tell every open page", () => {
+        sessionChanges();
+
+        expect(live.restartLive).toHaveBeenCalledTimes(1);
+        expect(fake.runtime.sendMessage).toHaveBeenCalledWith({type: "sessionChanged"});
+    });
+
+    it("don't mind that no page is open to hear it", async () => {
+        fake.runtime.sendMessage.mockRejectedValue(new Error("Could not establish connection. Receiving end does not exist."));
+
+        expect(sessionChanges).not.toThrow();
+        await flushPromises();
     });
 });
 

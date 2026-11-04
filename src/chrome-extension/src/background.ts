@@ -1,6 +1,6 @@
-import {getAccountName, getLastDevUser, getToken, signIn, signOut} from "./auth.js";
+import {getAccountName, getLastDevUser, getToken, onSessionChanged, signIn, signOut} from "./auth.js";
 import {deletePacket, getPackets, sendPacket} from "./api.js";
-import {addFeedPort} from "./live.js";
+import {addFeedPort, restartLive} from "./live.js";
 import {registerCommands, type SendDeps} from "./commands.js";
 import {registerOmnibox} from "./omnibox.js";
 import {FEED_PORT_NAME} from "@passel/core";
@@ -10,6 +10,7 @@ import type {
     DeletePacketResponse,
     ExtensionMessage,
     PacketData,
+    PageMessage,
     SendPacketResponse,
 } from "@passel/core";
 
@@ -141,6 +142,17 @@ chrome.runtime.onMessage.addListener((message: ExtensionMessage, sender, sendRes
 chrome.runtime.onConnect.addListener(port => {
     if (port.sender?.id !== chrome.runtime.id || port.name !== FEED_PORT_NAME) return;
     addFeedPort(port);
+});
+
+// ── Session changes (to every open page) ──────────────────
+
+// A sign-in or sign-out from any page, shortcut or menu reaches every open page, signed in or not, which then
+// shows the session the service worker has now. The event stream starts again with that session.
+onSessionChanged(() => {
+    restartLive();
+    chrome.runtime.sendMessage({type: "sessionChanged"} satisfies PageMessage).catch(() => {
+        // No page is open to hear it.
+    });
 });
 
 // ── Deleting with undo ────────────────────────────────────

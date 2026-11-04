@@ -33,6 +33,24 @@ type AuthMode = "silent" | "reauth" | "selectAccount";
 
 let pendingAuth: Promise<string> | null = null;
 
+// ── Session changes ───────────────────────────────────────
+
+const sessionListeners: (() => void)[] = [];
+
+/**
+ * Calls `listener` after every sign-out, and after every sign-in the user saw or that brought another account:
+ * an explicit one, an interactive one a send needed, or a silent one that came back as someone else. A silent
+ * refresh of the same account isn't a change. The service worker tells every open page, and opens the event
+ * stream again, since the one open was opened with the previous session's token.
+ */
+export function onSessionChanged(listener: () => void): void {
+    sessionListeners.push(listener);
+}
+
+function sessionChanged(): void {
+    for (const listener of sessionListeners) listener();
+}
+
 // ── Token storage ─────────────────────────────────────────
 
 /** Returns the stored token if it isn't (nearly) expired. Never prompts. */
@@ -89,6 +107,7 @@ export async function signOut(): Promise<void> {
     await chrome.storage.session.remove(TOKEN_KEY);
     await chrome.storage.local.remove([LOGIN_HINT_KEY, DEV_USER_KEY]);
     await clearFeedCache();
+    sessionChanged();
 }
 
 async function getLoginHint(): Promise<string | null> {
@@ -113,6 +132,7 @@ async function signInAsDevUser(devUser: string): Promise<string> {
     await chrome.storage.session.remove(TOKEN_KEY);
     await chrome.storage.local.remove(LOGIN_HINT_KEY);
     await chrome.storage.local.set({[DEV_USER_KEY]: user, [LAST_DEV_USER_KEY]: user});
+    sessionChanged();
     return devToken(user);
 }
 
@@ -189,6 +209,7 @@ async function runAuthFlow(mode: AuthMode): Promise<string> {
 
     await chrome.storage.session.set({[TOKEN_KEY]: idToken});
     await chrome.storage.local.set({[LOGIN_HINT_KEY]: newLoginHint});
+    if (mode !== "silent" || loginHint !== newLoginHint) sessionChanged();
     return idToken;
 }
 

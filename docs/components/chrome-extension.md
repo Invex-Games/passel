@@ -16,7 +16,7 @@ Sends from a shortcut, the address bar or a context menu show their outcome on t
 
 | File | Responsibility |
 |---|---|
-| `background.ts` | The service worker. Handles context menus, routes messages from the popup, schedules deletes so they still happen after the popup closes, and shows badge feedback. |
+| `background.ts` | The service worker. Handles context menus, routes messages from the popup, schedules deletes so they still happen after the popup closes, shows badge feedback, and tells every open page when someone signs in or out. |
 | `commands.ts` | The keyboard commands the service worker handles: sending the page or its selection, and opening the side panel. |
 | `omnibox.ts` | The `passel` address bar keyword: the suggestion that says what Enter will send, and sending it. |
 | `popup.ts` | The entry point of the popup and the side panel, which are the same page; it starts `popup/controller.ts`. Every API call and sign-in request goes to the service worker. |
@@ -27,7 +27,7 @@ Sends from a shortcut, the address bar or a context menu show their outcome on t
 | `popup.css` | The styles of the popup and, under `body.side-panel`, of the side panel. It imports the design tokens from `@passel/ui`, and esbuild inlines them into `dist/popup.css`. |
 | `auth.ts` | Google sign-in through `chrome.identity.launchWebAuthFlow`, using the implicit flow with `response_type=id_token`; in a development build with `DEV_SIGN_IN`, also signing in as a development user through the API's `Dev` scheme. |
 | `api.ts` | Authenticated fetches. On a 401 it refreshes the token and retries once. Also the packet endpoints and the server-sent events (SSE) stream. |
-| `live.ts` | Keeps one SSE connection open while a popup is open, and reconnects with backoff. |
+| `live.ts` | Keeps one SSE connection open while a popup or the side panel is open, reconnects with backoff, and opens it again with the new session after a sign-in or sign-out. |
 | `cache.ts` | The feed cache in `chrome.storage.local`. |
 
 From `@passel/core` (`src/packages/core`), shared with the web app to come: `feed.ts` (`FeedStore`: the feed's state, including paging, merging live events and undo), `packets.ts` (parsing the wire format), `sse.ts` (the SSE parser), `authorization.ts` (`Bearer` for a Google ID token, `Dev <user>` for a development user) and `types.ts` (the wire, message and cache types). None of them touches `chrome.*` or the DOM, and their tests run there.
@@ -39,6 +39,8 @@ The feed cache holds only the first page (50 packets) and the cursor after it, s
 ## The side panel
 
 `build.mjs` writes `dist/sidepanel.html` from `static/popup.html`, with a `side-panel` class on the body, so the side panel runs the popup's own script and markup and the two can't drift apart. The class is all that differs: `popup.css` sizes the page to the panel and keeps the composer in view, the popup's button for opening the side panel is hidden, and the composer asks for the `tabs` permission before sending the page (see [Permissions](#permissions)). The side panel holds a live connection to the service worker like the popup, so the feed stays live for as long as the panel is open.
+
+Because the panel stays open, a sign-in or sign-out can happen elsewhere while it shows a feed: in a popup opened beside it, or through a shortcut, the `passel` keyword or a context menu that needed a sign-in. `auth.ts` reports every sign-out, and every sign-in that the user saw or that brought another account (a silent refresh of the same account is not reported). The service worker then starts the event stream again with the new session, since the stream it had open was opened with the previous token and the API would keep it open until that token expires. It also sends a `sessionChanged` message to every open page, signed in or not. Each page asks for the auth state again. If the account it shows has changed, it forgets its feed, shows the new session and fetches that account's feed, so one account's packets are never shown or cached under another.
 
 ## Keyboard shortcuts
 

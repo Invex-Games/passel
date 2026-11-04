@@ -3,6 +3,7 @@ import type {
     AuthStateResponse,
     FeedPortMessage,
     PacketData,
+    PageMessage,
     SendPacketResponse,
     SignInMessage,
     SignInResponse,
@@ -45,6 +46,8 @@ const MAX_RESYNC_DELAY_MS = 3000;
 
 export function startPopup(): void {
     let signedIn = false;
+    /** The signed-in account as the service worker names it, while signed in. */
+    let account: string | undefined;
     let live = false;
 
     const feedView = createFeedView({
@@ -151,6 +154,7 @@ export function startPopup(): void {
     function setAuthState(state: AuthStateResponse): void {
         const wasSignedIn = signedIn;
         signedIn = state.signedIn;
+        account = signedIn ? state.email : undefined;
         userEmailEl.textContent = state.email || "Signed in";
 
         authSignedOut.classList.toggle("hidden", signedIn);
@@ -176,6 +180,33 @@ export function startPopup(): void {
         feedView.render();
     }
 
+    /**
+     * Moves the page to a session that has just begun or ended, here or elsewhere, forgetting the feed unless the
+     * page already shows that account signed in. A sign-in here and the service worker's word of it both arrive,
+     * in either order: the second finds the account shown already and changes nothing, so it can't wipe the feed
+     * fetched for it.
+     */
+    function showSession(state: AuthStateResponse): void {
+        if (state.signedIn && signedIn && state.email === account) return;
+
+        const wasSignedIn = signedIn;
+        void feedView.clear();
+        setAuthState(state);
+        // Still signed in, as someone else: setAuthState only fetches on a sign-in from signed out.
+        if (wasSignedIn && signedIn) void feedView.refresh(false);
+    }
+
+    // Someone signed in or out elsewhere: the other page, a shortcut, the passel keyword or a context menu. The
+    // service worker tells every open page, signed in or not; this one asks it who is signed in now. Every page
+    // also hears the messages other pages send the service worker, which are left alone.
+    chrome.runtime.onMessage.addListener((message: unknown, sender) => {
+        if (sender.id !== chrome.runtime.id || (message as Partial<PageMessage> | null)?.type !== "sessionChanged") return;
+        sendMessage<AuthStateResponse>({action: "getAuthState"}).then(state => {
+            if (state) showSession(state);
+        }, () => {
+        });
+    });
+
     async function send(data: PacketData, successMessage: string): Promise<boolean> {
         const response = await sendMessage<SendPacketResponse>({action: "sendPacket", data});
         if (response?.signedOut) setAuthState({signedIn: false});
@@ -195,10 +226,9 @@ export function startPopup(): void {
         try {
             const response = await sendMessage<SignInResponse>(message);
             if (response?.success) {
-                // The account may have changed (the picker, or another development user), so don't keep
-                // showing the previous feed.
-                await feedView.clear();
-                setAuthState({signedIn: true, email: response.email});
+                // The account may have changed (the picker, or another development user), so the previous feed
+                // isn't kept.
+                showSession({signedIn: true, email: response.email});
                 showSuccess("Signed in!");
             } else {
                 showError(response?.error || "Sign-in failed.");
@@ -223,8 +253,7 @@ export function startPopup(): void {
 
     signOutBtn.addEventListener("click", async () => {
         await sendMessage<SignOutResponse>({action: "signOut"});
-        setAuthState({signedIn: false});
-        await feedView.clear();
+        showSession({signedIn: false});
         showSuccess("Signed out.");
     });
 

@@ -152,6 +152,12 @@ export type FeedPortMessage =
     | { type: "event"; event: LiveEvent }
     | { type: "signedOut" };
 
+/**
+ * From the service worker to every open page (the popup, the side panel), signed in or not. `sessionChanged`:
+ * someone signed in or out, from any page, shortcut or menu, so each page asks for the auth state again.
+ */
+export type PageMessage = { type: "sessionChanged" };
+
 // The feed as a client caches it between runs: the first page and the cursor after it.
 
 export interface CachedFeed {

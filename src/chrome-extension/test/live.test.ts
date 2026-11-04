@@ -20,6 +20,7 @@ vi.mock("../src/api.js", () => api);
 
 let streams: Stream[];
 let addFeedPort: (port: chrome.runtime.Port) => void;
+let restartLive: () => void;
 
 beforeEach(async () => {
     installChrome();
@@ -37,7 +38,7 @@ beforeEach(async () => {
 
     // The module keeps its ports and stream between calls, so each test starts from a fresh copy.
     vi.resetModules();
-    ({addFeedPort} = await import("../src/live.js"));
+    ({addFeedPort, restartLive} = await import("../src/live.js"));
 });
 
 afterEach(() => {
@@ -208,6 +209,59 @@ describe("reconnecting", () => {
 
         // Signed in again, the popup reconnects its port.
         connect();
+        expect(api.watchEvents).toHaveBeenCalledTimes(2);
+    });
+});
+
+describe("a change of session", () => {
+    it("ends the stream opened with the old session and opens one for every page still holding a port", async () => {
+        // The side panel and a popup beside it; the popup signs out and signs in as someone else.
+        const panel = connect();
+        const popup = connect();
+        streams[0].send({kind: "resync"});
+
+        popup.disconnect();
+        restartLive();
+
+        expect(streams[0].signal.aborted).toBe(true);
+        expect(api.watchEvents).toHaveBeenCalledTimes(2);
+        expect(messages(panel).at(-1)).toEqual({type: "status", live: false});
+
+        // The old stream ending isn't a failure to retry.
+        streams[0].fail(new DOMException("aborted", "AbortError"));
+        await vi.advanceTimersByTimeAsync(120_000);
+        expect(api.watchEvents).toHaveBeenCalledTimes(2);
+
+        // Events reach the panel from the new stream only.
+        const packet = {id: "p2", type: "text" as const, title: null, payload: "Eggs", isImage: false};
+        streams[1].send({kind: "created", packet});
+        expect(messages(panel).at(-1)).toEqual({type: "event", event: {kind: "created", packet}});
+    });
+
+    it("tells every page when the new session is a signed-out one", async () => {
+        const panel = connect();
+
+        restartLive();
+        streams[1].fail(new api.SignedOutError("You're not signed in."));
+        await flushPromises();
+
+        expect(messages(panel).at(-1)).toEqual({type: "signedOut"});
+        await vi.advanceTimersByTimeAsync(120_000);
+        expect(api.watchEvents).toHaveBeenCalledTimes(2);
+    });
+
+    it("opens no stream while no page holds a port, and drops a waiting retry", async () => {
+        const port = connect();
+        await failStream();
+
+        restartLive();
+        expect(api.watchEvents).toHaveBeenCalledTimes(2);
+        // The retry that was waiting doesn't open a third.
+        await vi.advanceTimersByTimeAsync(120_000);
+        expect(api.watchEvents).toHaveBeenCalledTimes(2);
+
+        port.disconnect();
+        restartLive();
         expect(api.watchEvents).toHaveBeenCalledTimes(2);
     });
 });

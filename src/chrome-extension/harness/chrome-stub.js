@@ -115,6 +115,11 @@
                 return {success: false, error: "unknown action"};
             },
             connect: ({name}) => (port = makePort(name)),
+            // The service worker's word that the session changed elsewhere; nothing here sends it.
+            onMessage: {
+                addListener() {
+                },
+            },
         },
         storage: {local: storageArea({}), session: storageArea({})},
         // The side panel asks for the tabs permission before sending the page; here it's always granted.
