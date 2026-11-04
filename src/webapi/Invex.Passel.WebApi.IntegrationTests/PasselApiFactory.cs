@@ -18,14 +18,16 @@ namespace Invex.Passel.WebApi.IntegrationTests;
 ///     from <see cref="CreateClientFor" /> are signed in through the Development <c>Dev</c> scheme. With
 ///     <paramref name="migratedSchema" />, the API treats the schema as every other environment does: it applies
 ///     nothing and checks at startup that the schema has what it needs, so it can run on a role that has only DML.
-///     Files go to the blob storage at <paramref name="blobConnectionString" />, or, without one, to an
-///     <see cref="InMemoryParcelStore" />. <paramref name="settings" /> are applied last, over the factory's own.
+///     Files go to the blob storage at <paramref name="blobConnectionString" />, or, without one, to
+///     <paramref name="parcelStore" /> when it is given and an <see cref="InMemoryParcelStore" /> otherwise.
+///     <paramref name="settings" /> are applied last, over the factory's own.
 /// </summary>
 internal sealed class PasselApiFactory(
     string connectionString,
     bool migratedSchema = false,
     string? blobConnectionString = null,
-    IReadOnlyDictionary<string, string?>? settings = null)
+    IReadOnlyDictionary<string, string?>? settings = null,
+    IParcelStore? parcelStore = null)
     : WebApplicationFactory<Program>
 {
     /// <summary>
@@ -109,7 +111,7 @@ internal sealed class PasselApiFactory(
 
             // Hosts started beside the shared one have no blob storage of their own
             if (blobConnectionString is null)
-                services.Replace(ServiceDescriptor.Singleton<IParcelStore>(new InMemoryParcelStore()));
+                services.Replace(ServiceDescriptor.Singleton<IParcelStore>(parcelStore ?? new InMemoryParcelStore()));
 
             services.AddSingleton<ILinkPreviewAddressPolicy, LoopbackAllowingAddressPolicy>();
 

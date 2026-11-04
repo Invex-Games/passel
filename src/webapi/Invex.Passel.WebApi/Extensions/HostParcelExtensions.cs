@@ -12,7 +12,7 @@ internal static class HostParcelExtensions
 
     /// <summary>
     ///     Uploaded files: their options, the blob store their bytes go to, what checks and thumbnails them on the way
-    ///     in, and the quota on them. Kept apart from <see cref="HostDatabaseExtensions.AddPasselDatabase" />,
+    ///     in, the quota on them, and the sweep that expires and erases them. Kept apart from <see cref="HostDatabaseExtensions.AddPasselDatabase" />,
     ///     which hosts without storage call too.
     /// </summary>
     public static void AddPasselParcels(this WebApplicationBuilder builder)
@@ -48,6 +48,9 @@ internal static class HostParcelExtensions
             .AddSingleton<IParcelQuotaService, ParcelQuotaService>()
             .AddSingleton<ParcelSweepSignal>()
             .AddSingleton<IParcelSweepSignal>(services => services.GetRequiredService<ParcelSweepSignal>())
-            .AddScoped<IParcelStoreService, ParcelStoreService>();
+            .AddScoped<IParcelStoreService, ParcelStoreService>()
+            .AddScoped<ParcelSweep>()
+            .AddScoped<IParcelSweep>(services => services.GetRequiredService<ParcelSweep>())
+            .AddHostedService<ParcelSweepWorker>();
     }
 }

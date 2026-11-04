@@ -13,9 +13,11 @@ namespace Invex.Passel.WebApi.IntegrationTests;
 
 /// <summary>
 ///     Uploaded files through the real API, against a real database and Azurite: uploading, the checks on the way
-///     in, the quotas, downloads and thumbnails, discarding, sending a file in a packet and deleting that packet. The
-///     factory holds files to 1 MiB, a user to 3 MiB of them and five unsent files, so every limit is cheap to reach.
-///     The tests act as users of their own, so the quotas of one never see another.
+///     in, the quotas, downloads and thumbnails, discarding, sending a file in a packet and deleting that packet, and
+///     the sweep that expires and erases files. The factory holds files to 1 MiB, a user to 3 MiB of them and five
+///     unsent files, so every limit is cheap to reach. The tests act as users of their own, so the quotas of one never
+///     see another. The shared host's sweep is off; the tests that need it run it themselves, at a time of their
+///     choosing, which reaches the parcels of every test before them too, so they assert only on their own.
 /// </summary>
 [Collection(PasselApiCollection.Name)]
 public sealed class ParcelTests(PasselApiFixture fixture)
@@ -33,6 +35,33 @@ public sealed class ParcelTests(PasselApiFixture fixture)
         Assert.True(fixture.Api.Services.GetRequiredService<IIdEncodingService>().TryDecode(parcelId, out var id));
 
         return id;
+    }
+
+    /// <summary>
+    ///     Runs the sweep as of <paramref name="now" />, in a scope of its own as the worker does, until it finds
+    ///     nothing more to expire or erase: the shared database holds the files of every test before this one.
+    /// </summary>
+    private async Task SweepAsync(DateTimeOffset now)
+    {
+        for (var run = 0; run < 20; run++)
+        {
+            await using var scope = fixture.Api.Services.CreateAsyncScope();
+            var result = await scope.ServiceProvider.GetRequiredService<ParcelSweep>().RunOnceAsync(now, CancellationToken);
+
+            Assert.Equal(0, result.Failed);
+
+            if (result is { Expired: 0, Erased: 0 })
+                return;
+        }
+
+        Assert.Fail("The sweep kept finding work.");
+    }
+
+    private async Task<Parcel?> LoadParcelAsync(Guid id)
+    {
+        await using var session = fixture.Api.Services.GetRequiredService<IDocumentStore>().QuerySession();
+
+        return await session.LoadAsync<Parcel>(id, CancellationToken);
     }
 
     private Task<ParcelQuotaUsage> UsageAsync(string userId) =>
@@ -832,7 +861,7 @@ public sealed class ParcelTests(PasselApiFixture fixture)
     }
 
     [Fact]
-    public async Task Deleting_a_file_packet_makes_its_file_unavailable_at_once()
+    public async Task Deleting_a_file_packet_makes_its_file_unavailable_at_once_and_erases_it()
     {
         var user = PasselApiFixture.User("alice");
         using var alice = fixture.Api.CreateClientFor(user);
@@ -868,6 +897,303 @@ public sealed class ParcelTests(PasselApiFixture fixture)
 
         Assert.Equal(new ParcelQuotaUsage(0, 0), await UsageAsync(user));
         Assert.Equal(HttpStatusCode.NotFound, await alice.DeletePacketAsync(packet.Id, CancellationToken));
+
+        // The delete woke the sweep, which is off on this host; run as it would, it erases the bytes and the document
+        var id = Decode(parcel.ParcelId);
+
+        Assert.NotNull(await ReadBlobAsync(ParcelKeys.Original(id)));
+        Assert.NotNull(await ReadBlobAsync(ParcelKeys.Thumbnail(id)));
+
+        await SweepAsync(DateTimeOffset.UtcNow);
+
+        Assert.Null(await Store.OpenReadAsync(ParcelKeys.Original(id), CancellationToken));
+        Assert.Null(await Store.OpenReadAsync(ParcelKeys.Thumbnail(id), CancellationToken));
+        Assert.Null(await LoadParcelAsync(id));
+    }
+
+    [Fact]
+    public async Task An_unsent_upload_expires_after_an_hour_and_is_erased()
+    {
+        var user = PasselApiFixture.User("alice");
+        using var alice = fixture.Api.CreateClientFor(user);
+        var now = DateTimeOffset.UtcNow;
+
+        var unsent = await alice.UploadAsync(TestImages.Png(600, 300), "waiting.png", "image/png", CancellationToken);
+        var sentParcel = await alice.UploadAsync(TestImages.Png(600, 300), "sent.png", "image/png", CancellationToken);
+        var packet = await alice.SendFileAsync(sentParcel.ParcelId, null, CancellationToken);
+
+        // An upload whose instance stopped part way, as the sweep finds it
+        var stuck = NewParcel(user, ParcelStatus.Uploading);
+
+        await using (var session = fixture.Api.Services.GetRequiredService<IDocumentStore>().LightweightSession())
+        {
+            session.Insert(stuck);
+            await session.SaveChangesAsync(CancellationToken);
+        }
+
+        // Past the grace an upload has to finish, and well within the hour an unsent file waits
+        await SweepAsync(now + TimeSpan.FromMinutes(16));
+
+        Assert.Null(await LoadParcelAsync(stuck.Id));
+
+        using (var waiting = await alice.DownloadParcelAsync(unsent.ParcelId, CancellationToken))
+            Assert.Equal(HttpStatusCode.OK, waiting.StatusCode);
+
+        // Past the hour
+        await SweepAsync(now + TimeSpan.FromHours(2));
+
+        var unsentId = Decode(unsent.ParcelId);
+
+        using (var expired = await alice.DownloadParcelAsync(unsent.ParcelId, CancellationToken))
+            Assert.Equal(HttpStatusCode.NotFound, expired.StatusCode);
+
+        using (var send = await alice.CreateFileAsync(unsent.ParcelId, null, CancellationToken))
+            Assert.Equal(NoSuchFileToSend, await ReadFieldErrorAsync(send, "parcelId"));
+
+        Assert.Null(await Store.OpenReadAsync(ParcelKeys.Original(unsentId), CancellationToken));
+        Assert.Null(await Store.OpenReadAsync(ParcelKeys.Thumbnail(unsentId), CancellationToken));
+        Assert.Null(await LoadParcelAsync(unsentId));
+
+        // A sent file never expires
+        using (var kept = await alice.DownloadParcelAsync(sentParcel.ParcelId, CancellationToken))
+            Assert.Equal(HttpStatusCode.OK, kept.StatusCode);
+
+        using (var thumbnail = await alice.GetThumbnailAsync(sentParcel.ParcelId, CancellationToken))
+            Assert.Equal(HttpStatusCode.OK, thumbnail.StatusCode);
+
+        Assert.Equal([packet], (await alice.ListAsync(null, CancellationToken)).Packets);
+        Assert.Equal(new ParcelQuotaUsage(0, sentParcel.Size), await UsageAsync(user));
+    }
+
+    /// <summary>
+    ///     The sweep finds expired files with a query, and writes each one from what that query read. A file sent
+    ///     between the two must make the write lose, not be expired under its packet: the sweep's own steps are run
+    ///     with the send in between.
+    /// </summary>
+    [Fact]
+    public async Task The_sweep_cannot_expire_a_file_that_was_sent_after_it_found_it()
+    {
+        var user = PasselApiFixture.User("alice");
+        using var alice = fixture.Api.CreateClientFor(user);
+        var later = DateTimeOffset.UtcNow + TimeSpan.FromHours(2);
+
+        // Whatever earlier tests left unsent goes first, so the one batch found below holds this test's file
+        await SweepAsync(later);
+
+        var parcel = await alice.UploadAsync(TestImages.Png(600, 300), "raced.png", "image/png", CancellationToken);
+        var id = Decode(parcel.ParcelId);
+
+        await using var scope = fixture.Api.Services.CreateAsyncScope();
+        var sweep = scope.ServiceProvider.GetRequiredService<ParcelSweep>();
+
+        var found = Assert.Single(await sweep.FindExpirableAsync(later, CancellationToken), candidate => candidate.Id == id);
+
+        Assert.Null(found.AttachedPacketId);
+
+        var packet = await alice.SendFileAsync(parcel.ParcelId, null, CancellationToken);
+
+        Assert.False(await sweep.ExpireAsync(found, later, CancellationToken));
+
+        // Still sent, and still there
+        var stored = await LoadParcelAsync(id);
+
+        Assert.Equal((ParcelStatus.Uploaded, Decode(packet.Id)), (stored?.Status, stored?.AttachedPacketId));
+
+        using (var download = await alice.DownloadParcelAsync(parcel.ParcelId, CancellationToken))
+            Assert.Equal(HttpStatusCode.OK, download.StatusCode);
+
+        // The session goes on to sweep normally, and the sent file is no longer one it takes
+        Assert.DoesNotContain(await sweep.FindExpirableAsync(later, CancellationToken), candidate => candidate.Id == id);
+
+        await SweepAsync(later);
+
+        Assert.Equal([packet], (await alice.ListAsync(null, CancellationToken)).Packets);
+        Assert.NotNull(await ReadBlobAsync(ParcelKeys.Original(id)));
+    }
+
+    [Fact]
+    public async Task The_orphan_scan_removes_blobs_without_a_parcel_and_releases_parcels_whose_packet_is_gone()
+    {
+        using var alice = fixture.Api.CreateClientFor(PasselApiFixture.User("alice"));
+
+        // Bytes with no parcel, as a crash between storing them and recording the parcel would leave
+        var stray = Guid.CreateVersion7();
+        const string foreign = "not-a-parcel";
+
+        foreach (var key in new[] { ParcelKeys.Original(stray), ParcelKeys.Thumbnail(stray), foreign })
+            await Store.PutAsync(key, new MemoryStream(RandomBytes(10)), "application/octet-stream", CancellationToken);
+
+        // A sent file whose packet went without it, as a delete that skipped the parcel would leave it
+        var parcel = await alice.UploadAsync(TestImages.Png(600, 300), "left.png", "image/png", CancellationToken);
+        var packet = await alice.SendFileAsync(parcel.ParcelId, null, CancellationToken);
+        var id = Decode(parcel.ParcelId);
+
+        await using (var session = fixture.Api.Services.GetRequiredService<IDocumentStore>().LightweightSession())
+        {
+            session.Delete<Packet>(Decode(packet.Id));
+            await session.SaveChangesAsync(CancellationToken);
+        }
+
+        using (var dangling = await alice.DownloadParcelAsync(parcel.ParcelId, CancellationToken))
+            Assert.Equal(HttpStatusCode.OK, dangling.StatusCode);
+
+        ParcelOrphanResult result;
+
+        await using (var scope = fixture.Api.Services.CreateAsyncScope())
+            result = await scope
+                .ServiceProvider
+                .GetRequiredService<ParcelSweep>()
+                .ScanOrphansAsync(DateTimeOffset.UtcNow + TimeSpan.FromHours(3), CancellationToken);
+
+        Assert.True(result.DanglingReleased >= 1, $"{result}");
+        Assert.True(result.BlobsDeleted >= 2, $"{result}");
+
+        Assert.Null(await Store.OpenReadAsync(ParcelKeys.Original(stray), CancellationToken));
+        Assert.Null(await Store.OpenReadAsync(ParcelKeys.Thumbnail(stray), CancellationToken));
+
+        // A name the API never writes is not the scan's to delete
+        Assert.NotNull(await ReadBlobAsync(foreign));
+
+        // The released file is gone at once, and its bytes with the next sweep
+        using (var released = await alice.DownloadParcelAsync(parcel.ParcelId, CancellationToken))
+            Assert.Equal(HttpStatusCode.NotFound, released.StatusCode);
+
+        Assert.Equal(ParcelStatus.Deleted, (await LoadParcelAsync(id))?.Status);
+
+        await SweepAsync(DateTimeOffset.UtcNow);
+
+        Assert.Null(await Store.OpenReadAsync(ParcelKeys.Original(id), CancellationToken));
+        Assert.Null(await LoadParcelAsync(id));
+
+        // Bytes younger than the minimum age may be an upload in flight, and are left alone
+        var young = ParcelKeys.Original(Guid.CreateVersion7());
+        await Store.PutAsync(young, new MemoryStream(RandomBytes(10)), "application/octet-stream", CancellationToken);
+
+        await using (var scope = fixture.Api.Services.CreateAsyncScope())
+            await scope
+                .ServiceProvider
+                .GetRequiredService<ParcelSweep>()
+                .ScanOrphansAsync(DateTimeOffset.UtcNow, CancellationToken);
+
+        Assert.NotNull(await ReadBlobAsync(young));
+
+        foreach (var key in new[] { foreign, young })
+            await Store.DeleteAsync(key, CancellationToken);
+    }
+
+    [Fact]
+    public async Task Storage_being_down_answers_503_for_files_while_texts_still_work()
+    {
+        var connectionString = await fixture.CreateEmptyDatabaseAsync("passel_parcels_down", CancellationToken);
+        var user = PasselApiFixture.User("alice");
+
+        await using var api = new PasselApiFactory(connectionString, parcelStore: new FailingParcelStore());
+        using var alice = api.CreateClientFor(user);
+
+        using (var upload = await alice.PostParcelAsync(TestImages.Png(16, 16), "a.png", "image/png", CancellationToken))
+        {
+            Assert.Equal(("File storage unavailable", "Files can't be stored or fetched right now. Try again shortly."),
+                await ReadProblemAsync(upload, HttpStatusCode.ServiceUnavailable));
+            Assert.Equal(TimeSpan.FromSeconds(30), upload.Headers.RetryAfter?.Delta);
+        }
+
+        // The failed upload holds nothing against the user
+        Assert.Equal(new ParcelQuotaUsage(0, 0),
+            await api.Services.GetRequiredService<IParcelQuotaService>().GetUsageAsync(user, CancellationToken));
+
+        // A file recorded before the storage went down cannot be fetched either, and its bytes wait to be erased
+        var uploaded = NewParcel(user, ParcelStatus.Uploaded);
+        var deleted = NewParcel(user, ParcelStatus.Deleted);
+
+        await using (var session = api.Services.GetRequiredService<IDocumentStore>().LightweightSession())
+        {
+            session.Insert(uploaded, deleted);
+            await session.SaveChangesAsync(CancellationToken);
+        }
+
+        var encoding = api.Services.GetRequiredService<IIdEncodingService>();
+
+        using (var download = await alice.DownloadParcelAsync(encoding.Encode(uploaded.Id), CancellationToken))
+            Assert.Equal(HttpStatusCode.ServiceUnavailable, download.StatusCode);
+
+        await using (var scope = api.Services.CreateAsyncScope())
+        {
+            var result = await scope
+                .ServiceProvider
+                .GetRequiredService<ParcelSweep>()
+                .RunOnceAsync(DateTimeOffset.UtcNow, CancellationToken);
+
+            Assert.Equal((0, 0), (result.Expired, result.Erased));
+            Assert.True(result.Failed >= 1, $"{result}");
+
+            await using var check = api.Services.GetRequiredService<IDocumentStore>().QuerySession();
+
+            Assert.NotNull(await check.LoadAsync<Parcel>(deleted.Id, CancellationToken));
+        }
+
+        // Everything that is not a file works as ever, the health check included
+        var text = await alice.CreateTextAsync(null, "still here", CancellationToken);
+
+        Assert.Equal([text], (await alice.ListAsync(null, CancellationToken)).Packets);
+
+        using var health = await alice.GetAsync("/health", CancellationToken);
+
+        Assert.Equal("Healthy", await health.Content.ReadAsStringAsync(CancellationToken));
+    }
+
+    [Fact]
+    public async Task With_the_sweep_on_a_deleted_file_is_erased_within_seconds()
+    {
+        var connectionString = await fixture.CreateEmptyDatabaseAsync("passel_parcels_sweep", CancellationToken);
+        var store = new InMemoryParcelStore();
+
+        await using var api = new PasselApiFactory(connectionString,
+            settings: new Dictionary<string, string?>
+            {
+                ["Parcels:SweepEnabled"] = "true",
+            },
+            parcelStore: store);
+        using var alice = api.CreateClientFor(PasselApiFixture.User("alice"));
+        var encoding = api.Services.GetRequiredService<IIdEncodingService>();
+
+        var sent = await alice.UploadAsync(TestImages.Png(600, 300), "sent.png", "image/png", CancellationToken);
+        var packet = await alice.SendFileAsync(sent.ParcelId, null, CancellationToken);
+        var discarded = await alice.UploadAsync(RandomBytes(10), "mistake.bin", "application/octet-stream",
+            CancellationToken);
+
+        var keys = new[] { sent, discarded }
+            .Select(parcel => encoding.TryDecode(parcel.ParcelId, out var id)
+                ? id
+                : throw new InvalidOperationException($"{parcel.ParcelId} is not an id."))
+            .SelectMany(id => new[] { ParcelKeys.Original(id), ParcelKeys.Thumbnail(id) })
+            .ToList();
+
+        // The image's original and thumbnail, and the other file's original
+        Assert.Equal(3, await CountAsync(store, keys));
+
+        // The sweep runs every five minutes; only the deletes' pokes can make it run within the test
+        Assert.Equal(HttpStatusCode.NoContent, await alice.DeletePacketAsync(packet.Id, CancellationToken));
+        Assert.Equal(HttpStatusCode.NoContent, await alice.DiscardParcelAsync(discarded.ParcelId, CancellationToken));
+
+        var deadline = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(10);
+
+        while (await CountAsync(store, keys) > 0)
+        {
+            Assert.True(DateTimeOffset.UtcNow < deadline, "The deleted files were not erased within 10 seconds.");
+
+            await Task.Delay(50, CancellationToken);
+        }
+    }
+
+    private static async Task<int> CountAsync(IParcelStore store, IEnumerable<string> keys)
+    {
+        var count = 0;
+
+        foreach (var key in keys)
+            if (await store.OpenReadAsync(key, CancellationToken) is not null)
+                count++;
+
+        return count;
     }
 
     private static Parcel NewParcel(string userId, ParcelStatus status) =>
