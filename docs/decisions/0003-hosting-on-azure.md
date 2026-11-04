@@ -1,6 +1,6 @@
 # ADR 0003: Hosting the API on Azure
 
-**Status:** proposed, November 2026. The owner still has to confirm the subscription, the region and the services below, then do the one-off setup at the end; until then the Deploy workflow has nothing to run against. **Decides:** roadmap packages 0.A2 (deploying the API) and 0.A3 (the production schema and startup), within the Azure choice of [ADR 0002](0002-product-decisions.md).
+**Status:** superseded by [ADR 0004](0004-hosting-on-docker-compose.md), November 2026: Passel runs on Docker Compose on the owner's server instead, and the Azure code and the Deploy workflow stay in place unused. Before that it was proposed, November 2026. The owner still has to confirm the subscription, the region and the services below, then do the one-off setup at the end; until then the Deploy workflow has nothing to run against. **Decides:** roadmap packages 0.A2 (deploying the API) and 0.A3 (the production schema and startup), within the Azure choice of [ADR 0002](0002-product-decisions.md).
 
 ## Context
 
