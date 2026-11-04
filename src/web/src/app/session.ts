@@ -14,8 +14,10 @@ import {
 // new tab can offer One Tap to the same person; there is no other way to mint a new token without them.
 //
 // A development build with DEV_SIGN_IN can instead sign in as a development user (the API's Dev scheme): the
-// user's name is the whole session, kept in local storage until sign-out, along with the name last used, which the
-// sign-in page offers again. No browser APIs here beyond the storage passed in, so it is unit-tested.
+// user's name is the whole session, kept in session storage like a Google token, so each tab can be a different
+// user and signing in or out in one tab leaves the others as they were. The name last used lives in local storage,
+// so the sign-in page offers it again, in a new tab too. No browser APIs here beyond the storage passed in, so it
+// is unit-tested.
 
 /** The part of the Web Storage API the session uses. */
 export type StringStore = Pick<Storage, "getItem" | "setItem" | "removeItem">;
@@ -32,7 +34,7 @@ export interface SessionOptions {
     /** The Google web client id tokens must be issued for; empty when Google sign-in isn't configured. */
     clientId: string;
     devSignIn: boolean;
-    /** Holds the token: session storage in the browser. */
+    /** Holds the token or the development user: session storage in the browser. */
     tabStore: StringStore;
     /** Holds the hints that outlive the tab: local storage in the browser. */
     browserStore: StringStore;
@@ -101,7 +103,7 @@ export class Session {
         if (nonce !== null && claims.nonce !== nonce) throw new SessionError("That sign-in was for an earlier attempt. Try again.");
         if (isTokenExpired(credential, this.now(), 0)) throw new SessionError("That sign-in has already expired. Try again.");
 
-        this.options.browserStore.removeItem(DEV_USER_KEY);
+        this.options.tabStore.removeItem(DEV_USER_KEY);
         this.options.tabStore.setItem(TOKEN_KEY, credential);
         this.options.browserStore.setItem(SIGNED_IN_KEY, "true");
         this.expired = false;
@@ -117,7 +119,7 @@ export class Session {
 
         this.options.tabStore.removeItem(TOKEN_KEY);
         this.options.browserStore.removeItem(SIGNED_IN_KEY);
-        this.options.browserStore.setItem(DEV_USER_KEY, user);
+        this.options.tabStore.setItem(DEV_USER_KEY, user);
         this.options.browserStore.setItem(LAST_DEV_USER_KEY, user);
         this.expired = false;
         return accountName(devToken(user)) ?? user;
@@ -126,7 +128,7 @@ export class Session {
     /** Signs out: forgets the token, the development user and the hint for One Tap. */
     signOut(): void {
         this.options.tabStore.removeItem(TOKEN_KEY);
-        this.options.browserStore.removeItem(DEV_USER_KEY);
+        this.options.tabStore.removeItem(DEV_USER_KEY);
         this.options.browserStore.removeItem(SIGNED_IN_KEY);
         this.expired = false;
     }
@@ -137,7 +139,7 @@ export class Session {
      */
     drop(): void {
         if (this.devUser()) {
-            this.options.browserStore.removeItem(DEV_USER_KEY);
+            this.options.tabStore.removeItem(DEV_USER_KEY);
             return;
         }
         if (this.options.tabStore.getItem(TOKEN_KEY)) {
@@ -147,7 +149,7 @@ export class Session {
     }
 
     private devUser(): string | null {
-        return this.options.devSignIn ? this.options.browserStore.getItem(DEV_USER_KEY) : null;
+        return this.options.devSignIn ? this.options.tabStore.getItem(DEV_USER_KEY) : null;
     }
 
     private now(): number {

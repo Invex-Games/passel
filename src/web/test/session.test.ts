@@ -99,6 +99,35 @@ describe("development users", () => {
         expect(s.lastDevUser).toBe("alice");
     });
 
+    it("keeps each tab's development user to that tab, and offers the last name in a new tab", () => {
+        const alice = session(true);
+        alice.signInAsDevUser("alice");
+
+        // A second tab shares local storage but has its own session storage
+        const otherTab = new MemoryStore();
+        const bob = new Session({clientId: CLIENT_ID, devSignIn: true, tabStore: otherTab, browserStore: browser, now: () => now});
+        expect(bob.token()).toBeNull();
+        expect(bob.lastDevUser).toBe("alice");
+
+        bob.signInAsDevUser("bob");
+        expect(alice.token()).toBe("dev-user:alice");
+        expect(bob.token()).toBe("dev-user:bob");
+
+        bob.signOut();
+        expect(alice.token()).toBe("dev-user:alice");
+    });
+
+    it("signing in as a development user in one tab leaves another tab's Google session alone", () => {
+        const google = session(true);
+        const token = googleToken({}, now);
+        google.acceptGoogleCredential(token, null);
+
+        new Session({clientId: CLIENT_ID, devSignIn: true, tabStore: new MemoryStore(), browserStore: browser, now: () => now})
+            .signInAsDevUser("bob");
+
+        expect(google.token()).toBe(token);
+    });
+
     it("refuses an invalid name, and any name in a build without DEV_SIGN_IN", () => {
         expect(() => session(true).signInAsDevUser("not valid")).toThrow("must be 1 to 255");
         expect(() => session(false).signInAsDevUser("alice")).toThrow("can't sign in as a development user");
