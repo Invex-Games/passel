@@ -1,6 +1,6 @@
 import {FeedRequestError, SignedOutError, type LiveEvent, type Packet, type PacketPage} from "@passel/core";
 import {afterEach, beforeEach, describe, expect, it, vi} from "vitest";
-import {AppController, MAX_RESYNC_DELAY_MS} from "../src/app/controller.js";
+import {AppController, HIDDEN_GRACE_MS, MAX_RESYNC_DELAY_MS} from "../src/app/controller.js";
 import {SESSION_EXPIRED_MESSAGE, Session} from "../src/app/session.js";
 import {CLIENT_ID, googleToken, MemoryStore} from "./fakes.js";
 
@@ -188,11 +188,30 @@ describe("live updates", () => {
         expect(api.cursors).toHaveLength(fetches + 1);
     });
 
-    it("closes the stream while the tab is hidden, and catches up at once when it's shown", async () => {
+    it("keeps the stream of a tab hidden for a moment, so glancing away opens no new one", async () => {
+        api.streams[0].emit({kind: "resync"});
+        await vi.advanceTimersByTimeAsync(0);
+        const fetches = api.cursors.length;
+
+        for (let i = 0; i < 20; i++) {
+            controller.setVisible(false);
+            await vi.advanceTimersByTimeAsync(HIDDEN_GRACE_MS - 1);
+            controller.setVisible(true);
+        }
+
+        expect(api.streams).toHaveLength(1);
+        expect(api.openStreams).toHaveLength(1);
+        expect(controller.state.live).toBe(true);
+        expect(api.cursors).toHaveLength(fetches);
+    });
+
+    it("closes the stream once the tab has been hidden a while, and catches up at once when it's shown", async () => {
         api.streams[0].emit({kind: "resync"});
         await vi.advanceTimersByTimeAsync(0);
 
         controller.setVisible(false);
+        expect(api.openStreams).toHaveLength(1);
+        await vi.advanceTimersByTimeAsync(HIDDEN_GRACE_MS);
         expect(api.openStreams).toEqual([]);
         expect(controller.state.live).toBe(false);
 
@@ -234,6 +253,51 @@ describe("failures", () => {
 
         expect(controller.state.loadError).toBeNull();
         expect(ids()).toEqual(["a"]);
+    });
+
+    it("shows a first load that fails as failed when the stream's first resync overtook the sign-in's refresh", async () => {
+        session.signInAsDevUser("alice");
+        let answerRefresh!: (page: PacketPage) => void;
+        api.onFetch = () => new Promise(resolve => answerRefresh = resolve);
+        controller.start();
+
+        // The resync's fetch replaces the refresh's, so the refresh's page is dropped; then the resync's fetch fails
+        let failResync!: (error: unknown) => void;
+        api.onFetch = () => new Promise((_, reject) => failResync = reject);
+        api.streams[0].emit({kind: "resync"});
+        answerRefresh(page(["a"]));
+        await vi.advanceTimersByTimeAsync(0);
+        expect(controller.state.feed.loaded).toBe(false);
+        expect(controller.state.loadError).toBeNull();
+
+        failResync(new FeedRequestError("Too many requests."));
+        await vi.advanceTimersByTimeAsync(0);
+
+        expect(controller.state.feed.loaded).toBe(false);
+        expect(controller.state.loadError).toBe("Too many requests.");
+
+        api.onFetch = async () => page(["a"]);
+        await controller.refresh(true);
+        expect(controller.state.loadError).toBeNull();
+        expect(ids()).toEqual(["a"]);
+    });
+
+    it("shows a first load that fails as failed when the sign-in's refresh answers after the resync failed", async () => {
+        session.signInAsDevUser("alice");
+        let answerRefresh!: (page: PacketPage) => void;
+        api.onFetch = () => new Promise(resolve => answerRefresh = resolve);
+        controller.start();
+
+        api.onFetch = async () => {
+            throw new FeedRequestError("Couldn't reach Passel.");
+        };
+        api.streams[0].emit({kind: "resync"});
+        await vi.advanceTimersByTimeAsync(0);
+        expect(controller.state.loadError).toBe("Couldn't reach Passel.");
+
+        answerRefresh(page(["a"]));
+        await vi.advanceTimersByTimeAsync(0);
+        expect(controller.state.loadError).toBe("Couldn't reach Passel.");
     });
 
     it("keeps the feed and tells the user when a refresh they asked for fails", async () => {

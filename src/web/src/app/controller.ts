@@ -22,6 +22,13 @@ import {SESSION_EXPIRED_MESSAGE, SessionError, type Session} from "./session.js"
  */
 export const MAX_RESYNC_DELAY_MS = 3000;
 
+/**
+ * A hidden tab keeps its stream open this long before closing it. Opening a stream counts against a per-user limit
+ * that the user's other clients share (`RateLimitOptions.StreamsPerMinute`), so glancing away and back, which on a
+ * desktop happens far more often than switching apps on a phone, mustn't open a new one each time.
+ */
+export const HIDDEN_GRACE_MS = 60_000;
+
 export type AuthState =
     | { status: "signedOut"; /** Why the user was signed out without asking, or why signing in failed. */ message: string | null }
     | { status: "signedIn"; account: string };
@@ -74,6 +81,7 @@ export class AppController {
 
     private visible = true;
     private resyncTimer: unknown = undefined;
+    private hideTimer: unknown = undefined;
 
     /** Whether a resync has been fetched since the stream was started: the first is immediate, later ones spread out. */
     private resynced = false;
@@ -147,7 +155,8 @@ export class AppController {
         this.update({refreshing: true});
         try {
             await this.feed.refresh();
-            this.update({loadError: null, notice: null});
+            // A resync that started later replaces this page, and is the one to settle loadError if nothing has loaded
+            this.update(this.feed.state.loaded ? {loadError: null, notice: null} : {notice: null});
         } catch (err) {
             if (!this.feed.state.loaded) this.update({loadError: errorMessage(err)});
             this.handleFeedError(err, manual ? "Couldn't refresh" : null);
@@ -168,14 +177,25 @@ export class AppController {
         }
     }
 
-    /** The tab was shown or hidden: the live stream is only kept open while someone can see it. */
+    /**
+     * The tab was shown or hidden: the live stream is only kept open while someone can see it, give or take
+     * HIDDEN_GRACE_MS, so a tab that is back in view by then carries on with the stream it had.
+     */
     setVisible(visible: boolean): void {
         if (this.visible === visible) return;
         this.visible = visible;
 
         if (this.current.auth.status !== "signedIn") return;
-        if (visible) this.startLive();
-        else this.stopLive();
+        if (visible) {
+            this.cancelHide();
+            this.startLive();
+        } else if (this.live.started) {
+            this.cancelHide();
+            this.hideTimer = this.timers.setTimeout(() => {
+                this.hideTimer = undefined;
+                this.stopLive();
+            }, HIDDEN_GRACE_MS);
+        }
     }
 
     dismissNotice(): void {
@@ -244,9 +264,15 @@ export class AppController {
     }
 
     private stopLive(): void {
+        this.cancelHide();
         this.timers.clearTimeout(this.resyncTimer);
         this.resyncTimer = undefined;
         this.live.stop();
+    }
+
+    private cancelHide(): void {
+        this.timers.clearTimeout(this.hideTimer);
+        this.hideTimer = undefined;
     }
 
     private onLiveEvent(event: LiveEvent): void {
@@ -280,8 +306,19 @@ export class AppController {
         this.resyncTimer = this.timers.setTimeout(() => this.syncLatest(), this.random() * MAX_RESYNC_DELAY_MS);
     }
 
+    /**
+     * The first resync replaces the page the sign-in's refresh asked for, so until something has loaded its outcome
+     * is the first load's: a failure shows with a retry rather than leaving the feed loading.
+     */
     private syncLatest(): void {
-        this.feed.syncLatest().catch(err => this.handleFeedError(err, null));
+        this.feed.syncLatest().then(
+            () => {
+                if (this.feed.state.loaded && this.current.loadError) this.update({loadError: null});
+            },
+            err => {
+                if (!this.feed.state.loaded && this.current.auth.status === "signedIn") this.update({loadError: errorMessage(err)});
+                this.handleFeedError(err, null);
+            });
     }
 
     private update(patch: Partial<AppState>): void {
