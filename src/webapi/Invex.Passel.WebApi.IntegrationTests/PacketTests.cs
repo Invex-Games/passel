@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Headers;
+using System.Text;
 
 namespace Invex.Passel.WebApi.IntegrationTests;
 
@@ -110,6 +111,22 @@ public sealed class PacketTests(PasselApiFixture fixture)
 
         Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
         Assert.Equal(400, problem.RootElement.GetProperty("status").GetInt32());
+    }
+
+    [Fact]
+    public async Task A_packet_the_API_cannot_read_is_refused_with_a_problem()
+    {
+        using var alice = fixture.Api.CreateClientFor(PasselApiFixture.User("alice"));
+
+        // An unknown kind fails before validation; the suite runs in Development, which answers as Production does
+        using var content = new StringContent("""{ "$type": "Video", "url": "https://example.com" }""",
+            Encoding.UTF8,
+            "application/json");
+        using var response = await alice.PostAsync(PacketApi.PacketsPath, content, CancellationToken);
+        using var problem = await PacketApi.ReadJsonAsync(response, HttpStatusCode.BadRequest, CancellationToken);
+
+        Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
+        Assert.Empty((await alice.ListAsync(null, CancellationToken)).Packets);
     }
 
     [Fact]

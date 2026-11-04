@@ -29,6 +29,10 @@ internal static class HostWebExtensions
             options.SerializerOptions.AllowOutOfOrderMetadataProperties = true;
         });
 
+        // Development would otherwise throw on a body it can't read, and the exception handler would answer 500; this
+        // way every environment answers 400, which the status code pages turn into a problem
+        builder.Services.Configure<RouteHandlerOptions>(options => options.ThrowOnBadRequest = false);
+
         builder.Services.AddProblemDetails();
         builder.Services.AddHttpContextAccessor();
         builder.Services.AddResponseCompression(options => options.EnableForHttps = true);

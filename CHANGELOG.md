@@ -42,6 +42,7 @@ All notable changes to Passel. The format follows [Keep a Changelog](https://kee
 
 ### Fixed
 
+- A request body the API cannot read (an unknown `$type`, a missing required field) gets a 400 problem in Development too, as in production, rather than a 500.
 - Packets are scoped to their owner on every endpoint, and ids cannot be probed.
 - Notifications are sent only after the database commit, so a rolled-back packet is never announced.
 - The extension routes every API call through its service worker and keeps the ID token in session storage.
