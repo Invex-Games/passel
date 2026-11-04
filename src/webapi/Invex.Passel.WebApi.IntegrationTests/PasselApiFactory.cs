@@ -39,13 +39,18 @@ internal sealed class PasselApiFactory(string connectionString) : WebApplication
         builder.UseSetting("Encoding:Alphabet", IdEncodingService.DefaultAlphabet);
 
         // The suite makes more requests per user in a minute than the defaults allow (paging alone creates 51
-        // packets); the limits have unit tests of their own
+        // packets, and the device cap test registers a user's whole allowance); the limits have unit tests of their own
         builder.UseSetting("RateLimits:CreatesPerMinute", "10000");
         builder.UseSetting("RateLimits:ReadsPerMinute", "10000");
         builder.UseSetting("RateLimits:StreamsPerMinute", "10000");
+        builder.UseSetting("RateLimits:DeviceWritesPerMinute", "10000");
 
         // Only problems reach the test output
         builder.UseSetting("Logging:LogLevel:Default", "Warning");
+
+        // The test server has no request size limit to apply, and warns so on every request to an endpoint that
+        // declares one, which every create and device write does
+        builder.UseSetting("Logging:LogLevel:Microsoft.AspNetCore.Routing.EndpointRoutingMiddleware", "Error");
 
         // The link preview fetcher must never leave the test machine. Names are resolved by a stub rather than DNS:
         // the page server's name to the loopback, which the policy here allows, and every other name (the links to
