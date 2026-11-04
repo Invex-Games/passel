@@ -245,10 +245,468 @@
           }
         }
       }
+    },
+    "/api/devices": {
+      "post": {
+        "tags": [
+          "Devices"
+        ],
+        "summary": "",
+        "parameters": [
+          {
+            "name": "api-version",
+            "in": "query",
+            "description": "The requested API version",
+            "schema": {
+              "enum": [
+                "1"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterDeviceRequestBody"
+              },
+              "examples": {
+                "Register": {
+                  "value": {
+                    "installationId": "6f1c2a9e-4b7d-4e2a-9c3f-0d8e5b7a1c24",
+                    "name": "Pixel 9",
+                    "platform": "android"
+                  }
+                }
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeviceResponse"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeviceResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "Devices"
+        ],
+        "summary": "",
+        "parameters": [
+          {
+            "name": "api-version",
+            "in": "query",
+            "description": "The requested API version",
+            "schema": {
+              "enum": [
+                "1"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetDevicesResponseBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/devices/{id}": {
+      "patch": {
+        "tags": [
+          "Devices"
+        ],
+        "summary": "",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "api-version",
+            "in": "query",
+            "description": "The requested API version",
+            "schema": {
+              "enum": [
+                "1"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RenameDeviceRequestBody"
+              },
+              "examples": {
+                "Rename": {
+                  "value": {
+                    "name": "Work laptop"
+                  }
+                }
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeviceResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Devices"
+        ],
+        "summary": "",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "api-version",
+            "in": "query",
+            "description": "The requested API version",
+            "schema": {
+              "enum": [
+                "1"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "204": {
+            "description": "No Content"
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      }
+    },
+    "/api/devices/{id}/push": {
+      "put": {
+        "tags": [
+          "Devices"
+        ],
+        "summary": "",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "api-version",
+            "in": "query",
+            "description": "The requested API version",
+            "schema": {
+              "enum": [
+                "1"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PutDevicePushRequestBody"
+              },
+              "examples": {
+                "Fcm": {
+                  "value": {
+                    "$type": "Fcm",
+                    "token": "fcm-registration-token"
+                  }
+                },
+                "WebPush": {
+                  "value": {
+                    "$type": "WebPush",
+                    "endpoint": "https://fcm.googleapis.com/fcm/send/subscription-id",
+                    "keys": {
+                      "p256dh": "BNcRdreALRFXTkOOUHK1EtK2wtaz5Ry4YfYCA_0QTpQtUbVlUls0VJXg7A8u-Ts1XbjhazAkj7I99e8QcYP7DkM",
+                      "auth": "tBHItJI5svbpez7KI4CCXg"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Devices"
+        ],
+        "summary": "",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "api-version",
+            "in": "query",
+            "description": "The requested API version",
+            "schema": {
+              "enum": [
+                "1"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "204": {
+            "description": "No Content"
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      }
     }
   },
   "components": {
     "schemas": {
+      "DevicePlatform": {
+        "enum": [
+          "android",
+          "extension",
+          "web"
+        ],
+        "description": "The kinds of client that register as devices. A device's platform is set when it registers and decides the\nkind of push token it may hold: an `Fcm` token on Android, a `WebPush` subscription in the extension\nand the web app."
+      },
+      "DeviceResponse": {
+        "required": [
+          "id",
+          "name",
+          "platform",
+          "createdAt",
+          "lastSeenAt",
+          "pushUpdatedAt"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "The device's public id, opaque to clients. A client keeps the id its registration returned to tell\nitself apart in the list."
+          },
+          "name": {
+            "type": "string"
+          },
+          "platform": {
+            "$ref": "#/components/schemas/DevicePlatform"
+          },
+          "createdAt": {
+            "type": "string",
+            "description": "When the installation first registered, in UTC.",
+            "format": "date-time"
+          },
+          "lastSeenAt": {
+            "type": "string",
+            "description": "When the installation last registered, in UTC.",
+            "format": "date-time"
+          },
+          "pushUpdatedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "When the device's push token was last set, in UTC, or `null` when it has none.",
+            "format": "date-time"
+          }
+        },
+        "description": "A device as the API returns it: the shape of a `GET /api/devices` item and of the registration and\nrename responses."
+      },
+      "GetDevicesResponseBody": {
+        "required": [
+          "devices"
+        ],
+        "type": "object",
+        "properties": {
+          "devices": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DeviceResponse"
+            }
+          }
+        },
+        "description": "All of the caller's devices, in the order they registered. Not paged: the device cap bounds the list."
+      },
       "GetPacketsResponseBody": {
         "required": [
           "packets"
@@ -635,6 +1093,114 @@
             ]
           }
         }
+      },
+      "PutDevicePushRequestBody": {
+        "required": [
+          "$type"
+        ],
+        "type": "object",
+        "anyOf": [
+          {
+            "$ref": "#/components/schemas/PutDevicePushRequestBodyFcm"
+          },
+          {
+            "$ref": "#/components/schemas/PutDevicePushRequestBodyWebPush"
+          }
+        ],
+        "description": "A device's push token: the FCM registration token of an Android installation, or the Web Push subscription\nof a browser. A `WebPush` body is `PushSubscription.toJSON()` with the discriminator added; its\n`expirationTime` is ignored.",
+        "discriminator": {
+          "propertyName": "$type",
+          "mapping": {
+            "Fcm": "#/components/schemas/PutDevicePushRequestBodyFcm",
+            "WebPush": "#/components/schemas/PutDevicePushRequestBodyWebPush"
+          }
+        }
+      },
+      "PutDevicePushRequestBodyFcm": {
+        "required": [
+          "token"
+        ],
+        "properties": {
+          "$type": {
+            "enum": [
+              "Fcm"
+            ],
+            "type": "string"
+          },
+          "token": {
+            "type": "string"
+          }
+        }
+      },
+      "PutDevicePushRequestBodyWebPush": {
+        "required": [
+          "endpoint",
+          "keys"
+        ],
+        "properties": {
+          "$type": {
+            "enum": [
+              "WebPush"
+            ],
+            "type": "string"
+          },
+          "endpoint": {
+            "type": "string"
+          },
+          "keys": {
+            "$ref": "#/components/schemas/WebPushKeys"
+          }
+        }
+      },
+      "RegisterDeviceRequestBody": {
+        "required": [
+          "installationId",
+          "name",
+          "platform"
+        ],
+        "type": "object",
+        "properties": {
+          "installationId": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string",
+            "description": "The name for a new device; a device that is registered already keeps the one it has."
+          },
+          "platform": {
+            "$ref": "#/components/schemas/DevicePlatform"
+          }
+        },
+        "description": "A client registering its installation. The installation id is the client's own: generated once (a random\nUUID will do), kept in the client's storage and sent with every registration, so registering again finds\nthe same device."
+      },
+      "RenameDeviceRequestBody": {
+        "required": [
+          "name"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          }
+        }
+      },
+      "WebPushKeys": {
+        "required": [
+          "p256dh",
+          "auth"
+        ],
+        "type": "object",
+        "properties": {
+          "p256dh": {
+            "type": "string",
+            "description": "The subscription's P-256 public key: 65 bytes, an uncompressed point."
+          },
+          "auth": {
+            "type": "string",
+            "description": "The subscription's authentication secret: 16 bytes."
+          }
+        },
+        "description": "The keys of a Web Push subscription, base64url as the browser gives them."
       }
     },
     "securitySchemes": {
@@ -663,6 +1229,9 @@
   "tags": [
     {
       "name": "Packets"
+    },
+    {
+      "name": "Devices"
     }
   ]
 }
