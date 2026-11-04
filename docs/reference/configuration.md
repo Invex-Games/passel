@@ -4,11 +4,11 @@
 
 | Parameter | Secret | Passed to |
 |---|---|---|
-| `google-client-id` | No | The API's `Authentication:Google:ClientId` |
+| `google-client-id` | No | The API's `Authentication:Google:ClientId`, and the web app's `GOOGLE_CLIENT_ID` |
 | `google-client-secret` | Yes | The API's `Authentication:Google:ClientSecret` |
 | `google-extension-client-id` | No | The API's `Authentication:Google:AdditionalAudiences:0`, and the extension's `GOOGLE_CLIENT_ID` |
 
-The values are stored in the AppHost's user secrets as `Parameters:<name>`. In Development all three are optional and default to empty, so the dashboard doesn't prompt for them; the API then works through the Dev scheme described in [Run without Google](../getting-started/running-locally.md#run-without-google). Outside Development they're required. The AppHost also gives the extension `API_URL` (`<API https endpoint>/api/packets`) and gives the API its `passel-db` connection string.
+The values are stored in the AppHost's user secrets as `Parameters:<name>`. In Development all three are optional and default to empty, so the dashboard doesn't prompt for them; the API then works through the Dev scheme described in [Run without Google](../getting-started/running-locally.md#run-without-google). Outside Development they're required. The AppHost also gives the extension and the web app `API_URL` (`<API https endpoint>/api/packets`), runs the web app on `PORT` 5245, and gives the API its `passel-db` connection string and the web app's origin, `http://localhost:5245`, as `Cors:AllowedOrigins:0`.
 
 The AppHost reads one setting of its own:
 
@@ -68,6 +68,17 @@ When you run the API outside the AppHost, put these in `src/webapi/Invex.Passel.
 | `API_URL` | The packets endpoint, for example `https://localhost:7030/api/packets` |
 | `GOOGLE_CLIENT_ID` | The extension's OAuth client id |
 | `DEV_SIGN_IN` | `true` lets a development build (`npm run dev`, `npm run dev:watch`) sign in as a development user through the API's Development-only `Dev` scheme, without Google; `GOOGLE_CLIENT_ID` may then be left empty. A minified build (`npm run build`) never has it. The AppHost sets it. |
+
+## Web app
+
+`src/web/.env` (template: `.env.example`) is only read by standalone builds; the AppHost supplies these values itself. See [Web App](../components/web-app.md#build).
+
+| Key | Description |
+|---|---|
+| `API_URL` | The packets endpoint, for example `https://localhost:7030/api/packets`. Its origin goes into the app's Content-Security-Policy. |
+| `GOOGLE_CLIENT_ID` | The Google OAuth **web** client id, whose Authorized JavaScript origins must include the app's origin |
+| `DEV_SIGN_IN` | `true` lets a development build (`npm run dev`) sign in as a development user through the API's Development-only `Dev` scheme, without Google; `GOOGLE_CLIENT_ID` may then be left empty. A minified build (`npm run build`) never has it. The AppHost sets it. |
+| `PORT` | The dev server's port (`npm run dev`, `npm run serve`). Default 5245. The AppHost sets it. |
 
 ## Mobile app
 

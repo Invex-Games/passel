@@ -14,6 +14,8 @@
             href: components/web-api.md
         -   name: Chrome Extension
             href: components/chrome-extension.md
+        -   name: Web App
+            href: components/web-app.md
         -   name: Mobile App
             href: components/mobile-app.md
 -   name: Guides

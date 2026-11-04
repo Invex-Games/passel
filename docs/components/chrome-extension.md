@@ -23,7 +23,7 @@
 | `live.ts` | Keeps one SSE connection open while a popup is open, and reconnects with backoff. |
 | `cache.ts` | The feed cache in `chrome.storage.local`. |
 
-From `@passel/core` (`src/packages/core`), shared with the web app to come: `feed.ts` (`FeedStore`: the feed's state, including paging, merging live events and undo), `packets.ts` (parsing the wire format), `sse.ts` (the SSE parser), `authorization.ts` (`Bearer` for a Google ID token, `Dev <user>` for a development user) and `types.ts` (the wire, message and cache types). None of them touches `chrome.*` or the DOM, and their tests run there.
+From `@passel/core` (`src/packages/core`), shared with the [web app](web-app.md): `feed.ts` (`FeedStore`: the feed's state, including paging, merging live events and undo), `packets.ts` (parsing the wire format), `sse.ts` (the SSE parser), `authorization.ts` (`Bearer` for a Google ID token, `Dev <user>` for a development user) and `types.ts` (the wire, message and cache types). None of them touches `chrome.*` or the DOM, and their tests run there.
 
 The ID token is kept in `chrome.storage.session`, which is cleared when the browser closes. Only a login hint goes in local storage, so the extension can sign the user back in silently. A development user ([Run without Google](../getting-started/running-locally.md#run-without-google)) is kept in local storage until sign-out, along with the name last used, which the popup offers again.
 
@@ -68,7 +68,8 @@ Load `dist/` unpacked; see [Running Locally](../getting-started/running-locally.
 | `packages/core` (`@passel/core`) | The client logic with no platform APIs, and its tests, including the contract checks against `contracts/` |
 | `packages/ui` (`@passel/ui`) | The design tokens as CSS custom properties |
 | `chrome-extension` | The extension, consuming both |
+| `web` | The [web app](web-app.md), consuming both |
 
-The packages are consumed from source: their `exports` point at the TypeScript and CSS files, and each app's bundler compiles them, so nothing is built in a package. The web app will join the workspace as another member (`apps/web`), consuming the same packages.
+The packages are consumed from source: their `exports` point at the TypeScript and CSS files, and each app's bundler compiles them, so nothing is built in a package. `@passel/core` also holds a `fetch`-based API client (`api.ts`), a reconnecting event stream (`live.ts`) and JWT helpers (`jwt.ts`), which the web app uses; the extension still has its own in its service worker, and can move onto them later.
 
 The `key` in `static/manifest.json` pins the extension id to `aikjdmilnbdacmaeahelifppjjgppemj`. The OAuth redirect URI depends on that id.

@@ -19,6 +19,7 @@ The Aspire dashboard opens at `https://localhost:17106`. It asks for a login tok
 | `passel-pg` | PostgreSQL in Docker, with pgweb for browsing data. The container is persistent, so data survives AppHost restarts. |
 | `invex-passel-webapi` | The API at `https://localhost:7030`. It waits for the database. |
 | `chrome-extension` | The extension's watch build. It rebuilds `src/chrome-extension/dist` on every change. |
+| `web-app` | The web app's dev server at `http://localhost:5245`, rebuilt on every change. See [Web app](#web-app). |
 | `passel-api-tunnel` | A dev tunnel giving the API a public HTTPS URL, for a phone that is not on USB. It doesn't start with the AppHost: start it from the dashboard when you need it, see [the dev tunnel](#a-phone-that-is-not-on-usb-the-dev-tunnel). |
 
 The Google client values are optional in Development. Without them, use the Dev scheme described in [Run without Google](#run-without-google); to sign in with Google, set them in the AppHost's user secrets, see [Google OAuth Clients](google-oauth.md).
@@ -47,6 +48,7 @@ Scalar opens with the **Dev** scheme selected and filled in with `Dev alice`, so
 The clients can use the scheme too, in their development builds only:
 
 - **Chrome extension:** the AppHost builds it with `DEV_SIGN_IN=true` (for a standalone build, set it in `src/chrome-extension/.env`), and the popup then has a **Development user** field under the Google button. Type a name and sign in; the name is offered again next time. Built without a `GOOGLE_CLIENT_ID`, the popup offers only the development sign-in. `npm run build` never compiles the field in.
+- **Web app:** the AppHost builds it with `DEV_SIGN_IN=true` (for a standalone build, set it in `src/web/.env`), and the sign-in page then has a **Development user** field under the Google button. The name is offered again next time. Built without a `GOOGLE_CLIENT_ID`, the page offers only the development sign-in. `npm run build` never compiles the field in.
 - **Mobile app:** set `DEV_USER=<name>` in `src/mobile_app/.env` (or pass `--dart-define=DEV_USER=<name>`), and the development flavor signs in as that user without Google, so `SERVER_CLIENT_ID` isn't needed. The login page has a **Development user** field, prefilled with that name, for signing in as someone else, and the app comes back as whoever signed in last. The production flavor refuses to start with `DEV_USER` set.
 
 Signing in as a different user is an account change: the client drops its cached packets, so each user sees only their own. That is how per-user behaviour gets tested from one browser or one phone: sign in as `alice`, send a packet, sign out, sign in as `bob` and the feed is empty. The same id reaches the same account from every client, so `Dev alice` in curl, the extension and the app share one feed.
@@ -60,6 +62,12 @@ The scheme only exists while the API runs as `Development`; outside it, only Goo
 3. After the watch build rebuilds, select the reload icon on the extension card. Popup changes appear the next time you open the popup.
 
 The AppHost builds the extension against `https://localhost:7030/api/packets`. The API always runs on that port, so an extension you've loaded keeps working across runs.
+
+## Web app
+
+Open `http://localhost:5245/` for the landing page, or `http://localhost:5245/app/` for the app. The dev server rebuilds `src/web/dist` on every change and reloads the page. The AppHost builds the app against `https://localhost:7030/api/packets` with the web client id, and gives the API `http://localhost:5245` as its one CORS origin. The port is fixed, because Google signs in only from the origins registered on the web client: add `http://localhost` and `http://localhost:5245` to its **Authorized JavaScript origins** ([Google OAuth Clients](google-oauth.md)), or use the development user.
+
+To run the web app without the AppHost, copy `src/web/.env.example` to `src/web/.env`, fill it in, and run `npm run dev` in `src/web`. The API then needs `Cors:AllowedOrigins` set to the web app's origin; see [Configuration](../reference/configuration.md#web-app).
 
 ## Mobile app
 

@@ -6,6 +6,7 @@ Send links and text between your devices. This repository contains:
 
 - **Web API**: ASP.NET Core and Marten on PostgreSQL, hosted locally by .NET Aspire (`src/webapi`)
 - **Chrome extension**: TypeScript, Manifest V3 (`src/chrome-extension`)
+- **Web app**: TypeScript and Preact, with the landing, privacy and terms pages (`src/web`)
 - **Mobile app**: Flutter for Android (`src/mobile_app`)
 
 ## Quick start
@@ -18,7 +19,7 @@ dotnet atom SetupDevEnvironment   # checks tools, prepares local config and pack
 aspire run                        # or: dotnet run --project src/webapi/Invex.Passel.AppHost
 ```
 
-The AppHost starts PostgreSQL, the API (`https://localhost:7030`) and the extension's watch build, and holds a dev tunnel you can start from the dashboard for a phone that is not on USB. The Google OAuth client values are optional for local work: without them the API accepts `Authorization: Dev <user>` instead of Google tokens.
+The AppHost starts PostgreSQL, the API (`https://localhost:7030`), the extension's watch build and the web app (`http://localhost:5245`), and holds a dev tunnel you can start from the dashboard for a phone that is not on USB. The Google OAuth client values are optional for local work: without them the API accepts `Authorization: Dev <user>` instead of Google tokens.
 
 ## Docs
 

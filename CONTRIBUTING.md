@@ -23,13 +23,13 @@ Versions come from commit messages through GitVersion (`GitVersion.yml`), so the
 | `breaking` | `breaking(api): drop the v1 packets endpoint` | Major bump |
 | `chore`, `docs`, `build`, `ci`, `refactor`, `test`, `perf` | `chore: pin the Atom tool` | None |
 
-Scopes are the component: `webapi`, `apphost`, `core`, `ui`, `extension`, `mobile`, `atom`, `docs`. Branches are named after the prefix: `feat/share-target`, `fix/token-refresh`, `chore/ci`. Pull requests target `main` and should be squash-merged with the conventional title, or rebased when every commit is conventional on its own.
+Scopes are the component: `webapi`, `apphost`, `core`, `ui`, `extension`, `web`, `mobile`, `atom`, `docs`. Branches are named after the prefix: `feat/share-target`, `fix/token-refresh`, `chore/ci`. Pull requests target `main` and should be squash-merged with the conventional title, or rebased when every commit is conventional on its own.
 
 ## Before opening a pull request
 
 - Run `dotnet atom Test`, or the suite for the component you changed:
   - `dotnet test --project src/webapi/Invex.Passel.WebApi.Tests/Invex.Passel.WebApi.Tests.csproj`, and with Docker running, `dotnet test --project src/webapi/Invex.Passel.WebApi.IntegrationTests/Invex.Passel.WebApi.IntegrationTests.csproj`
-  - `npm run typecheck && npm test` in `src` (the npm workspace: the shared packages and the extension)
+  - `npm run typecheck && npm test` in `src` (the npm workspace: the shared packages, the extension and the web app)
   - `flutter analyze && flutter test` in `src/mobile_app`
 - Warnings are errors in every component; keep it that way rather than suppressing.
 - Update the docs page for anything you changed in behaviour, configuration or commands, and preview with `dotnet atom ServeDocs`.
@@ -42,7 +42,7 @@ Every pull request runs the `Validate` workflow (all three test suites and a doc
 
 ## Local configuration files
 
-`src/chrome-extension/.env` and `src/mobile_app/.env` hold your Google client ids and API URLs and are git-ignored; copy them from the `.env.example` next to each. The AppHost supplies the API and the extension's watch build with its own values, so the extension `.env` only matters for standalone builds. Never commit a real client secret, keystore or token; the ignore rules cover the usual files, but check `git status` before committing.
+`src/chrome-extension/.env`, `src/web/.env` and `src/mobile_app/.env` hold your Google client ids and API URLs and are git-ignored; copy them from the `.env.example` next to each. The AppHost supplies the API, the extension's watch build and the web app's dev server with its own values, so the extension and web app `.env` files only matter for standalone builds. Never commit a real client secret, keystore or token; the ignore rules cover the usual files, but check `git status` before committing.
 
 ## Dependencies
 
