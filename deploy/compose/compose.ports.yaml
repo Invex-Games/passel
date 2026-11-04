@@ -1,0 +1,11 @@
+# Behind a reverse proxy that runs on the host itself (COMPOSE_FILE adds this file): the API and the web app listen
+# on the server's loopback only, and the proxy forwards to them. PROXY_TRUSTED_CIDR must then cover the address the
+# proxy's connections arrive from, which is the edge network's gateway (172.30.0.1/32 with the default subnet).
+
+services:
+  api:
+    ports:
+      - "127.0.0.1:${API_PORT:-18080}:8080"
+  web:
+    ports:
+      - "127.0.0.1:${WEB_PORT:-18081}:8080"

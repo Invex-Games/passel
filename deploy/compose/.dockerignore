@@ -1,0 +1,10 @@
+*
+!compose.yaml
+!compose.external-proxy.yaml
+!compose.ports.yaml
+!deploy.sh
+!deploy-gate.sh
+!backup.sh
+!.env.example
+!db/
+!edge/
