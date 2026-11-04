@@ -3,6 +3,13 @@ import type {ExtensionMessage} from "@passel/core";
 // The popup's fixed elements (declared in static/popup.html), the message channel to the service worker,
 // and the small element builders the views share.
 
+/**
+ * Whether this page is the side panel rather than the popup. The side panel is popup.html with a `side-panel`
+ * class on the body (build.mjs writes it as sidepanel.html): the same script runs in both, and the stylesheet
+ * lays the panel out for its height.
+ */
+export const inSidePanel = document.body.classList.contains("side-panel");
+
 export const mainEl = document.getElementById("main") as HTMLElement;
 export const sendPageBtn = document.getElementById("send-page") as HTMLButtonElement;
 export const sendTextBtn = document.getElementById("send-text") as HTMLButtonElement;
@@ -13,6 +20,7 @@ export const devUserEl = document.getElementById("dev-user") as HTMLInputElement
 export const devSignInBtn = document.getElementById("dev-sign-in-btn") as HTMLButtonElement;
 export const signOutBtn = document.getElementById("sign-out-btn") as HTMLButtonElement;
 export const refreshBtn = document.getElementById("refresh-btn") as HTMLButtonElement;
+export const sidePanelBtn = document.getElementById("side-panel-btn") as HTMLButtonElement;
 export const syncLabelEl = document.getElementById("sync-label") as HTMLSpanElement;
 export const authSignedOut = document.getElementById("auth-signed-out") as HTMLElement;
 export const authSignedIn = document.getElementById("auth-signed-in") as HTMLElement;

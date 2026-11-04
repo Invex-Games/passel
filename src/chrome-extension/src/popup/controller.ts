@@ -19,8 +19,10 @@ import {
     devUserEl,
     feedSection,
     freetextEl,
+    inSidePanel,
     refreshBtn,
     sendMessage,
+    sidePanelBtn,
     signInBtn,
     signOutBtn,
     userEmailEl,
@@ -224,6 +226,26 @@ export function startPopup(): void {
         setAuthState({signedIn: false});
         await feedView.clear();
         showSuccess("Signed out.");
+    });
+
+    // ── Side panel ────────────────────────────────────────
+
+    // The popup can move into the side panel, which stays open beside the page. The window is looked up now
+    // so the click can open the panel straight away: Chrome only opens it in response to a user action.
+    let windowId: number | undefined;
+    if (!inSidePanel) {
+        chrome.windows.getCurrent().then(window => {
+            windowId = window.id;
+        }, () => {
+        });
+    }
+
+    sidePanelBtn.addEventListener("click", () => {
+        if (windowId === undefined) return;
+        chrome.sidePanel.open({windowId}).then(
+            () => window.close(),
+            err => showError(`Couldn't open the side panel: ${(err as Error).message}`),
+        );
     });
 
     void (async () => {

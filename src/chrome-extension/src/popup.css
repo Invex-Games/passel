@@ -673,3 +673,50 @@ main {
     text-align: center;
     color: var(--md-sys-color-on-surface-variant);
 }
+
+/* ── Side panel ────────────────────────────────────────── */
+/* sidepanel.html is popup.html with this class on the body (see build.mjs). The panel is as tall as the window
+   and as wide as the user drags it, so the page fills it, the composer stays at the top while the feed scrolls
+   under it, and notes show more lines before "Show more". */
+body.side-panel {
+    width: auto;
+    height: 100vh;
+    max-height: none;
+}
+
+.side-panel main {
+    padding-top: 0;
+}
+
+.side-panel #auth-signed-out {
+    padding-top: 16px;
+}
+
+.side-panel .composer {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    padding: 16px 0 12px;
+    background: var(--md-sys-color-surface);
+}
+
+.side-panel .feed {
+    margin-top: 8px;
+}
+
+.side-panel .header-email {
+    max-width: none;
+}
+
+.side-panel .packet-body.clamped {
+    -webkit-line-clamp: 12;
+}
+
+.side-panel .toast {
+    width: auto;
+    right: 12px;
+}
+
+.side-panel .popup-only {
+    display: none;
+}

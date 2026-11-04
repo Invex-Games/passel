@@ -1,10 +1,30 @@
 import {packetDataForInput, truncateTitle} from "@passel/core";
 import type {PacketData} from "@passel/core";
-import {freetextEl, isLoading, sendPageBtn, sendTextBtn} from "./dom.js";
+import {freetextEl, inSidePanel, isLoading, sendPageBtn, sendTextBtn} from "./dom.js";
 import {showError} from "./toast.js";
 
 // The composer: sending the current page, and sending typed text or a link. A paste anywhere in the popup
 // lands in the text field.
+
+/** The optional permission the side panel asks for, to read the address of whichever tab is showing. */
+const TABS_PERMISSION: chrome.permissions.Permissions = {permissions: ["tabs"]};
+
+const NO_TAB_IN_SIDE_PANEL_MESSAGE =
+    "To send pages from the side panel, allow Passel to see your tabs, or send this one from the toolbar button.";
+
+/**
+ * The tab the user is looking at. The popup always opens from it, so Chrome's activeTab grant lets the popup
+ * read its address. The side panel stays open as the user moves between tabs, so it first asks for the optional
+ * tabs permission; Chrome answers at once, without asking again, once that's been granted. Declined, the
+ * address is only there for a tab the user opened Passel from.
+ */
+async function currentTab(): Promise<chrome.tabs.Tab | undefined> {
+    // Asked before anything else is awaited: Chrome only shows the request in response to the click.
+    if (inSidePanel) await chrome.permissions.request(TABS_PERMISSION).catch(() => false);
+
+    const [tab] = await chrome.tabs.query({active: true, currentWindow: true});
+    return tab;
+}
 
 export interface ComposerDeps {
     isSignedIn(): boolean;
@@ -37,9 +57,9 @@ export function createComposer(deps: ComposerDeps): Composer {
     sendPageBtn.addEventListener("click", async () => {
         setLoading(sendPageBtn, true);
         try {
-            const [tab] = await chrome.tabs.query({active: true, currentWindow: true});
+            const tab = await currentTab();
             if (!tab?.url) {
-                showError("Could not get current tab.");
+                showError(inSidePanel ? NO_TAB_IN_SIDE_PANEL_MESSAGE : "Could not get current tab.");
                 return;
             }
             await deps.send({$type: "Link", name: tab.title ? truncateTitle(tab.title) : null, url: tab.url}, "Page sent!");

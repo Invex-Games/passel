@@ -117,6 +117,11 @@
             connect: ({name}) => (port = makePort(name)),
         },
         storage: {local: storageArea({}), session: storageArea({})},
+        // The side panel asks for the tabs permission before sending the page; here it's always granted.
+        permissions: {request: async () => true},
+        // Opening the side panel from the popup logs instead; a browser tab ignores the window.close() that follows.
+        sidePanel: {open: async options => console.log("open side panel", options)},
+        windows: {getCurrent: async () => ({id: 1})},
         tabs: {
             query: async () => [{url: "https://docs.flutter.dev/ui/widgets", title: "Widgets | Flutter"}],
             create: async ({url}) => console.log("open", url),

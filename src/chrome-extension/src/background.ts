@@ -1,6 +1,8 @@
 import {getAccountName, getLastDevUser, getToken, signIn, signOut} from "./auth.js";
 import {deletePacket, getPackets, sendPacket} from "./api.js";
 import {addFeedPort} from "./live.js";
+import {registerCommands, type SendDeps} from "./commands.js";
+import {registerOmnibox} from "./omnibox.js";
 import {FEED_PORT_NAME} from "@passel/core";
 import type {
     AuthStateResponse,
@@ -63,6 +65,17 @@ function fileNameFromUrl(url: string): string | null {
         return null;
     }
 }
+
+// ── Keyboard commands and the omnibox ─────────────────────
+
+// Both are user actions, so a sign-in window may be shown if needed. Their outcome shows on the badge, as a
+// context-menu send's does.
+const sendFromShortcut: SendDeps = {
+    send: data => sendAndReport(data, true),
+    fail: () => flashBadge(false),
+};
+registerCommands(sendFromShortcut);
+registerOmnibox(sendFromShortcut);
 
 // ── Sending ───────────────────────────────────────────────
 

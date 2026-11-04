@@ -5,19 +5,26 @@
 ## What it does
 
 - **Popup:** sign in and out, send the current page, send typed text or a link, and browse the live packet feed. Tiles can be opened, copied or deleted, and a delete can be undone for 4 seconds. All feedback (send and sign-in results, copies, deletes with their undo) goes through one snackbar that overlays the bottom of the popup, so nothing shifts the layout.
+- **Side panel:** the popup's page, laid out for a tall, narrow panel that stays open beside the page while you move between tabs and open links. Open it with the panel button in the popup's header, the **Open Passel in the side panel** shortcut, or Chrome's own side panel menu. The composer stays at the top while the feed scrolls under it, and notes show twice as many lines before "Show more". The popup stays the quick way to send.
+- **Keyboard shortcuts:** open the popup, send the page you're on (or the text selected on it), and open the side panel. See [Keyboard shortcuts](#keyboard-shortcuts).
+- **Address bar:** type `passel`, a space and some text, then press Enter to send it: a link if it's a web address, otherwise a note. See [The passel keyword](#the-passel-keyword).
 - **Context menus:** send a link, the selected text, or an image's URL.
+
+Sends from a shortcut, the address bar or a context menu show their outcome on the toolbar icon: a green tick, or a red `!` when nothing could be sent.
 
 ## Modules
 
 | File | Responsibility |
 |---|---|
 | `background.ts` | The service worker. Handles context menus, routes messages from the popup, schedules deletes so they still happen after the popup closes, and shows badge feedback. |
-| `popup.ts` | The popup's entry point; it starts `popup/controller.ts`. Every API call and sign-in request goes to the service worker. |
-| `popup/controller.ts` | The popup's session: who is signed in, the live connection to the service worker, sign-in and sign-out, and sending, handing off to the parts below. |
+| `commands.ts` | The keyboard commands the service worker handles: sending the page or its selection, and opening the side panel. |
+| `omnibox.ts` | The `passel` address bar keyword: the suggestion that says what Enter will send, and sending it. |
+| `popup.ts` | The entry point of the popup and the side panel, which are the same page; it starts `popup/controller.ts`. Every API call and sign-in request goes to the service worker. |
+| `popup/controller.ts` | The popup's session: who is signed in, the live connection to the service worker, sign-in and sign-out, sending, and moving into the side panel, handing off to the parts below. |
 | `popup/feed-view.ts` | The feed as the popup shows it: tiles, the row after the oldest packet, the sync label, paging, copying, and deleting with undo, on top of `FeedStore`. |
 | `popup/composer.ts` | Sending the current page and typed text or links, and pasting into the composer. |
-| `popup/toast.ts`, `popup/dom.ts` | The one snackbar all feedback goes through; the popup's fixed elements, the message channel to the service worker, and the element and icon builders. |
-| `popup.css` | The popup's styles. It imports the design tokens from `@passel/ui`, and esbuild inlines them into `dist/popup.css`. |
+| `popup/toast.ts`, `popup/dom.ts` | The one snackbar all feedback goes through; the popup's fixed elements, whether the page is the side panel, the message channel to the service worker, and the element and icon builders. |
+| `popup.css` | The styles of the popup and, under `body.side-panel`, of the side panel. It imports the design tokens from `@passel/ui`, and esbuild inlines them into `dist/popup.css`. |
 | `auth.ts` | Google sign-in through `chrome.identity.launchWebAuthFlow`, using the implicit flow with `response_type=id_token`; in a development build with `DEV_SIGN_IN`, also signing in as a development user through the API's `Dev` scheme. |
 | `api.ts` | Authenticated fetches. On a 401 it refreshes the token and retries once. Also the packet endpoints and the server-sent events (SSE) stream. |
 | `live.ts` | Keeps one SSE connection open while a popup is open, and reconnects with backoff. |
@@ -29,9 +36,41 @@ The ID token is kept in `chrome.storage.session`, which is cleared when the brow
 
 The feed cache holds only the first page (50 packets) and the cursor after it, so it never grows as the user scrolls through older pages; the in-memory list keeps every page loaded while the popup is open.
 
+## The side panel
+
+`build.mjs` writes `dist/sidepanel.html` from `static/popup.html`, with a `side-panel` class on the body, so the side panel runs the popup's own script and markup and the two can't drift apart. The class is all that differs: `popup.css` sizes the page to the panel and keeps the composer in view, the popup's button for opening the side panel is hidden, and the composer asks for the `tabs` permission before sending the page (see [Permissions](#permissions)). The side panel holds a live connection to the service worker like the popup, so the feed stays live for as long as the panel is open.
+
+## Keyboard shortcuts
+
+| Command | Suggested key | Mac | What it does |
+|---|---|---|---|
+| Open the popup (`_execute_action`) | Alt+Shift+P | Control+Shift+P | Opens the popup, as the toolbar button does |
+| Send this page, or the selected text (`send-current-page`) | Alt+Shift+S (Alt+Shift+Y on ChromeOS) | Control+Shift+S | Sends the text selected on the page as a note if there is any, otherwise the page as a link, without opening anything |
+| Open Passel in the side panel (`open-side-panel`) | Alt+Shift+O | Control+Shift+O | Opens the side panel in the current window |
+
+The keys avoid Chrome's own shortcuts: Chrome uses Alt+Shift with T, I, A and N on Windows and Linux, ChromeOS uses Alt+Shift+S for its quick settings, and on a Mac the suggestions use the Control key, which Chrome's own shortcuts leave alone. Chrome only assigns a suggested key when the extension is first installed and the key is free, so one can be missing; anyone can change them at `chrome://extensions/shortcuts`. A command that reads the page works on the tab it was pressed on, through the `activeTab` grant the shortcut gives.
+
+## The passel keyword
+
+The manifest's `omnibox` keyword is `passel`. Typing `passel` and a space in the address bar hands the rest of the line to the extension. Its suggestion says what Enter will send ("Send link: …" or "Send note: …"), or how to use it while nothing is typed yet, and Enter sends it through the service worker: a link if it's an `http` or `https` address and a note otherwise, the same rule as the popup's text field. An empty line sends nothing and shows the red `!`.
+
+## Permissions
+
+| Permission | Why |
+|---|---|
+| `activeTab` | Reading the address and title of the page the user asked to send, from the popup, a shortcut or a context menu. Granted only for that tab, only by that action. |
+| `contextMenus` | The three send entries in the page's context menu |
+| `identity` | Google sign-in through `chrome.identity.launchWebAuthFlow` |
+| `storage` | The ID token (session storage), the login hint and the feed cache (local storage) |
+| `sidePanel` | The side panel. No install warning. |
+| `scripting` | Reading the text selected on the page for the send shortcut, by running one function in the tab. It only works where `activeTab` has been granted, so it reaches no page the user didn't act on. No install warning. |
+| `tabs`, optional | Asked for by the side panel the first time it sends the page: the panel stays open across tabs, and the `activeTab` grant doesn't follow it to the next one. Chrome shows its "Read your browsing history" prompt then, never at install. Declined, the side panel can still send a page Passel was opened from, and says how to send the others. |
+
+The only host permission is the API's origin (see [Build](#build)). The side panel and `sidePanel.open` need Chrome 116, so the manifest's `minimum_chrome_version` is 116.
+
 ## Build
 
-`build.mjs` bundles `src/background.ts`, `src/popup.ts` and `src/popup.css` into `dist/`, following the workspace packages into the bundle, and copies `static/` alongside them. It needs two values and takes a third. Values already in the environment take precedence over a local `.env`:
+`build.mjs` bundles `src/background.ts`, `src/popup.ts` and `src/popup.css` into `dist/`, following the workspace packages into the bundle, copies `static/` alongside them, and writes `sidepanel.html` from `popup.html`. It needs two values and takes a third. Values already in the environment take precedence over a local `.env`:
 
 | Variable | Value |
 |---|---|
@@ -57,7 +96,7 @@ Load `dist/` unpacked; see [Running Locally](../getting-started/running-locally.
 
 ## The popup harness
 
-`harness/` serves the built popup in an ordinary browser tab, with a stand-in for the `chrome.*` APIs (`harness/chrome-stub.js`) and canned packets, so the popup can be looked at and clicked through without loading the extension or running the API. Build first with `npm run dev`, then run `npm run harness` and open `http://127.0.0.1:8765/`. `?state=signedout` shows the signed-out popup, `?state=empty` an empty feed, and `&lastDevUser=alice` offers that development user. The stub behaves like the service worker where the popup can tell: sends echo the packet, deletions wait out the undo window and a cancel stops them, and `passel.created({...})` in the console makes a packet arrive live.
+`harness/` serves the built popup in an ordinary browser tab, with a stand-in for the `chrome.*` APIs (`harness/chrome-stub.js`) and canned packets, so the popup can be looked at and clicked through without loading the extension or running the API. Build first with `npm run dev`, then run `npm run harness` and open `http://127.0.0.1:8765/` for the popup or `http://127.0.0.1:8765/sidepanel.html` for the side panel, framed at Chrome's default panel width and the height of the tab. On either page, `?state=signedout` shows the signed-out popup, `?state=empty` an empty feed, and `&lastDevUser=alice` offers that development user. The stub behaves like the service worker where the popup can tell: sends echo the packet, deletions wait out the undo window and a cancel stops them, and `passel.created({...})` in the console makes a packet arrive live.
 
 ## The npm workspace
 
