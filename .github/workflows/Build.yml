@@ -217,6 +217,38 @@ jobs:
           build-version: ${{ needs.SetupBuildInfo.outputs.build-version }}
           push-images: ${{ true }}
 
+  PublishDeployBundle:
+    permissions:
+      contents: read
+      packages: write
+    needs: [ TestWebApi, SetupBuildInfo ]
+    runs-on: ubuntu-latest
+    steps:
+
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET 10.0.x
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+
+      - name: GHCR login
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: PublishDeployBundle
+        id: PublishDeployBundle
+        run: dotnet run --project _atom/_atom.csproj -- PublishDeployBundle --skip --headless
+        env:
+          build-version: ${{ needs.SetupBuildInfo.outputs.build-version }}
+          push-images: ${{ true }}
+
   BuildDocs:
     runs-on: ubuntu-latest
     steps:

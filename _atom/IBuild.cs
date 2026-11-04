@@ -14,6 +14,9 @@ internal interface IBuild : IWorkflowBuildDefinition,
     IBuildChromeExtension,
     IBuildWebApp,
     IPublishImages,
+    IPublishDeployBundle,
+    IDeployCompose,
+    IValidateCompose,
     ITestTargets,
     IDocTargets,
     ISetupDevEnvironment
@@ -40,7 +43,8 @@ internal interface IBuild : IWorkflowBuildDefinition,
     // In headless mode (CI) a build fails early if the committed files are out of date.
     IReadOnlyList<WorkflowDefinition> IWorkflowBuildDefinition.Workflows =>
     [
-        // Every pull request: all three test suites, the Azure deployment's Bicep and a docs build, nothing published
+        // Every pull request: all three test suites, the Azure deployment's Bicep, the compose deployment's files and
+        // scripts and a docs build, nothing published
         new("Validate")
         {
             Triggers = [WorkflowTriggers.Manual, WorkflowTriggers.PullIntoMain],
@@ -51,6 +55,7 @@ internal interface IBuild : IWorkflowBuildDefinition,
                 new(nameof(TestMobileApp)),
                 // The Bicep of the Azure deployment, kept with the run for review; nothing signs in to Azure
                 new(nameof(PublishAzureInfrastructure)),
+                new(nameof(ValidateCompose)),
                 new(nameof(BuildDocs))
                 {
                     Options = [BuildOptions.Target.SuppressArtifactPublishing],
@@ -107,6 +112,19 @@ internal interface IBuild : IWorkflowBuildDefinition,
                         BuildOptions.Inject.Param(nameof(PushImages), "true"),
                     ],
                 },
+                new(nameof(PublishDeployBundle))
+                {
+                    Options =
+                    [
+                        BuildOptions.Github.TokenPermissions.Set(new Permissions.Exact(new()
+                        {
+                            Contents = PermissionsLevel.Read,
+                            Packages = PermissionsLevel.Write,
+                        })),
+                        GhcrLogin,
+                        BuildOptions.Inject.Param(nameof(PushImages), "true"),
+                    ],
+                },
                 new(nameof(BuildDocs)),
                 new(nameof(PublishDocs))
                 {
@@ -122,6 +140,58 @@ internal interface IBuild : IWorkflowBuildDefinition,
             ],
             Types = [WorkflowTypes.Github.Action],
             Options = [CancelSupersededWorkflowRuns],
+        },
+
+        // Manual only, behind the production environment: deploys a tag to the self-hosted server (ADR 0004) through the
+        // deploy gate its SSH key is restricted to. A blank tag deploys this ref's build; an older tag with migrate off
+        // rolls back (docs/guides/deploying.md)
+        new("DeployCompose")
+        {
+            Triggers =
+            [
+                WorkflowTriggers.ManualWithInputs(
+                    new ManualStringInput("image-tag",
+                        "Tag to deploy; blank = this ref; an older tag rolls back",
+                        false,
+                        null),
+                    new ManualBoolInput("migrate",
+                        "Run db-migrate before the API starts; off for a rollback",
+                        false,
+                        true)),
+            ],
+            Targets =
+            [
+                new(nameof(SetupBuildInfo)),
+                new(nameof(DeployCompose))
+                {
+                    Options =
+                    [
+                        BuildOptions.Deploy.ToEnvironment(DeploymentEnvironment),
+                        BuildOptions.Github.TokenPermissions.Set(new Permissions.Exact(new()
+                        {
+                            Contents = PermissionsLevel.Read,
+                            Packages = PermissionsLevel.Read,
+                        })),
+                        // The job checks that the tag's three images exist before it reaches the server
+                        GhcrLogin,
+                        BuildOptions.Inject.Param(nameof(DeployImageTag), TextExpressions.Github.InputsInput("image-tag")),
+                        BuildOptions.Inject.Param(nameof(Migrate), TextExpressions.Github.InputsInput("migrate")),
+                        BuildOptions.Inject.Param(nameof(DeployHost), TextExpressions.Github.VarsVar("DEPLOY_HOST")),
+                        BuildOptions.Inject.Param(nameof(DeployUser), TextExpressions.Github.VarsVar("DEPLOY_USER")),
+                        // Raw environment variables rather than secrets of the build, so no Key Vault lookup comes with
+                        // them. The job's own token reads the images and expires with the job
+                        BuildOptions.Inject.EnvironmentVariable(IDeployCompose.SshKeyVariable,
+                            TextExpressions.Github.SecretsSecret("DEPLOY_SSH_KEY")),
+                        BuildOptions.Inject.EnvironmentVariable(IDeployCompose.KnownHostsVariable,
+                            TextExpressions.Github.VarsVar("DEPLOY_KNOWN_HOSTS")),
+                        BuildOptions.Inject.EnvironmentVariable(IDeployCompose.PullTokenVariable,
+                            TextExpressions.Github.SecretsGithubToken),
+                    ],
+                },
+            ],
+            Types = [WorkflowTypes.Github.Action],
+            // Deployments queue rather than cancel each other: a cancelled one could stop between two compose steps
+            Options = [BuildOptions.Github.Concurrency.Set("deploy-compose", (bool?)false)],
         },
 
         // Manual only, behind the production environment, so nothing deploys until the owner has set Azure up

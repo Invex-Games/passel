@@ -103,6 +103,24 @@ jobs:
           name: AzureInfrastructure
           path: '${{ github.workspace }}/.github/publish/AzureInfrastructure'
 
+  ValidateCompose:
+    runs-on: ubuntu-latest
+    steps:
+
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET 10.0.x
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+
+      - name: ValidateCompose
+        id: ValidateCompose
+        run: dotnet run --project _atom/_atom.csproj -- ValidateCompose --skip --headless
+
   BuildDocs:
     runs-on: ubuntu-latest
     steps:
