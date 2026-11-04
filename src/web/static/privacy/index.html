@@ -46,7 +46,7 @@
     <ul>
         <li>We keep what you send (links and notes) so your other devices can show it, until you delete it.</li>
         <li>From your Google account we keep only its unique id. We don't store your email address or your name.</li>
-        <li>To show a preview of a link, our server visits the linked page once.</li>
+        <li>To show a preview of a link, our server visits the linked page, and any page it redirects to.</li>
         <li>What you send is not end-to-end encrypted: our server can read it, as it must to deliver it.</li>
         <li>We don't sell your data, show ads, or put third-party analytics or trackers in our apps or on this site.</li>
     </ul>
@@ -72,11 +72,13 @@
 
     <h3>Link previews</h3>
     <p>
-        When you send a link to a web page, our server fetches that page once, shortly afterwards, to read the
-        title, description and image address the page gives for itself. It only fetches public <code>http</code> and
+        When you send a link to a web page, our server fetches that page shortly afterwards to read the title,
+        description and image address the page gives for itself. It only fetches public <code>http</code> and
         <code>https</code> addresses, never addresses on private networks, follows at most three redirects, reads at
-        most 512 KB, and gives up after three attempts. The site sees a request from our server, which identifies
-        itself as <code>Passel/1.0 (+https://passel.link)</code>; nothing about you is sent with it. We store the
+        most 512 KB, and gives up after three attempts. So one link can mean several requests: one for each attempt,
+        and one more for each redirect along the way. A redirect can lead to another site, such as the real address
+        behind a shortened link, and that site sees our server's requests too. Each request identifies our server as
+        <code>Passel/1.0 (+https://passel.link)</code>; nothing about you is sent with it. We store the
         title, description, image address and the time of the fetch with your link, and delete them with it.
     </p>
     <p>
@@ -147,7 +149,7 @@
         <li>Nobody but you sees your items through Passel: every item is only ever returned to the account that sent it.</li>
         <li><span class="placeholder">[HOSTING PROVIDER]</span> runs our server and database for us, under contract.</li>
         <li>Google provides sign-in.</li>
-        <li>Sites you send links to see the one request from our server described above.</li>
+        <li>Sites you send links to, and any site such a link redirects to, see the requests from our server described above.</li>
         <li><span class="placeholder">[DISCLOSURES REQUIRED BY LAW, TO BE WRITTEN WITH LEGAL ADVICE]</span></li>
     </ul>
 
@@ -180,6 +182,7 @@
 <footer class="site-footer">
     <a href="/">Passel</a>
     <a href="/terms/">Terms of service</a>
+    <a href="https://docs.passel.link/">Documentation</a>
 </footer>
 </body>
 </html>

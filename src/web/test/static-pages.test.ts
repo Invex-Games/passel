@@ -63,6 +63,10 @@ describe("static pages", () => {
         expect(paths.filter(path => !resolves(path))).toEqual([]);
     });
 
+    it.each(["index.html", "privacy/index.html", "terms/index.html"])("%s links to the documentation", name => {
+        expect(page(name)).toContain('href="https://docs.passel.link/"');
+    });
+
     it.each(staticPages.map(p => p.name))("%s runs no script, under a policy that allows none", name => {
         const html = page(name);
 
@@ -131,6 +135,12 @@ describe("the privacy policy and terms drafts", () => {
         expect(apiDefault("Options/LinkPreviewOptions.cs", "MaxRedirects")).toBe("3");
         expect(apiDefault("Options/LinkPreviewOptions.cs", "MaxAttempts")).toBe("3");
         expect(privacy).toContain("follows at most three redirects, reads at most 512 KB, and gives up after three attempts");
+
+        // Retries and redirects mean several requests, possibly to other sites, so neither page may promise just one
+        const terms = visibleText(page("terms/index.html"));
+        expect(privacy).toContain("one for each attempt, and one more for each redirect");
+        expect(privacy).toContain("any site such a link redirects to");
+        for (const text of [privacy, terms]) expect(text).not.toMatch(/page once|one request/);
 
         const userAgent = /UserAgent = "([^"]+)"/.exec(fetcher)?.[1];
         expect(userAgent).toBeDefined();
