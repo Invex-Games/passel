@@ -81,6 +81,7 @@ The migration job gets the database's connection string (as its own identity, an
 | `Parcels:ThumbnailSize` | No | The longest side of a thumbnail in pixels, from 64 to 2048. Default 512. |
 | `Parcels:MaxImagePixels` | No | The most pixels an image may have to be decoded for a thumbnail; larger ones are kept as plain files. A PNG or GIF decodes at full size, four bytes a pixel, so this bounds the memory a decode takes. Default 40000000. |
 | `Parcels:MaxImageDimension` | No | The longest side an image may have to be decoded for a thumbnail. Default 16384. |
+| `Parcels:DecodeSlotTimeout` | No | How long an upload waits for the one image decode an instance runs at a time, up to a minute; an image still waiting then is stored as a plain file without a thumbnail, keeping its sniffed type. Default `00:00:05`. |
 | `Parcels:MaxConcurrentUploads` | No | How many uploads one instance takes at once, from 1 to 64; the next waits five seconds and then gets 503. Default 4. |
 | `EventStreams:MaxStreamsPerUser` | No | Event streams one user may hold open on one instance; opening another closes their oldest. Default 5. |
 | `EventStreams:MaxStreamsPerInstance` | No | Event streams one instance holds open in total; beyond it the endpoint answers 503. Default 4000. |

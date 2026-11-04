@@ -29,15 +29,28 @@ internal sealed record ParcelInspection(
 /// </summary>
 /// <remarks>
 ///     A decode is a native call that cannot be cancelled, so the pixel limit is what bounds its time and memory
-///     (four bytes a pixel at full size), and decodes run one at a time on the instance. Any failure leaves the file
+///     (four bytes a pixel at full size), and decodes run one at a time on the instance. An upload waits at most
+///     <see cref="ParcelOptions.DecodeSlotTimeout" /> for its turn, so one slow decode (a progressive JPEG reads
+///     every coefficient however small the thumbnail, and a PNG at the pixel limit decodes all of it) delays the
+///     uploads behind it by that much at most rather than holding them all. Any failure, the wait included, leaves the file
 ///     an ordinary download with no thumbnail; it never fails the upload.
 /// </remarks>
-internal sealed class ParcelInspector(IOptions<ParcelOptions> options)
+/// <param name="options">The pixel and dimension limits, the thumbnail size and the wait for the decode slot.</param>
+/// <param name="decodes">
+///     The decode slot, for a test to hold; one of its own otherwise. The inspector is a singleton, so that is one
+///     decode at a time across the process.
+/// </param>
+internal sealed class ParcelInspector(IOptions<ParcelOptions> options, SemaphoreSlim? decodes = null)
 {
+    /// <summary>
+    ///     Why a file has no thumbnail when the decode slot stayed taken for the whole wait.
+    /// </summary>
+    internal const string DecoderBusy = "decoder busy";
+
     private const int WebpQuality = 80;
 
-    // One decode at a time across the process: a PNG at the pixel limit takes 160 MB of native memory
-    private static readonly SemaphoreSlim Decodes = new(1, 1);
+    // One decode at a time: a PNG at the pixel limit takes 160 MB of native memory
+    private readonly SemaphoreSlim _decodes = decodes ?? new(1, 1);
 
     /// <summary>
     ///     Inspects <paramref name="file" />, which must be seekable, from its start. The stream is left open, at an
@@ -58,7 +71,9 @@ internal sealed class ParcelInspector(IOptions<ParcelOptions> options)
         if (ExpectedFormat(sniffed) is not { } expected)
             return ParcelInspection.NotAnImage(sniffed);
 
-        await Decodes.WaitAsync(cancellationToken);
+        // Stored without a thumbnail rather than queued without end behind a slow decode; it keeps its sniffed type
+        if (!await _decodes.WaitAsync(options.Value.DecodeSlotTimeout, cancellationToken))
+            return ParcelInspection.NotAnImage(sniffed, DecoderBusy);
 
         try
         {
@@ -71,7 +86,7 @@ internal sealed class ParcelInspector(IOptions<ParcelOptions> options)
         }
         finally
         {
-            Decodes.Release();
+            _decodes.Release();
         }
     }
 

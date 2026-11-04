@@ -92,6 +92,14 @@ internal sealed class ParcelOptions : IValidatableObject
     public int MaxImageDimension { get; set; } = 16_384;
 
     /// <summary>
+    ///     How long an upload waits for the one decode an instance runs at a time before it is stored without a
+    ///     thumbnail instead. A decode cannot be cancelled, so this is what keeps one slow image from holding every
+    ///     upload behind it.
+    /// </summary>
+    [Range(typeof(TimeSpan), "00:00:00", "00:01:00", ParseLimitsInInvariantCulture = true, ConvertValueInInvariantCulture = true)]
+    public TimeSpan DecodeSlotTimeout { get; set; } = TimeSpan.FromSeconds(5);
+
+    /// <summary>
     ///     How many uploads one instance takes at the same time. Others wait briefly, then get 503.
     /// </summary>
     [Range(1, 64)]

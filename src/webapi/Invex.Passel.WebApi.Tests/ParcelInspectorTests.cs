@@ -287,6 +287,44 @@ public sealed class ParcelInspectorTests
     }
 
     /// <summary>
+    ///     A decode that cannot finish soon (here, the slot held by the test) leaves later images stored without a
+    ///     thumbnail after the wait, rather than queued behind it; the file keeps its sniffed type.
+    /// </summary>
+    [Fact]
+    public async Task An_image_waits_only_so_long_for_the_decode_slot_and_is_then_kept_without_a_thumbnail()
+    {
+        using var slot = new SemaphoreSlim(1, 1);
+        var inspector = new ParcelInspector(Microsoft.Extensions.Options.Options.Create(new ParcelOptions
+            {
+                DecodeSlotTimeout = TimeSpan.FromMilliseconds(100),
+            }),
+            slot);
+
+        await slot.WaitAsync(CancellationToken);
+
+        var watch = Stopwatch.StartNew();
+        var inspection = await inspector.InspectAsync(new MemoryStream(TestImages.Png(300, 200)), CancellationToken);
+        watch.Stop();
+
+        Assert.Equal(ParcelSniffer.Png, inspection.ContentType);
+        Assert.False(inspection.IsImage);
+        Assert.Null(inspection.Width);
+        Assert.Null(inspection.Height);
+        Assert.Null(inspection.Thumbnail);
+        Assert.Equal(ParcelInspector.DecoderBusy, inspection.Failure);
+        Assert.InRange(watch.Elapsed, TimeSpan.FromMilliseconds(90), TimeSpan.FromSeconds(2));
+
+        // Once the slot is free again, the next image is thumbnailed, and the slot is given back after it
+        slot.Release();
+
+        var next = await inspector.InspectAsync(new MemoryStream(TestImages.Png(300, 200)), CancellationToken);
+
+        Assert.True(next.IsImage);
+        Assert.NotNull(next.Thumbnail);
+        Assert.Equal(1, slot.CurrentCount);
+    }
+
+    /// <summary>
     ///     The upload stores the file from the same stream after inspecting it, so the inspector must leave it open.
     /// </summary>
     [Fact]

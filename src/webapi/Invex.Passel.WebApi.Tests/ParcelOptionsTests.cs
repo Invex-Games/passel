@@ -34,6 +34,7 @@ public sealed class ParcelOptionsTests
         Assert.Equal(TimeSpan.FromHours(1), options.UnattachedLifetime);
         Assert.Equal(TimeSpan.FromMinutes(15), options.UploadingGrace);
         Assert.Equal(512, options.ThumbnailSize);
+        Assert.Equal(TimeSpan.FromSeconds(5), options.DecodeSlotTimeout);
     }
 
     [Theory]
@@ -75,6 +76,8 @@ public sealed class ParcelOptionsTests
     [InlineData(nameof(ParcelOptions.ThumbnailSize), "2049")]
     [InlineData(nameof(ParcelOptions.MaxImagePixels), "268435457")]
     [InlineData(nameof(ParcelOptions.MaxImageDimension), "0")]
+    [InlineData(nameof(ParcelOptions.DecodeSlotTimeout), "00:01:01")]
+    [InlineData(nameof(ParcelOptions.DecodeSlotTimeout), "-00:00:01")]
     [InlineData(nameof(ParcelOptions.MaxConcurrentUploads), "65")]
     public void A_value_out_of_its_range_is_refused(string member, string value)
     {
