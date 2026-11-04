@@ -4,6 +4,8 @@ namespace Atom;
 [GenerateEntryPoint]
 [GenerateSolutionModel]
 internal interface IBuild : IWorkflowBuildDefinition,
+    IGitVersion,
+    IDotnetToolInstallHelper,
     IGithubWorkflows,
     IAzureKeyVault,
     IBuildWebApi,
@@ -11,6 +13,10 @@ internal interface IBuild : IWorkflowBuildDefinition,
     IBuildMobileAppAndroid,
     IBuildChromeExtension,
     IBuildWebApp,
+    IPublishImages,
+    IPublishDeployBundle,
+    IDeployCompose,
+    IValidateCompose,
     ITestTargets,
     IDocTargets,
     ISetupDevEnvironment
@@ -25,6 +31,10 @@ internal interface IBuild : IWorkflowBuildDefinition,
     [
         BuildOptions.AzureKeyVault.UseAzureKeyVault,
 
+        // Versions and build ids come from GitVersion (GitVersion.yml), so every commit on main gets its own version
+        BuildOptions.GitVersion.ProvideBuildVersion,
+        BuildOptions.GitVersion.ProvideBuildId,
+
         // Runners get the .NET SDK that global.json asks for
         BuildOptions.Steps.SetupDotnet.Dotnet100X(),
     ];
@@ -33,7 +43,8 @@ internal interface IBuild : IWorkflowBuildDefinition,
     // In headless mode (CI) a build fails early if the committed files are out of date.
     IReadOnlyList<WorkflowDefinition> IWorkflowBuildDefinition.Workflows =>
     [
-        // Every pull request: all three test suites, the Azure deployment's Bicep and a docs build, nothing published
+        // Every pull request: all three test suites, the Azure deployment's Bicep, the compose deployment's files and
+        // scripts and a docs build, nothing published
         new("Validate")
         {
             Triggers = [WorkflowTriggers.Manual, WorkflowTriggers.PullIntoMain],
@@ -44,6 +55,7 @@ internal interface IBuild : IWorkflowBuildDefinition,
                 new(nameof(TestMobileApp)),
                 // The Bicep of the Azure deployment, kept with the run for review; nothing signs in to Azure
                 new(nameof(PublishAzureInfrastructure)),
+                new(nameof(ValidateCompose)),
                 new(nameof(BuildDocs))
                 {
                     Options = [BuildOptions.Target.SuppressArtifactPublishing],
@@ -53,7 +65,8 @@ internal interface IBuild : IWorkflowBuildDefinition,
             Options = [CancelSupersededWorkflowRuns],
         },
 
-        // Every push to main: tests, release builds of the API and the extension, and the docs site
+        // Every push to main: tests, release builds of the API, the extension and the web app, the images of the
+        // self-hosted deployment (pushed to GHCR from main only) and the docs site
         new("Build")
         {
             Triggers = [WorkflowTriggers.Manual, WorkflowTriggers.PushToMain],
@@ -73,6 +86,45 @@ internal interface IBuild : IWorkflowBuildDefinition,
                             TextExpressions.Github.VarsVar("CHROME_EXTENSION_CLIENT_ID")),
                     ],
                 },
+                new(nameof(BuildWebApp))
+                {
+                    Options =
+                    [
+                        // Both are compiled into the site, so they are repository variables: the build jobs run in no
+                        // environment and could not read the production environment's
+                        BuildOptions.Inject.Param(nameof(ServerClientId),
+                            TextExpressions.Github.VarsVar("GOOGLE_WEB_CLIENT_ID")),
+                        BuildOptions.Inject.Param(nameof(ApiBaseUrlProduction),
+                            TextExpressions.Github.VarsVar("API_BASE_URL")),
+                    ],
+                },
+                new(nameof(PublishImages))
+                {
+                    Options =
+                    [
+                        BuildOptions.Github.TokenPermissions.Set(new Permissions.Exact(new()
+                        {
+                            Contents = PermissionsLevel.Read,
+                            Packages = PermissionsLevel.Write,
+                        })),
+                        GhcrLogin,
+                        // Still only on refs/heads/main: a manual run on another branch builds the images only
+                        BuildOptions.Inject.Param(nameof(PushImages), "true"),
+                    ],
+                },
+                new(nameof(PublishDeployBundle))
+                {
+                    Options =
+                    [
+                        BuildOptions.Github.TokenPermissions.Set(new Permissions.Exact(new()
+                        {
+                            Contents = PermissionsLevel.Read,
+                            Packages = PermissionsLevel.Write,
+                        })),
+                        GhcrLogin,
+                        BuildOptions.Inject.Param(nameof(PushImages), "true"),
+                    ],
+                },
                 new(nameof(BuildDocs)),
                 new(nameof(PublishDocs))
                 {
@@ -88,6 +140,58 @@ internal interface IBuild : IWorkflowBuildDefinition,
             ],
             Types = [WorkflowTypes.Github.Action],
             Options = [CancelSupersededWorkflowRuns],
+        },
+
+        // Manual only, behind the production environment: deploys a tag to the self-hosted server (ADR 0004) through the
+        // deploy gate its SSH key is restricted to. A blank tag deploys this ref's build; an older tag with migrate off
+        // rolls back (docs/guides/deploying.md)
+        new("DeployCompose")
+        {
+            Triggers =
+            [
+                WorkflowTriggers.ManualWithInputs(
+                    new ManualStringInput("image-tag",
+                        "Tag to deploy; blank = this ref; an older tag rolls back",
+                        false,
+                        null),
+                    new ManualBoolInput("migrate",
+                        "Run db-migrate before the API starts; off for a rollback",
+                        false,
+                        true)),
+            ],
+            Targets =
+            [
+                new(nameof(SetupBuildInfo)),
+                new(nameof(DeployCompose))
+                {
+                    Options =
+                    [
+                        BuildOptions.Deploy.ToEnvironment(DeploymentEnvironment),
+                        BuildOptions.Github.TokenPermissions.Set(new Permissions.Exact(new()
+                        {
+                            Contents = PermissionsLevel.Read,
+                            Packages = PermissionsLevel.Read,
+                        })),
+                        // The job checks that the tag's three images exist before it reaches the server
+                        GhcrLogin,
+                        BuildOptions.Inject.Param(nameof(DeployImageTag), TextExpressions.Github.InputsInput("image-tag")),
+                        BuildOptions.Inject.Param(nameof(Migrate), TextExpressions.Github.InputsInput("migrate")),
+                        BuildOptions.Inject.Param(nameof(DeployHost), TextExpressions.Github.VarsVar("DEPLOY_HOST")),
+                        BuildOptions.Inject.Param(nameof(DeployUser), TextExpressions.Github.VarsVar("DEPLOY_USER")),
+                        // Raw environment variables rather than secrets of the build, so no Key Vault lookup comes with
+                        // them. The job's own token reads the images and expires with the job
+                        BuildOptions.Inject.EnvironmentVariable(IDeployCompose.SshKeyVariable,
+                            TextExpressions.Github.SecretsSecret("DEPLOY_SSH_KEY")),
+                        BuildOptions.Inject.EnvironmentVariable(IDeployCompose.KnownHostsVariable,
+                            TextExpressions.Github.VarsVar("DEPLOY_KNOWN_HOSTS")),
+                        BuildOptions.Inject.EnvironmentVariable(IDeployCompose.PullTokenVariable,
+                            TextExpressions.Github.SecretsGithubToken),
+                    ],
+                },
+            ],
+            Types = [WorkflowTypes.Github.Action],
+            // Deployments queue rather than cancel each other: a cancelled one could stop between two compose steps
+            Options = [BuildOptions.Github.Concurrency.Set("deploy-compose", (bool?)false)],
         },
 
         // Manual only, behind the production environment, so nothing deploys until the owner has set Azure up
@@ -167,6 +271,26 @@ internal interface IBuild : IWorkflowBuildDefinition,
                 ["client-id"] = "${{ vars.AZURE_CLIENT_ID }}",
                 ["tenant-id"] = "${{ vars.AZURE_TENANT_ID }}",
                 ["subscription-id"] = "${{ vars.AZURE_SUBSCRIPTION_ID }}",
+            },
+        },
+        Order = -1,
+    };
+
+    /// <summary>
+    ///     Signs Docker in to GHCR with the job's own token, which the job's packages: write permission lets push the
+    ///     repository's images. The .NET SDK's container push reads the same Docker credentials.
+    /// </summary>
+    static readonly IBuildOption GhcrLogin = new GithubCustomAdditionalStep
+    {
+        Step = new Step.UsesStep
+        {
+            Name = "GHCR login",
+            Uses = "docker/login-action@v3",
+            With = new Dictionary<string, TextExpressionCollection>
+            {
+                ["registry"] = "ghcr.io",
+                ["username"] = "${{ github.actor }}",
+                ["password"] = "${{ secrets.GITHUB_TOKEN }}",
             },
         },
         Order = -1,

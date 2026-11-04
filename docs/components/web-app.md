@@ -65,7 +65,7 @@ Run `npm install` once in `src/`, then, in `src/web`:
 | `npm run build` | Type-check, then a minified build into `dist/` |
 | `npm run serve` | A minified build, served the same way, to look at what will ship. It signs in with Google only, never as a development user; like `npm run dev` it gets the referrer policy Google sign-in needs on `http://localhost` |
 | `npm run typecheck`, `npm test` | The TypeScript check, and the Vitest suite in `test/` |
-| `dotnet atom BuildWebApp` | Release build into `atom-publish/WebApp`, with `api-base-url-production` and `server-client-id`; see [Build Targets](../reference/build-targets.md) |
+| `dotnet atom BuildWebApp` | Release build into `atom-publish/WebApp`, with `api-base-url-production` (an `https` origin with no path) and `server-client-id`; see [Build Targets](../reference/build-targets.md). Without a real Google client id it warns and takes `GOOGLE_CLIENT_ID` from `src/web/.env`, except in a headless (CI) run, where it fails |
 
 ## Hosting
 
@@ -81,7 +81,21 @@ Run `npm install` once in `src/`, then, in `src/web`:
 
 File names carry no content hash, so the host should have browsers revalidate (`Cache-Control: no-cache`) rather than cache them for long. A host that can set headers should also send `frame-ancestors 'none'` and HSTS, which a `<meta>` policy can't. The API must list the site's origin in `Cors:AllowedOrigins` ([Configuration](../reference/configuration.md#web-api)), and the Google web client must list it as an Authorized JavaScript origin.
 
-No workflow deploys the site yet, so the preview deployment in roadmap 1.E2 is still to do: hooking `BuildWebApp` into the deployment (roadmap 0.A2 chooses the Azure services) is a follow-up, and until then the site exists only as the build output. The production build is still checked on every pull request: `build.test.ts` runs `build.mjs` as part of `npm test`. Before the site goes up:
+### The web image
+
+The self-hosted deployment ([ADR 0004](../decisions/0004-hosting-on-docker-compose.md)) serves the site from the `passel-web` image: Caddy, from `deploy/web/Dockerfile` and `deploy/web/Caddyfile`, with the site from `BuildWebApp` in `/srv`. Every build of `main` builds it after the site and pushes it to `ghcr.io/invex-games/passel-web` (`PublishImages`), tagged with the version and `sha-` and the commit; the Build workflow passes the `API_BASE_URL` and `GOOGLE_WEB_CLIENT_ID` repository variables to `BuildWebApp`. Both values are compiled into the site, so an image serves one environment, and another API address means another image.
+
+The image keeps the rules above:
+
+- It listens on plain HTTP on port 8080, as user 1000, with Caddy's admin endpoint, automatic HTTPS and saved configuration off. TLS ends at the proxy in front of it.
+- `/privacy`, `/terms` and `/app` answer 308 with the trailing slash; anything that is not a file answers 404 with `404.html`.
+- Every response, the redirects and the 404 page included, carries `Cache-Control: no-cache`, `Strict-Transport-Security: max-age=31536000; includeSubDomains`, `Content-Security-Policy: frame-ancestors 'none'`, `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff` and `Referrer-Policy: strict-origin-when-cross-origin`, and no `Server` header. Caddy's `ETag` and `Last-Modified` let browsers revalidate with a 304.
+- Responses are compressed with zstd or gzip, and request bodies are capped at 1 MB.
+- The Caddy binary has its capability to bind low ports removed, so the container runs with every capability dropped.
+
+To build and look at it locally (nothing is pushed off `main`), run `dotnet atom SetupBuildInfo` (with `--skip`, `PublishImages` uses the version that last stored), then `dotnet atom BuildWebApp --server-client-id <id>.apps.googleusercontent.com`, then `dotnet atom PublishImages --skip`, and `docker run --rm -p 127.0.0.1:18081:8080 invex-games/passel-web:<version>`. Locally the images are named without the registry, as `invex-games/passel-webapi` and `invex-games/passel-web`.
+
+The compose stack runs the image as `web`, behind the proxy, and the `DeployCompose` workflow deploys it with the API ([Releasing and Deploying](../guides/deploying.md#self-hosted-docker-compose)); the preview deployment in roadmap 1.E2 is still to come. The production build is checked on every pull request: `build.test.ts` runs `build.mjs` as part of `npm test`. Before the site goes up:
 
 - `docs.passel.link`, which the static pages' footers link to as **Documentation**, must serve the DocFX site (`PublishDocs` pushes it to GitHub Pages).
 - The mobile app's **Privacy policy** and **Terms of service** tiles stay disabled until the pages are hosted; turn on `legalPagesPublished` in `settings_page.dart` then.

@@ -1,0 +1,11 @@
+# The bundled edge (COMPOSE_PROFILES=edge). Caddy obtains and renews the certificates for both hosts itself, sends
+# X-Forwarded-For and X-Forwarded-Proto to the API, and streams the server-sent events of /api/packets/events as
+# they come, with no setting needed. API_HOST and WEB_HOST come from the server's .env.
+
+{$API_HOST} {
+	reverse_proxy passel-api:8080
+}
+
+{$WEB_HOST} {
+	reverse_proxy passel-web:8080
+}

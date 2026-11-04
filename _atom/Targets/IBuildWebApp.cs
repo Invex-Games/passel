@@ -1,3 +1,5 @@
+using Invex.Atom.Build.Args;
+
 namespace Atom.Targets;
 
 internal interface IBuildWebApp : IChromeExtensionHelper, IConfigurationHelper
@@ -8,7 +10,8 @@ internal interface IBuildWebApp : IChromeExtensionHelper, IConfigurationHelper
 
     /// <summary>
     ///     The static site for any static host: the landing, privacy and terms pages and the app under <c>app/</c>.
-    ///     Hosting it is not part of the build yet; see docs/components/web-app.md.
+    ///     The API's address and the Google web client id are compiled in, so a build serves one environment only.
+    ///     PublishImages puts the site in the web image; see docs/components/web-app.md.
     /// </summary>
     Target BuildWebApp =>
         t => t
@@ -18,9 +21,16 @@ internal interface IBuildWebApp : IChromeExtensionHelper, IConfigurationHelper
             .ProducesArtifact(WebAppArtifactName)
             .Executes(async cancellationToken =>
             {
-                var publishDirectory = RootedFileSystem.AtomPublishDirectory / WebAppArtifactName;
-
-                RootedFileSystem.CleanOrCreateDirectory(publishDirectory);
+                // The API's origin goes into the app and into its Content-Security-Policy, so it has to be exactly
+                // an origin: a path would end up in the app's request URLs and in the policy
+                if (!Uri.TryCreate(ApiBaseUrlProduction, UriKind.Absolute, out var apiBaseUrl) ||
+                    apiBaseUrl.Scheme != Uri.UriSchemeHttps ||
+                    apiBaseUrl.AbsolutePath != "/" ||
+                    apiBaseUrl.Query.Length > 0 ||
+                    apiBaseUrl.Fragment.Length > 0 ||
+                    apiBaseUrl.UserInfo.Length > 0)
+                    throw new StepFailedException($"{nameof(ApiBaseUrlProduction)} must be an https origin with no " +
+                                                  $"path, such as https://api.passel.link ('{ApiBaseUrlProduction}')");
 
                 // build.mjs prefers these over any local .env file. The web app's API_URL is the packets endpoint
                 // itself, not the API root, and it signs in with the web client id, the API's main audience
@@ -31,12 +41,20 @@ internal interface IBuildWebApp : IChromeExtensionHelper, IConfigurationHelper
 
                 if (ServerClientId?.EndsWith(".apps.googleusercontent.com", StringComparison.Ordinal) is true)
                     buildVariables["GOOGLE_CLIENT_ID"] = ServerClientId;
+                // A headless build (CI) makes the site that ships, and must never fall back to a developer's .env
+                else if (GetService<CommandLineArgs>().HasHeadless)
+                    throw new StepFailedException($"{nameof(ServerClientId)} is not a Google OAuth client id " +
+                                                  $"('{ServerClientId}'); set the GOOGLE_WEB_CLIENT_ID variable");
                 else
                     // Guard against compiling in a placeholder that would silently break Google sign-in
                     Logger.LogWarning(
                         "{Param} is not a Google OAuth client id ('{Value}'); GOOGLE_CLIENT_ID must come from src/web/.env",
                         nameof(ServerClientId),
                         ServerClientId);
+
+                var publishDirectory = RootedFileSystem.AtomPublishDirectory / WebAppArtifactName;
+
+                RootedFileSystem.CleanOrCreateDirectory(publishDirectory);
 
                 var npmPath = await RestoreChromeExtensionPackages(cancellationToken);
 
@@ -48,17 +66,6 @@ internal interface IBuildWebApp : IChromeExtensionHelper, IConfigurationHelper
                     cancellationToken);
 
                 // Only the built site is published, never sources, node_modules or .env files
-                CopyDirectory(WebAppDirectory / "dist", publishDirectory);
+                RootedFileSystem.CopyDirectory(WebAppDirectory / "dist", publishDirectory);
             });
-
-    private void CopyDirectory(RootedPath source, RootedPath destination)
-    {
-        RootedFileSystem.Directory.CreateDirectory(destination);
-
-        foreach (var file in RootedFileSystem.Directory.GetFiles(source))
-            RootedFileSystem.File.Copy(file, destination / RootedFileSystem.Path.GetFileName(file), true);
-
-        foreach (var directory in RootedFileSystem.Directory.GetDirectories(source))
-            CopyDirectory(source / RootedFileSystem.Path.GetFileName(directory), destination / RootedFileSystem.Path.GetFileName(directory));
-    }
 }

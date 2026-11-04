@@ -1,0 +1,10 @@
+# The compose bundle of one release (passel-deploy), tagged like the API and web images it deploys. It holds files
+# only: deploy-gate.sh copies /bundle out of it with docker create and docker cp, and nothing ever runs it.
+FROM scratch
+COPY compose.yaml compose.external-proxy.yaml compose.ports.yaml /bundle/
+COPY deploy.sh deploy-gate.sh backup.sh .env.example /bundle/
+COPY db/ /bundle/db/
+COPY edge/ /bundle/edge/
+LABEL org.opencontainers.image.source="https://github.com/Invex-Games/pushin" \
+      org.opencontainers.image.title="passel-deploy" \
+      org.opencontainers.image.description="The Docker Compose bundle of a Passel release"

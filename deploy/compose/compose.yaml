@@ -1,0 +1,253 @@
+# Passel on Docker Compose (ADR 0004). See docs/guides/deploying.md.
+#
+# Every value comes from the server's .env (see .env.example) and from release.env, which deploy.sh writes with
+# PASSEL_TAG, the version being deployed. Run compose through deploy.sh, or by hand from a release directory with
+# both env files: docker compose --env-file ../../.env --env-file ../../release.env <command>
+#
+# The one-shot services (db-roles, parcels-init, db-migrate) run in that order before api starts. deploy.sh runs
+# each of them itself; the depends_on conditions below are a second line of defence for a plain "up".
+
+name: passel
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: 10m
+    max-file: "5"
+
+x-api-image: &api-image ghcr.io/invex-games/passel-webapi:${PASSEL_TAG:?PASSEL_TAG is set by deploy.sh}
+
+x-web-image: &web-image ghcr.io/invex-games/passel-web:${PASSEL_TAG:?PASSEL_TAG is set by deploy.sh}
+
+# Containers that need no privileges get none: no capabilities and no way to gain any
+x-hardening: &hardening
+  security_opt:
+    - no-new-privileges:true
+  cap_drop:
+    - ALL
+
+# The API's OpenTelemetry export; with no endpoint nothing is exported, and docker compose logs still has every log
+x-otel: &otel
+  OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+  OTEL_EXPORTER_OTLP_PROTOCOL: ${OTEL_EXPORTER_OTLP_PROTOCOL:-grpc}
+  OTEL_EXPORTER_OTLP_HEADERS: ${OTEL_EXPORTER_OTLP_HEADERS:-}
+
+services:
+  postgres:
+    image: postgres:18
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-passel}
+    volumes:
+      # PostgreSQL 18 images keep their data in a versioned directory under /var/lib/postgresql
+      - pgdata:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    shm_size: 256mb
+    networks:
+      - backend
+    logging: *logging
+
+  # Creates or updates the two logins, idempotently: passel_owner owns the database and runs db-migrate, and passel_api
+  # is the API's login, which db-migrate makes a member of passel_app. Runs as the superuser on every deploy
+  db-roles:
+    image: postgres:18
+    restart: "no"
+    entrypoint: ["bash", "/db/roles.sh"]
+    environment:
+      PGHOST: postgres
+      PGPORT: "5432"
+      PGUSER: ${POSTGRES_USER:-postgres}
+      PGPASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      PGDATABASE: ${POSTGRES_DB:-passel}
+      PASSEL_OWNER_DB_PASSWORD: ${PASSEL_OWNER_DB_PASSWORD:?set PASSEL_OWNER_DB_PASSWORD in .env}
+      PASSEL_API_DB_PASSWORD: ${PASSEL_API_DB_PASSWORD:?set PASSEL_API_DB_PASSWORD in .env}
+    volumes:
+      - ./db:/db:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - backend
+    logging: *logging
+
+  # A new named volume belongs to root; the API runs as app (1654) and keeps its files in a directory only it can read
+  parcels-init:
+    image: busybox:1.37
+    restart: "no"
+    user: "0:0"
+    network_mode: none
+    command: ["sh", "-c", "mkdir -p /v/parcels && chown 1654:1654 /v /v/parcels && chmod 700 /v/parcels"]
+    volumes:
+      - parcels:/v
+    logging: *logging
+
+  # Applies the schema and the grants, always as passel_owner: the default privileges it sets apply only to objects
+  # that same login creates later
+  db-migrate:
+    image: *api-image
+    restart: "no"
+    command: ["db-migrate"]
+    environment:
+      <<: *otel
+      ASPNETCORE_ENVIRONMENT: Production
+      DOTNET_ENVIRONMENT: Production
+      ConnectionStrings__passel-db: Host=postgres;Port=5432;Database=${POSTGRES_DB:-passel};Username=passel_owner;Password=${PASSEL_OWNER_DB_PASSWORD:?set PASSEL_OWNER_DB_PASSWORD in .env}
+      Database__ApiRole: passel_api
+      OTEL_SERVICE_NAME: passel-migrate
+      OTEL_RESOURCE_ATTRIBUTES: deployment.environment=production,service.version=${PASSEL_TAG}
+    depends_on:
+      db-roles:
+        condition: service_completed_successfully
+    networks:
+      - backend
+    <<: *hardening
+    logging: *logging
+
+  api:
+    image: *api-image
+    restart: unless-stopped
+    environment:
+      <<: *otel
+      ASPNETCORE_ENVIRONMENT: Production
+      DOTNET_ENVIRONMENT: Production
+      ConnectionStrings__passel-db: Host=postgres;Port=5432;Database=${POSTGRES_DB:-passel};Username=passel_api;Password=${PASSEL_API_DB_PASSWORD:?set PASSEL_API_DB_PASSWORD in .env}
+      # The Sqids alphabet: every public id depends on it, so it never changes
+      Encoding__Alphabet: ${ENCODING_ALPHABET:?set ENCODING_ALPHABET in .env}
+      Authentication__Google__ClientId: ${GOOGLE_WEB_CLIENT_ID:?set GOOGLE_WEB_CLIENT_ID in .env}
+      Authentication__Google__AdditionalAudiences__0: ${CHROME_EXTENSION_CLIENT_ID:-}
+      Cors__AllowedOrigins__0: ${WEB_ORIGIN:?set WEB_ORIGIN in .env}
+      # localhost is the Host the healthcheck sends
+      AllowedHosts: ${API_HOST:?set API_HOST in .env};localhost
+      # Only the proxy may set the client address and scheme; never also ASPNETCORE_FORWARDEDHEADERS_ENABLED
+      ForwardedHeaders__Enabled: "true"
+      ForwardedHeaders__KnownNetworks__0: ${PROXY_TRUSTED_CIDR:-172.30.0.2/32}
+      Parcels__Store: FileSystem
+      Parcels__FileSystemRoot: /var/lib/passel/parcels
+      OTEL_SERVICE_NAME: passel-webapi
+      OTEL_RESOURCE_ATTRIBUTES: deployment.environment=production,service.version=${PASSEL_TAG}
+    volumes:
+      - parcels:/var/lib/passel
+    # The image has bash but no curl or wget; /health checks the database too
+    healthcheck:
+      test:
+        - CMD
+        - bash
+        - -c
+        - >-
+          exec 3<>/dev/tcp/127.0.0.1/8080
+          && printf 'GET /health HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n' >&3
+          && head -n 1 <&3 | grep -q ' 200 '
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 30s
+    stop_grace_period: 30s
+    depends_on:
+      postgres:
+        condition: service_healthy
+      parcels-init:
+        condition: service_completed_successfully
+      db-migrate:
+        condition: service_completed_successfully
+    networks:
+      backend: {}
+      edge:
+        aliases:
+          - passel-api
+    <<: *hardening
+    logging: *logging
+
+  web:
+    image: *web-image
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1:8080/"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 10s
+    networks:
+      edge:
+        aliases:
+          - passel-web
+    <<: *hardening
+    logging: *logging
+
+  # The bundled TLS edge (COMPOSE_PROFILES=edge): Caddy gets certificates from Let's Encrypt for API_HOST and WEB_HOST.
+  # It is the one service facing the internet, so it keeps a single capability, NET_BIND_SERVICE, to bind 80 and 443
+  # (the image's caddy binary carries it as a file capability, which fails to start without it). It runs as the
+  # image's root user, which owns /data and /config, so it writes its certificates there without DAC_OVERRIDE or
+  # CHOWN. Its fixed address is the one the API trusts
+  edge:
+    image: caddy:2.10-alpine
+    profiles: [edge]
+    restart: unless-stopped
+    environment:
+      API_HOST: ${API_HOST:?set API_HOST in .env}
+      WEB_HOST: ${WEB_HOST:?set WEB_HOST in .env}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./edge/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      - api
+      - web
+    networks:
+      edge:
+        ipv4_address: 172.30.0.2
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE
+    logging: *logging
+
+  # A local telemetry viewer (COMPOSE_PROFILES=telemetry), on the server's loopback only. Point the API at it with
+  # OTEL_EXPORTER_OTLP_ENDPOINT=http://dashboard:18889 and reach it through an SSH tunnel
+  dashboard:
+    image: mcr.microsoft.com/dotnet/aspire-dashboard:13
+    profiles: [telemetry]
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:18888:18888"
+    networks:
+      - backend
+    <<: *hardening
+    logging: *logging
+
+networks:
+  # Not internal: the API fetches link previews and Google's signing keys. A fixed subnet gives the host a fixed
+  # address on it, which compose.ports.yaml trusts
+  backend:
+    ipam:
+      config:
+        - subnet: 172.30.1.0/24
+          gateway: 172.30.1.1
+  # The proxy's network. A fixed subnet gives the bundled edge a fixed address for PROXY_TRUSTED_CIDR, and the other
+  # containers get addresses from the upper half only, so none of them can take it first. The gateway is pinned too:
+  # with an ip_range Docker would otherwise put it at the start of the range.
+  # compose.external-proxy.yaml swaps this network for an existing proxy's network
+  edge:
+    ipam:
+      config:
+        - subnet: 172.30.0.0/24
+          gateway: 172.30.0.1
+          ip_range: 172.30.0.128/25
+
+volumes:
+  pgdata: {}
+  parcels: {}
+  caddy-data: {}
+  caddy-config: {}

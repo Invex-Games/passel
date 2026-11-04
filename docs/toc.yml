@@ -47,6 +47,8 @@
             href: decisions/0002-product-decisions.md
         -   name: 0003 Hosting on Azure
             href: decisions/0003-hosting-on-azure.md
+        -   name: 0004 Hosting on Docker Compose
+            href: decisions/0004-hosting-on-docker-compose.md
 -   name: Evaluation
     href: evaluation/index.md
     items:

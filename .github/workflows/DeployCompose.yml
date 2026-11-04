@@ -1,0 +1,85 @@
+name: DeployCompose
+
+on:
+  workflow_dispatch:
+    inputs:
+      image-tag:
+        description: Tag to deploy; blank = this ref; an older tag rolls back
+        required: false
+        type: string
+      migrate:
+        description: Run db-migrate before the API starts; off for a rollback
+        required: false
+        default: true
+        type: boolean
+
+permissions: { }
+
+concurrency:
+  group: deploy-compose
+  cancel-in-progress: false
+
+jobs:
+
+  SetupBuildInfo:
+    runs-on: ubuntu-latest
+    outputs:
+      build-name: ${{ steps.SetupBuildInfo.outputs.build-name }}
+      build-id: ${{ steps.SetupBuildInfo.outputs.build-id }}
+      build-version: ${{ steps.SetupBuildInfo.outputs.build-version }}
+      build-timestamp: ${{ steps.SetupBuildInfo.outputs.build-timestamp }}
+    steps:
+
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET 10.0.x
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+
+      - name: SetupBuildInfo
+        id: SetupBuildInfo
+        run: dotnet run --project _atom/_atom.csproj -- SetupBuildInfo --skip --headless
+
+  DeployCompose:
+    permissions:
+      contents: read
+      packages: read
+    needs: [ SetupBuildInfo ]
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET 10.0.x
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+
+      - name: GHCR login
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: DeployCompose
+        id: DeployCompose
+        run: dotnet run --project _atom/_atom.csproj -- DeployCompose --skip --headless
+        env:
+          image-tag: ${{ inputs.image-tag }}
+          migrate: ${{ inputs.migrate }}
+          build-version: ${{ needs.SetupBuildInfo.outputs.build-version }}
+          deploy-host: ${{ vars.DEPLOY_HOST }}
+          deploy-user: ${{ vars.DEPLOY_USER }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ vars.DEPLOY_KNOWN_HOSTS }}
+          GHCR_PULL_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+

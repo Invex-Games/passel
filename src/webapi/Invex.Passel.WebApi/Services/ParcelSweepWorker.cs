@@ -22,7 +22,8 @@ internal sealed partial class ParcelSweepWorker(
         // Said once, here, because this is the one part of the API that uses the storage whether or not anyone asks
         // for a file
         if (store is UnavailableParcelStore && !environment.IsDevelopment())
-            LogStorageMissing(HostParcelExtensions.BlobConnectionName);
+            LogStorageMissing(HostParcelExtensions.BlobConnectionName, HostParcelExtensions.StoreKey,
+                HostParcelExtensions.FileSystemRootKey);
 
         var settings = options.Value;
 
@@ -102,8 +103,8 @@ internal sealed partial class ParcelSweepWorker(
         await scope.ServiceProvider.GetRequiredService<IParcelSweep>().ScanOrphansAsync(time.GetUtcNow(), cancellationToken);
     }
 
-    [LoggerMessage(Level = LogLevel.Warning, Message = "No connection string {ConnectionName} is set, so files cannot be stored: every file request answers 503")]
-    private partial void LogStorageMissing(string connectionName);
+    [LoggerMessage(Level = LogLevel.Warning, Message = "No file storage is configured, so files cannot be stored: every file request answers 503. Set the connection string {ConnectionName}, or {StoreKey}=FileSystem with {RootKey}")]
+    private partial void LogStorageMissing(string connectionName, string storeKey, string rootKey);
 
     [LoggerMessage(Level = LogLevel.Information, Message = "The parcel sweep is off; deleted and expired files keep their bytes until it is on")]
     private partial void LogDisabled();

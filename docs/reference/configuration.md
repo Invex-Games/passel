@@ -16,9 +16,37 @@ The AppHost reads one setting of its own:
 |---|---|---|
 | `DevTunnel:AllowAnonymous` | `true` | Whether the `passel-api-tunnel` resource lets anyone with the URL through. Set it to `false` (in user secrets, the git-ignored `appsettings.Development.json`, or the `DevTunnel__AllowAnonymous` environment variable) and the tunnel requires a Dev Tunnels access token, which the mobile app sends from `TUNNEL_ACCESS_TOKEN`; see [Requiring a token](../getting-started/running-locally.md#requiring-a-token). The tunnel only runs when started from the dashboard either way. |
 
+## Compose deployment
+
+The self-hosted deployment ([Releasing and Deploying](../guides/deploying.md#self-hosted-docker-compose)) reads every value from the server's `/opt/passel/.env`, whose template, with a comment on each key, is `deploy/compose/.env.example`; `release.env`, written by `deploy.sh`, adds `PASSEL_TAG`. `compose.yaml` gives the API and `db-migrate` an explicit environment built from those keys, never the whole file, so nothing else in `.env` reaches them.
+
+| `.env` key | Required | Becomes |
+|---|---|---|
+| `PASSEL_TAG` | Set by `deploy.sh` | The tag of the `passel-webapi` and `passel-web` images, and `service.version` in `OTEL_RESOURCE_ATTRIBUTES` |
+| `COMPOSE_FILE`, `COMPOSE_PROFILES` | Yes | Which files and profiles every compose command uses: the proxy setup, and `telemetry` for the dashboard |
+| `POSTGRES_USER`, `POSTGRES_DB` | No | The superuser and the database PostgreSQL creates on first start (`postgres`, `passel`); `POSTGRES_DB` is also the database in both connection strings |
+| `POSTGRES_PASSWORD` | Yes | The superuser's password, which `db-roles` signs in with. PostgreSQL only sets it when the database is first created |
+| `PASSEL_OWNER_DB_PASSWORD` | Yes | The password of `passel_owner`, and `db-migrate`'s `ConnectionStrings__passel-db` (`Username=passel_owner`) |
+| `PASSEL_API_DB_PASSWORD` | Yes | The password of `passel_api`, and the API's `ConnectionStrings__passel-db` (`Username=passel_api`). `db-migrate` gets `Database__ApiRole=passel_api` |
+| `ENCODING_ALPHABET` | Yes | `Encoding__Alphabet`. Never changed once ids are in use |
+| `GOOGLE_WEB_CLIENT_ID` | Yes | `Authentication__Google__ClientId` |
+| `CHROME_EXTENSION_CLIENT_ID` | No | `Authentication__Google__AdditionalAudiences__0` |
+| `API_HOST` | Yes | `AllowedHosts`, as `<API_HOST>;localhost` (the healthcheck sends `localhost`); the edge's site for the API; the smoke check's default `https://<API_HOST>/health` |
+| `WEB_HOST` | Yes | The edge's site for the web app. Only the edge uses it, but the compose file requires it in every setup |
+| `WEB_ORIGIN` | Yes | `Cors__AllowedOrigins__0`, written as a browser sends it |
+| `PROXY_TRUSTED_CIDR` | No | `ForwardedHeaders__KnownNetworks__0`, with `ForwardedHeaders__Enabled=true`. Default `172.30.0.2/32`, the bundled edge. `compose.ports.yaml` replaces it with the host's addresses on the two networks, `172.30.0.1/32` and `172.30.1.1/32` |
+| `PROXY_NETWORK` | With `compose.external-proxy.yaml` | The existing Docker network the `edge` network becomes |
+| `API_PORT`, `WEB_PORT` | No | The loopback ports of `compose.ports.yaml` (18080, 18081) |
+| `SMOKE_URL` | No | What `deploy.sh` fetches after starting a release |
+| `OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_EXPORTER_OTLP_PROTOCOL`, `OTEL_EXPORTER_OTLP_HEADERS` | No | Passed to the API and `db-migrate` as they are; no endpoint, no export. `OTEL_SERVICE_NAME` is `passel-webapi` and `passel-migrate` |
+
+The compose file also sets, on the API and `db-migrate`, `ASPNETCORE_ENVIRONMENT` and `DOTNET_ENVIRONMENT` to `Production`, and on the API `Parcels__Store=FileSystem` with `Parcels__FileSystemRoot=/var/lib/passel/parcels`, in the `parcels` volume. To tune one of the Web API settings below on the server, add it to the API's `environment` in a compose override kept outside the releases, such as `/opt/passel/compose.local.yaml`, and add that file to `COMPOSE_FILE` by its absolute path (`COMPOSE_FILE=compose.yaml:/opt/passel/compose.local.yaml`); the release directories are replaced on every deploy.
+
+These stay unset in the compose deployment, since each belongs to Azure or to Development and would change how the API signs in, exports or trusts headers: `APPLICATIONINSIGHTS_CONNECTION_STRING`, every `AZURE_*` variable, `Database__ApiRoleObjectId`, `Authentication__Google__ClientSecret` and `ASPNETCORE_FORWARDEDHEADERS_ENABLED`.
+
 ## Azure deployment
 
-`aspire publish` and `aspire deploy` add the Azure resources to the AppHost ([Releasing and Deploying](../guides/deploying.md)). `DeployWebApi` supplies everything below from the Deploy workflow's variables and secret; nothing needs typing in.
+Legacy ([ADR 0003](../decisions/0003-hosting-on-azure.md)): this is the Azure deployment, which stays in the code but is no longer where Passel runs. `aspire publish` and `aspire deploy` add the Azure resources to the AppHost ([Releasing and Deploying](../guides/deploying.md)). `DeployWebApi` supplies everything below from the Deploy workflow's variables and secret; nothing needs typing in.
 
 | Setting | Secret | Source in the workflow | Description |
 |---|---|---|---|
@@ -27,11 +55,11 @@ The AppHost reads one setting of its own:
 | `Parameters:google-client-id` | No | `GOOGLE_WEB_CLIENT_ID` | The API's `Authentication:Google:ClientId` |
 | `Parameters:google-extension-client-id` | No | `CHROME_EXTENSION_CLIENT_ID` | The API's `Authentication:Google:AdditionalAudiences:0` |
 | `Parameters:encoding-alphabet` | Yes | `ENCODING_ALPHABET` (environment secret) | Stored in Key Vault as `encoding-alphabet`; the container app reads it as the API's `Encoding:Alphabet`. Must never change once ids are in use. |
-| `Deployment:ImageTag` | No | GitVersion's version for the commit | The tag both images are pushed with. Without it they are pushed as `latest`. |
+| `Deployment:ImageTag` | No | GitVersion's version for the commit | Azure only: the tag both images are pushed to the Azure registry with. Without it they are pushed as `latest`. The compose deployment's images are tagged by `PublishImages` instead. |
 | `Deployment:ApiDomain` | No | `API_DOMAIN` | The API's custom domain. Empty for none; when set, the container app binds it and `AllowedHosts` includes it. |
 | `Parameters:api-certificate-name` | No | `API_CERTIFICATE_NAME` | The managed certificate for the domain; empty for the first deployment with it. Only asked for when `Deployment:ApiDomain` is set. |
 
-In Azure the API's container gets:
+In Azure (legacy) the API's container gets:
 
 | Variable | Value |
 |---|---|
@@ -51,7 +79,7 @@ The migration job gets the database's connection string (as its own identity, an
 | Key | Required | Description |
 |---|---|---|
 | `ConnectionStrings:passel-db` | Yes | PostgreSQL connection string. The AppHost provides it. Without a password (as in Azure) the API signs in with a Microsoft Entra token for its managed identity, and the user name, if missing, is taken from the token. |
-| `ConnectionStrings:passel-blobs` | For files | Azure Blob Storage, where uploaded files are kept. The AppHost provides it (Azurite locally). A connection string with an account key, or Azurite's `UseDevelopmentStorage=true`, is used as it is; a plain blob endpoint URI (as in Azure) signs in with the managed identity. Without it the API still starts, every file endpoint answers 503, and outside Development it logs a warning at startup. |
+| `ConnectionStrings:passel-blobs` | For files in Azure | Azure Blob Storage, where uploaded files are kept when `Parcels:Store` is `Auto` (the default) or `AzureBlob`; the filesystem store ignores it. The AppHost provides it (Azurite locally). A connection string with an account key, or Azurite's `UseDevelopmentStorage=true`, is used as it is; a plain blob endpoint URI (as in Azure) signs in with the managed identity. Without it, and with `Parcels:Store` left at `Auto`, the API still starts, every file endpoint answers 503, and outside Development it logs a warning at startup. |
 | `Authentication:Google:ClientId` | Outside Development | The web client id: the main accepted token audience, and the client for development login. Without it every Google token is rejected; in Development the Dev scheme still works. |
 | `Authentication:Google:ClientSecret` | No | The web client secret. With it and the client id both set, Development offers the Scalar **Login with Google** banner. |
 | `Authentication:Google:AdditionalAudiences` | No | Other accepted audiences, for example the extension's client id |
@@ -69,7 +97,9 @@ The migration job gets the database's connection string (as its own identity, an
 | `Quotas:MaxParcelBytesPerUser` | No | The most bytes of uploaded files a user may have at once: every file not deleted, sent or not, with an upload in progress counted at the size it declared. Default 524288000 (500 MB). |
 | `Quotas:MaxPendingParcelsPerUser` | No | The most files a user may have uploaded but not sent, from 1 to 1000; they expire after `Parcels:UnattachedLifetime`, so this bounds what an abandoned client leaves behind. Default 20. |
 | `Quotas:MaxDevicesPerUser` | No | The most devices a user may have registered at once, from 1 to 1000; the device list is not paged, so this also bounds its length. Default 20. |
-| `Parcels:ContainerName` | No | The blob container files are kept in. The API creates it if it's missing. Default `parcels`. |
+| `Parcels:Store` | No | Which store keeps the bytes of uploaded files: `Auto` (the default) uses Azure when `ConnectionStrings:passel-blobs` is set and has no store otherwise, so every file endpoint answers 503; `AzureBlob` uses Azure and stops the API at startup without the connection string; `FileSystem` keeps the files in `Parcels:FileSystemRoot`. |
+| `Parcels:FileSystemRoot` | With `FileSystem` | The directory the filesystem store keeps the files in: an absolute path on a local disk, never a network share, which the API's user can write. It holds a file per original and per thumbnail, named by the parcel id, and a `.uploading` directory for uploads in progress. It is created on the first upload if it is missing; make it a directory of its own rather than the root of a mount, whose `lost+found` the orphan scan would report on every run. |
+| `Parcels:ContainerName` | No | Azure only: the blob container files are kept in. The API creates it if it's missing. Default `parcels`. |
 | `Parcels:MaxParcelBytes` | No | The largest file one upload may carry, at most 1 GiB. Default 26214400 (25 MB). Above about 30 MB (Kestrel's default body limit), raise `Kestrel:Limits:MaxRequestBodySize` with it. |
 | `Parcels:UnattachedLifetime` | No | How long an uploaded file waits to be sent before it is deleted, from a second to seven days. Default `01:00:00`. |
 | `Parcels:UploadingGrace` | No | How long an upload may stay unfinished (its instance stopped part way) before it is taken to have failed and deleted, from a second to a day, and shorter than `Parcels:UnattachedLifetime`. Default `00:15:00`. |

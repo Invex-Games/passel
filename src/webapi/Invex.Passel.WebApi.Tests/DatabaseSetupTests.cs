@@ -1,6 +1,7 @@
 using System.Reflection;
 using Invex.Passel.WebApi.Domain;
 using Invex.Passel.WebApi.Extensions;
+using Invex.Passel.WebApi.Options;
 using Invex.Passel.WebApi.Services;
 using JasperFx;
 using JasperFx.CodeGeneration;
@@ -9,6 +10,7 @@ using Marten.Schema;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Options;
 
 namespace Invex.Passel.WebApi.Tests;
 
@@ -19,7 +21,7 @@ public sealed class DatabaseSetupTests
     ///     beside it as the db-migrate job builds them: without blob settings. Nothing connects: the connection string
     ///     points at a port no database listens on.
     /// </summary>
-    private static WebApplication BuildHost(string environment)
+    private static WebApplication BuildHost(string environment, IReadOnlyDictionary<string, string?>? settings = null)
     {
         var builder = WebApplication.CreateSlimBuilder(new WebApplicationOptions
         {
@@ -28,6 +30,9 @@ public sealed class DatabaseSetupTests
 
         builder.Configuration[$"ConnectionStrings:{HostDatabaseExtensions.ConnectionName}"] =
             "Host=localhost;Port=1;Username=x;Password=x;Database=x";
+
+        foreach (var (key, value) in settings ?? new Dictionary<string, string?>())
+            builder.Configuration[key] = value;
 
         builder.AddPasselDatabase();
         builder.AddPasselParcels();
@@ -114,6 +119,64 @@ public sealed class DatabaseSetupTests
         using var app = BuildHost(Environments.Production);
 
         Assert.IsType<UnavailableParcelStore>(app.Services.GetRequiredService<IParcelStore>());
+    }
+
+    /// <summary>
+    ///     The compose deployment names the filesystem store for the API, and db-migrate builds the same host without
+    ///     the volume mounted: building it, and creating the store, must not touch the disk.
+    /// </summary>
+    [Fact]
+    public void The_api_host_builds_with_the_filesystem_store_without_creating_its_directory()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "passel-setup", Guid.NewGuid().ToString("N"));
+
+        using var app = BuildHost(Environments.Production,
+            new Dictionary<string, string?>
+            {
+                [HostParcelExtensions.StoreKey] = "FileSystem",
+                [HostParcelExtensions.FileSystemRootKey] = root,
+            });
+
+        Assert.IsType<FileSystemParcelStore>(app.Services.GetRequiredService<IParcelStore>());
+
+        // What the host checks at startup passes too
+        app.Services.GetRequiredService<IStartupValidator>().Validate();
+
+        Assert.False(Directory.Exists(root));
+    }
+
+    /// <summary>
+    ///     A store asked for by name and not set up stops the API at startup, rather than leaving it to answer every
+    ///     file request with 503.
+    /// </summary>
+    [Fact]
+    public void The_azure_store_named_without_its_connection_string_fails_at_startup()
+    {
+        using var app = BuildHost(Environments.Production,
+            new Dictionary<string, string?>
+            {
+                [HostParcelExtensions.StoreKey] = "AzureBlob",
+            });
+
+        var exception = Assert.Throws<OptionsValidationException>(() =>
+            app.Services.GetRequiredService<IStartupValidator>().Validate());
+
+        Assert.Equal(typeof(ParcelOptions), exception.OptionsType);
+    }
+
+    [Fact]
+    public void The_filesystem_store_named_without_a_root_fails_at_startup()
+    {
+        using var app = BuildHost(Environments.Production,
+            new Dictionary<string, string?>
+            {
+                [HostParcelExtensions.StoreKey] = "FileSystem",
+            });
+
+        var exception = Assert.Throws<OptionsValidationException>(() =>
+            app.Services.GetRequiredService<IStartupValidator>().Validate());
+
+        Assert.Equal(typeof(ParcelOptions), exception.OptionsType);
     }
 
     [Theory]

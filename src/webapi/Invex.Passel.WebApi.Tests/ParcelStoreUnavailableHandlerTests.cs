@@ -40,6 +40,9 @@ public sealed class ParcelStoreUnavailableHandlerTests
         new RequestFailedException(503, "Service unavailable", "ServerBusy", null),
         new RequestFailedException(403, "Forbidden", "AuthorizationPermissionMismatch", null),
         new ParcelStoreUnavailableException(),
+        new ParcelStoreFailedException("write", "abc", new IOException("No space left on device", 28)),
+        new AggregateException(new ParcelStoreFailedException("delete", "abc", new UnauthorizedAccessException()),
+            new ParcelStoreFailedException("list", string.Empty, new IOException())),
         new AggregateException(new RequestFailedException(500, "Internal error"),
             new RequestFailedException(503, "Service unavailable")),
     ];
@@ -69,6 +72,20 @@ public sealed class ParcelStoreUnavailableHandlerTests
         Assert.False(await handler.TryHandleAsync(httpContext, new InvalidOperationException(), CancellationToken));
         Assert.False(await handler.TryHandleAsync(httpContext,
             new AggregateException(new RequestFailedException(503, "Service unavailable"), new InvalidOperationException()),
+            CancellationToken));
+        Assert.Equal(0, httpContext.Response.Body.Length);
+    }
+
+    /// <summary>
+    ///     A client that stops sending its upload part way is an <see cref="IOException" /> too, and no storage
+    ///     failure; only the errors the filesystem store wraps are.
+    /// </summary>
+    [Fact]
+    public async Task A_bare_io_error_is_left_to_the_exception_handler()
+    {
+        var (handler, httpContext) = Create();
+
+        Assert.False(await handler.TryHandleAsync(httpContext, new IOException("Unexpected end of request content."),
             CancellationToken));
         Assert.Equal(0, httpContext.Response.Body.Length);
     }

@@ -11,23 +11,44 @@ internal static class HostParcelExtensions
     public const string BlobConnectionName = "passel-blobs";
 
     /// <summary>
-    ///     Uploaded files: their options, the blob store their bytes go to, what checks and thumbnails them on the way
+    ///     The setting that picks the store, <see cref="ParcelOptions.Store" />.
+    /// </summary>
+    public const string StoreKey = $"{ParcelOptions.SectionName}:{nameof(ParcelOptions.Store)}";
+
+    /// <summary>
+    ///     The directory the filesystem store keeps the files in, <see cref="ParcelOptions.FileSystemRoot" />.
+    /// </summary>
+    public const string FileSystemRootKey = $"{ParcelOptions.SectionName}:{nameof(ParcelOptions.FileSystemRoot)}";
+
+    /// <summary>
+    ///     Uploaded files: their options, the store their bytes go to (<see cref="StoreKey" />), what checks and thumbnails them on the way
     ///     in, the quota on them, and the sweep that expires and erases them. Kept apart from <see cref="HostDatabaseExtensions.AddPasselDatabase" />,
     ///     which hosts without storage call too.
     /// </summary>
     public static void AddPasselParcels(this WebApplicationBuilder builder)
     {
-        // The options need no connection settings, so validating them at startup cannot stop a host without storage
+        var blobConnectionConfigured = builder.Configuration.GetConnectionString(BlobConnectionName) is { Length: > 0 };
+
+        // Validated at startup, which a host without storage passes: only a store asked for by name and not set up
+        // stops the API. The db-migrate job never starts the host, so it passes whatever the settings
         builder
             .Services
             .AddOptions<ParcelOptions>()
             .BindConfiguration(ParcelOptions.SectionName)
+            .PostConfigure(options => options.BlobConnectionConfigured = blobConnectionConfigured)
             .ValidateDataAnnotations()
             .ValidateOnStart();
 
         builder.Services.TryAddSingleton(TimeProvider.System);
 
-        if (builder.Configuration.GetConnectionString(BlobConnectionName) is { Length: > 0 })
+        var store = builder.Configuration.GetValue(StoreKey, ParcelStoreKind.Auto);
+
+        if (store == ParcelStoreKind.FileSystem)
+        {
+            // Touches no disk until it is used, so a host built without the volume (db-migrate) builds all the same
+            builder.Services.AddSingleton<IParcelStore, FileSystemParcelStore>();
+        }
+        else if (store is ParcelStoreKind.AzureBlob or ParcelStoreKind.Auto && blobConnectionConfigured)
         {
             // No health check: /health is the readiness probe of the only replica, and a storage outage must not take
             // texts and links down with it. Storage failures surface as 503 on the file endpoints instead
@@ -37,7 +58,8 @@ internal static class HostParcelExtensions
         else
         {
             // The db-migrate job runs this whole file without storage settings, and must still build; on a host that
-            // serves requests without them, every file request answers 503
+            // serves requests without them, every file request answers 503. An explicit AzureBlob without its
+            // connection string ends up here too, and fails the validation of the options at startup
             builder.Services.AddSingleton<IParcelStore, UnavailableParcelStore>();
         }
 
