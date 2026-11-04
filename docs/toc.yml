@@ -25,6 +25,8 @@
             href: guides/writing-docs.md
         -   name: Continuous Integration
             href: guides/ci.md
+        -   name: Releasing and Deploying
+            href: guides/deploying.md
 -   name: Reference
     href: reference/build-targets.md
     items:
@@ -41,6 +43,8 @@
             href: decisions/0001-packets-as-documents.md
         -   name: 0002 Product decisions
             href: decisions/0002-product-decisions.md
+        -   name: 0003 Hosting on Azure
+            href: decisions/0003-hosting-on-azure.md
 -   name: Evaluation
     href: evaluation/index.md
     items:

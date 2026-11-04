@@ -7,8 +7,8 @@
 | `Invex.Passel.WebApi` | The API |
 | `Invex.Passel.WebApi.Tests` | Unit tests (xUnit v3 on Microsoft.Testing.Platform) |
 | `Invex.Passel.WebApi.IntegrationTests` | Integration tests against PostgreSQL in Docker; see [Integration tests](#integration-tests) |
-| `Invex.Passel.AppHost` | The Aspire AppHost that runs the local environment |
-| `Invex.Passel.ServiceDefaults` | OpenTelemetry, health checks, service discovery and HTTP resilience, shared Aspire-style |
+| `Invex.Passel.AppHost` | The Aspire AppHost that runs the local environment, and describes the Azure deployment ([Releasing and Deploying](../guides/deploying.md)) |
+| `Invex.Passel.ServiceDefaults` | OpenTelemetry (to the Aspire dashboard locally, Application Insights in Azure), health checks, service discovery and HTTP resilience, shared Aspire-style |
 
 ## Request pipeline
 
@@ -30,6 +30,7 @@ Packets are stored with [Marten](https://martendb.io/) on PostgreSQL, as plain d
 - `PacketStoreService` handles creating and deleting packets, and attaching a link's preview: one upsert to create, one delete to remove, one update for the preview. Deleting checks ownership first. A missing packet and someone else's packet both return 404, so ids can't be probed. A delete removes the document, and nothing else keeps the content.
 - The documents carry one composite computed index on `UserId` and `Id`, which serves the feed query. See [The feed index](#the-feed-index).
 - Marten applies the schema at startup (`ApplyAllDatabaseChangesOnStartup`), so the table exists before the first request; the quota check reads it with plain SQL, which Marten's on-first-use creation would not cover.
+- The data source comes from `Aspire.Azure.Npgsql` (`Program.cs`): a connection string with a password is used as it is, and one without signs in with a Microsoft Entra token for the managed identity, as the Azure deployment does.
 
 File packets exist in the model, but nothing creates them yet: the API rejects them with 400 and there is no file storage.
 
