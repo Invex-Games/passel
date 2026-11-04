@@ -31,7 +31,7 @@ public sealed class ParcelSnifferTests
     }
 
     [Fact]
-    public void A_pdf_header_past_the_first_kilobyte_is_not_looked_for()
+    public void A_pdf_header_that_runs_past_the_first_kilobyte_is_not_looked_for()
     {
         var head = new byte[ParcelSniffer.HeadLength + 9];
         "%PDF-1.4\n"u8.CopyTo(head.AsSpan(ParcelSniffer.HeadLength - 4));
