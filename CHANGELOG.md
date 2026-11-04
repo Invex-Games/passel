@@ -25,6 +25,7 @@ All notable changes to Passel. The format follows [Keep a Changelog](https://kee
 - Link previews: after a link is sent, the API fetches its page in the background (`http` and `https` only, public addresses only, checked on every redirect, with caps on time and size) and attaches the page's title, description and image to the link as its `preview`, announced live as a `packet-updated` event. The extension and the mobile app ignore the field and the event until their tiles show previews.
 - Deployment of the API to Azure (ADR 0003, proposed until the owner confirms the subscription): Azure Container Apps, Azure Database for PostgreSQL flexible server with 14 days of point-in-time restore, Key Vault for the Sqids alphabet, and Application Insights, all modelled in the AppHost and deployed with `aspire deploy` by a manual `Deploy` workflow that signs in to Azure with OIDC (`dotnet atom DeployWebApi`). Every pull request writes the generated Bicep (`PublishAzureInfrastructure`). The local run and the tests are unchanged, and nothing deploys until the one-off setup in the deploying guide is done.
 - The API sends its logs, traces and metrics to Application Insights when `APPLICATIONINSIGHTS_CONNECTION_STRING` is set, and signs in to PostgreSQL with a Microsoft Entra token for its managed identity when the connection string has no password. The link preview fetcher's requests are left out of the traces, outgoing HTTP and DNS metrics carry no host name, and the reason a link got no preview is logged at Debug, so the links users send don't reach the telemetry.
+- A device registry in the API (`/api/devices`), ready for push notifications: clients register each installation (idempotently, by an installation id they generate once), list, rename and remove their devices, and give each device a push token (an FCM token on Android, a Web Push subscription in a browser). A token is never returned or logged, and belongs to one device at a time: the same token registered by another account moves to it. Users may have 20 devices (`Quotas:MaxDevicesPerUser`), and device writes have a rate limit of their own (`RateLimits:DeviceWritesPerMinute`). Registrations of one installation sent at the same moment all get its one device, and a device change that keeps colliding with others on the same device gets a 409 problem saying to send it again. The clients do not register yet.
 
 ### Changed
 
@@ -46,6 +47,7 @@ All notable changes to Passel. The format follows [Keep a Changelog](https://kee
 
 ### Fixed
 
+- A request body the API cannot read (an unknown `$type`, a missing required field) gets a 400 problem in Development too, as in production, rather than a 500. So does a packet or a push token without its `$type`, which got a 500 in every environment.
 - Packets are scoped to their owner on every endpoint, and ids cannot be probed.
 - Notifications are sent only after the database commit, so a rolled-back packet is never announced.
 - The extension routes every API call through its service worker and keeps the ID token in session storage.

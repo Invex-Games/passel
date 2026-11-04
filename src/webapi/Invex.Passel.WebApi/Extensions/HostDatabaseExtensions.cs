@@ -1,3 +1,4 @@
+using Marten.Schema;
 using Npgsql;
 
 namespace Invex.Passel.WebApi.Extensions;
@@ -61,6 +62,23 @@ internal static class HostDatabaseExtensions
             .Schema
             .For<Packet>()
             .Index([p => p.UserId, p => p.Id], index => index.Name = "mt_doc_packet_idx_user_id_id");
+
+        // Devices are documents too, one per installation and user. The unique index on the user and the client's
+        // installation id is what makes registering idempotent, and its leading member serves the device list and
+        // the cap. The unique index on the push key keeps each push token on one device at a time, whichever user
+        // registered it; the key is a hash, and devices without a token leave it null, which a unique index allows
+        // any number of times. Each change rewrites the whole document, so optimistic concurrency stops one from
+        // undoing another made since its read (a rename lost to a registration's new LastSeenAt); the store reads
+        // again and retries
+        storeOptions
+            .Schema
+            .For<Device>()
+            .UseOptimisticConcurrency(true)
+            .UniqueIndex(UniqueIndexType.Computed,
+                "mt_doc_device_uidx_user_id_installation_id",
+                d => d.UserId,
+                d => d.InstallationId)
+            .UniqueIndex(UniqueIndexType.Computed, "mt_doc_device_uidx_push_key", d => d.PushKey!);
 
         // AutoCreate.All drops and recreates mismatched tables, which is only acceptable for local data. Elsewhere the
         // API's role may not change the schema at all; db-migrate applies it

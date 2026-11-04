@@ -57,10 +57,12 @@ The migration job gets the database's connection string (as its own identity, an
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | No | Turns on OTLP export of logs, traces and metrics. The AppHost points it at the dashboard. Ignored when `APPLICATIONINSIGHTS_CONNECTION_STRING` is set. |
 | `APPLICATIONINSIGHTS_CONNECTION_STRING` | No | Sends logs, traces and metrics to Application Insights instead, with the Azure Monitor OpenTelemetry distro. The Azure deployment sets it. |
 | `RateLimits:CreatesPerMinute` | No | Packets a user may create per minute. Default 30. |
-| `RateLimits:ReadsPerMinute` | No | List and delete requests a user may make per minute. Default 120. |
+| `RateLimits:ReadsPerMinute` | No | Packet list and delete requests, and device lists, a user may make per minute. Default 120. |
 | `RateLimits:StreamsPerMinute` | No | Event streams a user may open per minute. Default 10. |
+| `RateLimits:DeviceWritesPerMinute` | No | Device registrations, renames, removals and push token changes a user may make per minute. Default 20. |
 | `Quotas:MaxPacketsPerUser` | No | The most packets a user may have at once. Default 5000. |
 | `Quotas:MaxBytesPerUser` | No | The most bytes a user may have stored across their packets. Default 52428800 (50 MB). |
+| `Quotas:MaxDevicesPerUser` | No | The most devices a user may have registered at once, from 1 to 1000; the device list is not paged, so this also bounds its length. Default 20. |
 | `EventStreams:MaxStreamsPerUser` | No | Event streams one user may hold open on one instance; opening another closes their oldest. Default 5. |
 | `EventStreams:MaxStreamsPerInstance` | No | Event streams one instance holds open in total; beyond it the endpoint answers 503. Default 4000. |
 | `AllowedHosts` | No | The hosts the API answers to, separated by `;`. `appsettings.json` sets the production host, `api.passel.link`; a deployment on another host overrides it, and must include the host its health probes use. Ignored in Development, which answers to any host. |
@@ -87,7 +89,7 @@ The API sends no CORS headers. Neither client needs them: the extension's host p
 
 Rate limits are sliding one-minute windows counted per signed-in user (the `sub` claim), or per remote address for requests that aren't authenticated. A request over the limit gets a 429 problem with a `Retry-After` header.
 
-Quotas are checked before every create with one indexed aggregate over the user's packets. The byte quota counts the stored size of the packet documents, which PostgreSQL compresses when they're large, so it's a storage cap rather than an exact character count. A user at the packet limit gets a 429 problem; a packet that would pass the byte limit gets a 413 problem. Both say to delete packets.
+Quotas are checked before every create with one indexed aggregate over the user's packets. The byte quota counts the stored size of the packet documents, which PostgreSQL compresses when they're large, so it's a storage cap rather than an exact character count. A user at the packet limit gets a 429 problem; a packet that would pass the byte limit gets a 413 problem. Both say to delete packets. The device cap is checked only when an installation registers for the first time, so a device that is registered already is never refused; a user at the cap gets a 429 problem saying to remove a device. New installations registering at the same moment are all checked against the same count, so a burst can pass the cap by up to `RateLimits:DeviceWritesPerMinute` less one; raising that limit loosens the cap too. Lowering the cap removes nobody's devices.
 
 When you run the API outside the AppHost, put these in `src/webapi/Invex.Passel.WebApi/appsettings.Development.json`. The file is git-ignored by the `*.Development.json` rule. Settings supplied by the AppHost take precedence over the file.
 

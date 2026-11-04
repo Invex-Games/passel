@@ -4,9 +4,11 @@ internal static class EndpointBuilderExtensions
 {
     private const string JsonContentType = "application/json";
 
+    // Enums as the host writes them (HostWebExtensions.AddWebDefaults), so an example shows a name, not a number
     private static readonly JsonSerializerOptions JsonSerializerOptions = new(JsonSerializerDefaults.Web)
     {
         WriteIndented = true,
+        Converters = { new JsonStringEnumConverter(JsonNamingPolicy.CamelCase) },
     };
 
     extension(RouteHandlerBuilder builder)

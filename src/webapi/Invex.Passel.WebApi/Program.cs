@@ -34,6 +34,13 @@ builder
     .AddSingleton<IPacketEventHub, PacketEventHub>()
     .AddHostedService<PacketNotificationListener>();
 
+// The device registry: what the push sender (roadmap 2.B1) will deliver to, and what sessions (1.B1) will belong to.
+// A write that kept losing races is a 409, not a 500
+builder
+    .Services
+    .AddScoped<IDeviceStoreService, DeviceStoreService>()
+    .AddExceptionHandler<DeviceWriteConflictHandler>();
+
 // Link previews: the page of a new link is fetched in the background, behind guards that keep the fetcher on the
 // public internet (LinkPreviewAddressPolicy), and attached to the link with a packet-updated event
 builder
@@ -50,6 +57,7 @@ app.MapDefaultEndpoints();
 app.UseWebDefaults();
 
 app.MapPacketEndpoints();
+app.MapDeviceEndpoints();
 
 if (app.Environment.IsDevelopment())
     app.MapDevApi();

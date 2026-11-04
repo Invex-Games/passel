@@ -17,10 +17,17 @@ internal sealed class RateLimitOptions
     public int CreatesPerMinute { get; set; } = 30;
 
     /// <summary>
-    ///     List and delete requests a user may make per minute.
+    ///     Packet list and delete requests, and device lists, a user may make per minute.
     /// </summary>
     [Range(1, int.MaxValue)]
     public int ReadsPerMinute { get; set; } = 120;
+
+    /// <summary>
+    ///     Device registrations, renames, removals and push token changes a user may make per minute. Clients make
+    ///     one or two of these on every start and the rest from settings, so the limit is low.
+    /// </summary>
+    [Range(1, int.MaxValue)]
+    public int DeviceWritesPerMinute { get; set; } = 20;
 
     /// <summary>
     ///     Event streams a user may open per minute. Open streams are capped separately by the <c>EventStreams</c>
