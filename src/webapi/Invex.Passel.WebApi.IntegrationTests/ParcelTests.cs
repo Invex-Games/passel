@@ -3,17 +3,19 @@ using System.Net.Http.Headers;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using Invex.Passel.WebApi.Domain;
 using Invex.Passel.WebApi.Services;
 using Invex.Passel.WebApi.Tests;
+using Marten;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Invex.Passel.WebApi.IntegrationTests;
 
 /// <summary>
 ///     Uploaded files through the real API, against a real database and Azurite: uploading, the checks on the way
-///     in, the quotas, downloads and thumbnails, and discarding. The factory holds files to 1 MiB, a user to 3 MiB
-///     of them and five unsent files, so every limit is cheap to reach. The tests act as users of their own, so the
-///     quotas of one never see another.
+///     in, the quotas, downloads and thumbnails, discarding, sending a file in a packet and deleting that packet. The
+///     factory holds files to 1 MiB, a user to 3 MiB of them and five unsent files, so every limit is cheap to reach.
+///     The tests act as users of their own, so the quotas of one never see another.
 /// </summary>
 [Collection(PasselApiCollection.Name)]
 public sealed class ParcelTests(PasselApiFixture fixture)
@@ -325,10 +327,18 @@ public sealed class ParcelTests(PasselApiFixture fixture)
 
         Assert.Equal(HttpStatusCode.NotFound, await bob.DiscardParcelAsync(parcel.ParcelId, CancellationToken));
 
-        // Still there for its owner
+        // Nor can it be sent by anyone else, who is told what any missing file gets
+        using (var sent = await bob.CreateFileAsync(parcel.ParcelId, null, CancellationToken))
+            Assert.Equal(NoSuchFileToSend, await ReadFieldErrorAsync(sent, "parcelId"));
+
+        Assert.Empty((await bob.ListAsync(null, CancellationToken)).Packets);
+
+        // Still there for its owner, and still theirs to send
         using var own = await alice.DownloadParcelAsync(parcel.ParcelId, CancellationToken);
 
         Assert.Equal(HttpStatusCode.OK, own.StatusCode);
+
+        await alice.SendFileAsync(parcel.ParcelId, null, CancellationToken);
     }
 
     [Fact]
@@ -355,7 +365,7 @@ public sealed class ParcelTests(PasselApiFixture fixture)
     }
 
     [Fact]
-    public async Task A_discarded_upload_cannot_be_downloaded()
+    public async Task A_discarded_upload_cannot_be_sent_or_downloaded()
     {
         var user = PasselApiFixture.User("alice");
         using var alice = fixture.Api.CreateClientFor(user);
@@ -363,6 +373,11 @@ public sealed class ParcelTests(PasselApiFixture fixture)
         var parcel = await alice.UploadAsync(TestImages.Png(16, 16), "mistake.png", "image/png", CancellationToken);
 
         Assert.Equal(HttpStatusCode.NoContent, await alice.DiscardParcelAsync(parcel.ParcelId, CancellationToken));
+
+        using (var sent = await alice.CreateFileAsync(parcel.ParcelId, null, CancellationToken))
+            Assert.Equal(NoSuchFileToSend, await ReadFieldErrorAsync(sent, "parcelId"));
+
+        Assert.Empty((await alice.ListAsync(null, CancellationToken)).Packets);
 
         using (var download = await alice.DownloadParcelAsync(parcel.ParcelId, CancellationToken))
             Assert.Equal(HttpStatusCode.NotFound, download.StatusCode);
@@ -563,4 +578,310 @@ public sealed class ParcelTests(PasselApiFixture fixture)
         Assert.Equal(HttpStatusCode.Created, created.StatusCode);
         Assert.Equal(HttpStatusCode.BadRequest, refused.StatusCode);
     }
+
+    private const string NoSuchFileToSend =
+        "No such file to send: it may have expired or been deleted. Upload it again.";
+
+    [Fact]
+    public async Task A_file_packet_is_created_from_an_upload_listed_and_announced()
+    {
+        var user = PasselApiFixture.User("alice");
+        using var alice = fixture.Api.CreateClientFor(user);
+
+        await using var stream = await EventStream.OpenAsync(alice, CancellationToken);
+        await stream.ReadAsync(CancellationToken);
+
+        var parcel = await alice.UploadAsync(TestImages.Png(40, 20), "screenshot.png", "image/png", CancellationToken);
+
+        using var response = await alice.CreateFileAsync(parcel.ParcelId, null, CancellationToken);
+        using var document = await PacketApi.ReadJsonAsync(response, HttpStatusCode.OK, CancellationToken);
+
+        Assert.Equal(["$type", "contentType", "createdAt", "fileName", "id", "isImage", "parcelId"],
+            ContractTests.PropertyNames(document.RootElement));
+
+        var packet = PacketJson.Parse(document.RootElement);
+
+        Assert.Equal(new PacketJson("File", packet.Id, packet.CreatedAt, null, null, null, null, null,
+                "screenshot.png", "image/png", parcel.ParcelId, true),
+            packet);
+
+        // Announced to the user's streams like any other packet, in the same shape
+        var created = await stream.ReadAsync(CancellationToken);
+
+        Assert.Equal(EventStream.PacketCreatedEventType, created.EventType);
+        Assert.Equal(packet, PacketJson.Parse(created.Data));
+
+        Assert.Equal([packet], (await alice.ListAsync(null, CancellationToken)).Packets);
+
+        // A sent file is no longer counted as unsent, but its bytes still count, and it still downloads
+        Assert.Equal(new ParcelQuotaUsage(0, parcel.Size), await UsageAsync(user));
+
+        using var download = await alice.DownloadParcelAsync(parcel.ParcelId, CancellationToken);
+
+        Assert.Equal(HttpStatusCode.OK, download.StatusCode);
+    }
+
+    [Fact]
+    public async Task A_file_packet_takes_its_type_and_image_flag_from_the_parcel_and_may_rename_it()
+    {
+        using var alice = fixture.Api.CreateClientFor(PasselApiFixture.User("alice"));
+
+        // Claimed to be a picture, and sent under another name: neither claim makes it an image
+        var text = await alice.UploadAsync(Encoding.UTF8.GetBytes("plain words"), "photo.png", "image/png",
+            CancellationToken);
+        var renamed = await alice.SendFileAsync(text.ParcelId, "C:\\notes\\list\u202E.txt", CancellationToken);
+
+        Assert.Equal(("list.txt", "application/octet-stream", text.ParcelId, false),
+            (renamed.FileName, renamed.ContentType, renamed.ParcelId, renamed.IsImage));
+
+        // The rename is the packet's; the file keeps the name it was uploaded with
+        using (var download = await alice.DownloadParcelAsync(text.ParcelId, CancellationToken))
+            Assert.Equal("photo.png", download.Content.Headers.ContentDisposition?.FileNameStar);
+
+        // Without a name, or with one that is nothing once made safe, the upload's name is kept
+        var jpeg = await alice.UploadAsync(TestImages.JpegWithExif(30, 20, 1), "camera.jpg", "application/octet-stream",
+            CancellationToken);
+        var kept = await alice.SendFileAsync(jpeg.ParcelId, null, CancellationToken);
+
+        Assert.Equal(("camera.jpg", "image/jpeg", true), (kept.FileName, kept.ContentType, kept.IsImage));
+
+        var nameless = await alice.UploadAsync(TestImages.Png(4, 4), "..", "image/png", CancellationToken);
+
+        Assert.Null(nameless.FileName);
+
+        var dots = await alice.SendFileAsync(nameless.ParcelId, "..", CancellationToken);
+
+        Assert.Null(dots.FileName);
+
+        // The listed packets say the same
+        var listed = (await alice.ListAsync(null, CancellationToken)).Packets;
+
+        Assert.Equal([dots, kept, renamed], listed);
+    }
+
+    [Fact]
+    public async Task A_file_packet_is_refused_for_an_id_that_names_no_file_or_a_name_that_is_too_long()
+    {
+        using var alice = fixture.Api.CreateClientFor(PasselApiFixture.User("alice"));
+        const string mustBeUploaded = "ParcelId must be the id of a file you uploaded.";
+
+        var parcel = await alice.UploadAsync(RandomBytes(10), "a.bin", "application/octet-stream", CancellationToken);
+
+        foreach (var id in new[] { string.Empty, "not-a-parcel-id", new string('a', 65) })
+        {
+            using var response = await alice.CreateFileAsync(id, null, CancellationToken);
+
+            Assert.Equal(mustBeUploaded, await ReadFieldErrorAsync(response, "parcelId"));
+        }
+
+        // A real id of something else, and one of no file at all
+        var text = await alice.CreateTextAsync(null, "not a file", CancellationToken);
+        var unknown = fixture.Api.Services.GetRequiredService<IIdEncodingService>().Encode(Guid.CreateVersion7());
+
+        foreach (var id in new[] { text.Id, unknown })
+        {
+            using var response = await alice.CreateFileAsync(id, null, CancellationToken);
+
+            Assert.Equal(NoSuchFileToSend, await ReadFieldErrorAsync(response, "parcelId"));
+        }
+
+        using (var tooLong = await alice.CreateFileAsync(parcel.ParcelId, new string('a', 257), CancellationToken))
+            Assert.Equal("FileName must be at most 256 characters.", await ReadFieldErrorAsync(tooLong, "fileName"));
+
+        // Nothing refused was sent
+        Assert.Equal([text.Id], (await alice.ListAsync(null, CancellationToken)).Packets.Select(packet => packet.Id));
+    }
+
+    [Fact]
+    public async Task A_file_that_is_still_uploading_or_deleted_cannot_be_sent()
+    {
+        var user = PasselApiFixture.User("alice");
+        using var alice = fixture.Api.CreateClientFor(user);
+        var encoding = fixture.Api.Services.GetRequiredService<IIdEncodingService>();
+
+        var uploading = NewParcel(user, ParcelStatus.Uploading);
+        var deleted = NewParcel(user, ParcelStatus.Deleted);
+
+        await using (var session = fixture.Api.Services.GetRequiredService<IDocumentStore>().LightweightSession())
+        {
+            session.Insert(uploading, deleted);
+            await session.SaveChangesAsync(CancellationToken);
+        }
+
+        foreach (var parcel in new[] { uploading, deleted })
+        {
+            using var response = await alice.CreateFileAsync(encoding.Encode(parcel.Id), null, CancellationToken);
+
+            Assert.Equal(NoSuchFileToSend, await ReadFieldErrorAsync(response, "parcelId"));
+        }
+
+        Assert.Empty((await alice.ListAsync(null, CancellationToken)).Packets);
+    }
+
+    [Fact]
+    public async Task A_parcel_is_sent_only_once()
+    {
+        var user = PasselApiFixture.User("alice");
+        using var alice = fixture.Api.CreateClientFor(user);
+
+        var parcel = await alice.UploadAsync(TestImages.Png(16, 16), "once.png", "image/png", CancellationToken);
+        var sent = await alice.SendFileAsync(parcel.ParcelId, null, CancellationToken);
+
+        using (var again = await alice.CreateFileAsync(parcel.ParcelId, "twice.png", CancellationToken))
+            Assert.Equal(("File already sent", "This file is already in another item; upload it again to send it twice."),
+                await ReadProblemAsync(again, HttpStatusCode.Conflict));
+
+        // A sent file is discarded by deleting its packet, not on its own
+        using (var discard = await alice.DeleteAsync($"{ParcelApi.ParcelsPath}/{parcel.ParcelId}", CancellationToken))
+            Assert.Equal(("Delete the item instead", "This file has been sent; delete the item it is in."),
+                await ReadProblemAsync(discard, HttpStatusCode.Conflict));
+
+        Assert.Equal([sent], (await alice.ListAsync(null, CancellationToken)).Packets);
+
+        // Sends of one file at the same time: one wins, and the other is told the file has gone already. Several
+        // rounds, so that some of them read the file before either has written
+        const int rounds = 8;
+        var winners = new List<string>();
+
+        for (var round = 0; round < rounds; round++)
+        {
+            var raced = await alice.UploadAsync(RandomBytes(10), $"raced{round}.bin", "application/octet-stream",
+                CancellationToken);
+
+            var responses = await Task.WhenAll(Enumerable
+                .Range(0, 2)
+                .Select(_ => Task.Run(() => alice.CreateFileAsync(raced.ParcelId, null, CancellationToken),
+                    CancellationToken)));
+
+            try
+            {
+                Assert.Equal([HttpStatusCode.OK, HttpStatusCode.Conflict],
+                    responses.Select(response => response.StatusCode).Order());
+
+                using var won = await PacketApi.ReadJsonAsync(responses.Single(response => response.IsSuccessStatusCode),
+                    HttpStatusCode.OK,
+                    CancellationToken);
+
+                winners.Add(PacketJson.Parse(won.RootElement).Id);
+            }
+            finally
+            {
+                foreach (var response in responses)
+                    response.Dispose();
+            }
+        }
+
+        // One packet per file, and nothing else
+        var listed = (await alice.ListAsync(null, CancellationToken)).Packets;
+
+        Assert.Equal(winners.Append(sent.Id).Order(), listed.Select(packet => packet.Id).Order());
+    }
+
+    /// <summary>
+    ///     The version check, not just the attached-packet check, is what decides between two sends: a send whose read
+    ///     of the file is older than another's commit must lose, even though the file it read was unsent.
+    /// </summary>
+    [Fact]
+    public async Task A_send_that_read_the_file_before_another_send_committed_loses()
+    {
+        var user = PasselApiFixture.User("alice");
+        using var alice = fixture.Api.CreateClientFor(user);
+
+        var parcel = await alice.UploadAsync(RandomBytes(10), "raced.bin", "application/octet-stream", CancellationToken);
+        var id = Decode(parcel.ParcelId);
+
+        await using var session = fixture.Api.Services.GetRequiredService<IDocumentStore>().LightweightSession();
+        var stale = await session.LoadAsync<Parcel>(id, CancellationToken);
+
+        Assert.NotNull(stale);
+        Assert.Null(stale.AttachedPacketId);
+
+        var sent = await alice.SendFileAsync(parcel.ParcelId, null, CancellationToken);
+
+        // What the losing send writes: its own packet, and the file attached to it, from its stale read
+        var packet = new Packet
+        {
+            Id = Guid.CreateVersion7(),
+            UserId = user,
+            CreatedAt = DateTimeOffset.UtcNow,
+            Content = new PacketContent.File
+            {
+                FileName = stale.FileName,
+                ContentType = stale.ContentType,
+                ParcelId = stale.Id,
+                IsImage = stale.IsImage,
+            },
+        };
+
+        session.Store(packet);
+        session.Update(stale with
+        {
+            AttachedPacketId = packet.Id,
+        });
+
+        var lost = await Assert.ThrowsAnyAsync<Exception>(() => session.SaveChangesAsync(CancellationToken));
+
+        Assert.True(MartenRaces.IsLostRace(lost), lost.ToString());
+
+        // Neither its packet nor its attachment was written
+        Assert.Equal([sent], (await alice.ListAsync(null, CancellationToken)).Packets);
+
+        await using var check = fixture.Api.Services.GetRequiredService<IDocumentStore>().QuerySession();
+
+        Assert.Equal(Decode(sent.Id), (await check.LoadAsync<Parcel>(id, CancellationToken))?.AttachedPacketId);
+    }
+
+    [Fact]
+    public async Task Deleting_a_file_packet_makes_its_file_unavailable_at_once()
+    {
+        var user = PasselApiFixture.User("alice");
+        using var alice = fixture.Api.CreateClientFor(user);
+
+        await using var stream = await EventStream.OpenAsync(alice, CancellationToken);
+        await stream.ReadAsync(CancellationToken);
+
+        var parcel = await alice.UploadAsync(TestImages.Png(600, 300), "gone.png", "image/png", CancellationToken);
+        var packet = await alice.SendFileAsync(parcel.ParcelId, null, CancellationToken);
+
+        Assert.Equal(EventStream.PacketCreatedEventType, (await stream.ReadAsync(CancellationToken)).EventType);
+
+        Assert.Equal(HttpStatusCode.NoContent, await alice.DeletePacketAsync(packet.Id, CancellationToken));
+
+        var deleted = await stream.ReadAsync(CancellationToken);
+
+        Assert.Equal(EventStream.PacketDeletedEventType, deleted.EventType);
+
+        using (var deletedData = JsonDocument.Parse(deleted.Data))
+            Assert.Equal(packet.Id, deletedData.RootElement.GetProperty("id").GetString());
+
+        // Gone for every purpose at once, though its bytes wait for the sweep
+        using (var download = await alice.DownloadParcelAsync(parcel.ParcelId, CancellationToken))
+            Assert.Equal(HttpStatusCode.NotFound, download.StatusCode);
+
+        using (var thumbnail = await alice.GetThumbnailAsync(parcel.ParcelId, CancellationToken))
+            Assert.Equal(HttpStatusCode.NotFound, thumbnail.StatusCode);
+
+        Assert.Equal(HttpStatusCode.NotFound, await alice.DiscardParcelAsync(parcel.ParcelId, CancellationToken));
+
+        using (var resent = await alice.CreateFileAsync(parcel.ParcelId, null, CancellationToken))
+            Assert.Equal(NoSuchFileToSend, await ReadFieldErrorAsync(resent, "parcelId"));
+
+        Assert.Equal(new ParcelQuotaUsage(0, 0), await UsageAsync(user));
+        Assert.Equal(HttpStatusCode.NotFound, await alice.DeletePacketAsync(packet.Id, CancellationToken));
+    }
+
+    private static Parcel NewParcel(string userId, ParcelStatus status) =>
+        new()
+        {
+            Id = Guid.CreateVersion7(),
+            UserId = userId,
+            CreatedAt = DateTimeOffset.UtcNow,
+            Status = status,
+            Size = 10,
+            ContentType = "application/octet-stream",
+            FileName = "a.bin",
+            Sha256 = status == ParcelStatus.Uploading
+                ? null
+                : new string('0', 64),
+        };
 }

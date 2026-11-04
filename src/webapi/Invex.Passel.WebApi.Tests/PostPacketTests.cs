@@ -108,4 +108,64 @@ public sealed class PostPacketTests
 
         Assert.Equal(19, bytes);
     }
+
+    [Fact]
+    public void Validate_accepts_a_file_with_or_without_a_new_name()
+    {
+        Assert.Empty(PacketEndpoints.Validate(new PacketEndpoints.PostPacketRequestBody.File
+        {
+            ParcelId = "qrjMmYBVnK8m3coMo0hiMeN",
+        }));
+
+        Assert.Empty(PacketEndpoints.Validate(new PacketEndpoints.PostPacketRequestBody.File
+        {
+            ParcelId = "qrjMmYBVnK8m3coMo0hiMeN",
+            FileName = new('a', PacketEndpoints.MaxTitleLength),
+        }));
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData(null)]
+    [InlineData("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")]
+    public void Validate_rejects_a_file_without_a_usable_parcel_id(string? parcelId)
+    {
+        var errors = PacketEndpoints.Validate(new PacketEndpoints.PostPacketRequestBody.File
+        {
+            // A body may leave a required property null; the deserializer does not stop it
+            ParcelId = parcelId!,
+        });
+
+        Assert.Equal(["parcelId"], errors.Keys);
+        Assert.Equal(["ParcelId must be the id of a file you uploaded."], errors["parcelId"]);
+    }
+
+    [Fact]
+    public void Validate_rejects_an_overlong_file_name()
+    {
+        var errors = PacketEndpoints.Validate(new PacketEndpoints.PostPacketRequestBody.File
+        {
+            ParcelId = "qrjMmYBVnK8m3coMo0hiMeN",
+            FileName = new('a', PacketEndpoints.MaxTitleLength + 1),
+        });
+
+        Assert.Equal(["fileName"], errors.Keys);
+    }
+
+    [Fact]
+    public void ContentBytes_counts_a_file_by_its_name_and_what_the_packet_stores_beside_it()
+    {
+        Assert.Equal(PacketEndpoints.FileContentBytes + 6,
+            PacketEndpoints.ContentBytes(new PacketEndpoints.PostPacketRequestBody.File
+            {
+                ParcelId = "qrjMmYBVnK8m3coMo0hiMeN",
+                FileName = "é.png",
+            }));
+
+        Assert.Equal(PacketEndpoints.FileContentBytes,
+            PacketEndpoints.ContentBytes(new PacketEndpoints.PostPacketRequestBody.File
+            {
+                ParcelId = "qrjMmYBVnK8m3coMo0hiMeN",
+            }));
+    }
 }

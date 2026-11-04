@@ -43,6 +43,12 @@
                     "title": "Packet title",
                     "body": "Packet body"
                   }
+                },
+                "File": {
+                  "value": {
+                    "parcelId": "qrjMmYBVnK8m3coMo0hiMeN",
+                    "fileName": "screenshot.png"
+                  }
                 }
               }
             }
@@ -76,6 +82,16 @@
               "application/problem+json": {
                 "schema": {
                   "$ref": "#/components/schemas/HttpValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
                 }
               }
             }
@@ -1394,9 +1410,7 @@
       },
       "PostPacketRequestBodyFile": {
         "required": [
-          "fileName",
-          "contentType",
-          "payload"
+          "parcelId"
         ],
         "properties": {
           "$type": {
@@ -1405,17 +1419,19 @@
             ],
             "type": "string"
           },
+          "parcelId": {
+            "type": "string",
+            "description": "The `parcelId` the upload answered with."
+          },
           "fileName": {
             "type": [
               "null",
               "string"
-            ]
-          },
-          "contentType": {
-            "type": "string"
-          },
-          "payload": {}
-        }
+            ],
+            "description": "The name to send the file under, or `null` to keep the one it was uploaded with."
+          }
+        },
+        "description": "Sends a file uploaded to `POST /api/parcels`. Its type and whether it is an image come from the\nupload; only its name may be changed."
       },
       "PostPacketRequestBodyLink": {
         "required": [
