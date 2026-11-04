@@ -1,0 +1,409 @@
+@import "@passel/ui/tokens.css";
+
+/* The web app's styles: one column at any width for now. The mobile layout below 600 px and the two-pane layout
+   above 840 px come with roadmap 2.E1. */
+
+/* ── Reset ─────────────────────────────────────────────── */
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+/* ── Page ──────────────────────────────────────────────── */
+body {
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    font-size: 15px;
+    line-height: 1.45;
+    background: var(--md-sys-color-surface);
+    color: var(--md-sys-color-on-surface);
+    min-height: 100vh;
+}
+
+a {
+    color: var(--md-sys-color-primary);
+}
+
+.loading-page {
+    display: grid;
+    place-items: center;
+    min-height: 60vh;
+    color: var(--md-sys-color-on-surface-variant);
+}
+
+.wordmark {
+    font-size: 20px;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    color: var(--md-sys-color-on-surface);
+    text-decoration: none;
+}
+
+/* ── Buttons ───────────────────────────────────────────── */
+button {
+    font: inherit;
+    cursor: pointer;
+}
+
+.text-button {
+    border: none;
+    background: none;
+    color: var(--md-sys-color-primary);
+    font-weight: 500;
+    padding: 6px 10px;
+    border-radius: var(--md-sys-shape-corner-full);
+}
+
+.text-button:hover {
+    background: color-mix(in srgb, var(--md-sys-color-primary) 8%, transparent);
+}
+
+.filled-button {
+    border: none;
+    background: var(--md-sys-color-primary);
+    color: var(--md-sys-color-on-primary);
+    font-weight: 500;
+    padding: 8px 20px;
+    border-radius: var(--md-sys-shape-corner-full);
+}
+
+.icon-button {
+    display: inline-grid;
+    place-items: center;
+    width: 40px;
+    height: 40px;
+    border: none;
+    background: none;
+    color: var(--md-sys-color-on-surface-variant);
+    border-radius: var(--md-sys-shape-corner-full);
+    flex-shrink: 0;
+}
+
+.icon-button:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--md-sys-color-on-surface) 8%, transparent);
+}
+
+.icon-button:disabled {
+    cursor: default;
+}
+
+.icon-button.spinning .icon {
+    animation: spin 1s linear infinite;
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible {
+    outline: 2px solid var(--md-sys-color-primary);
+    outline-offset: 2px;
+}
+
+.icon {
+    width: 20px;
+    height: 20px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    flex-shrink: 0;
+}
+
+/* ── Top bar ───────────────────────────────────────────── */
+.top-bar {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    background: var(--md-sys-color-surface-container);
+}
+
+.sync-label {
+    font-size: 13px;
+    color: var(--md-sys-color-on-surface-variant);
+    margin-left: 4px;
+}
+
+.sync-label.live {
+    color: var(--md-sys-color-primary);
+}
+
+.account {
+    margin-left: auto;
+    font-size: 13px;
+    color: var(--md-sys-color-on-surface-variant);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+}
+
+.notice {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    max-width: 720px;
+    margin: 12px auto 0;
+    padding: 4px 4px 4px 16px;
+    border-radius: var(--md-sys-shape-corner-small);
+    background: var(--md-sys-color-inverse-surface);
+    color: var(--md-sys-color-inverse-on-surface);
+}
+
+.notice span {
+    flex: 1;
+}
+
+.notice .icon-button {
+    color: inherit;
+}
+
+/* ── Feed ──────────────────────────────────────────────── */
+.feed {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 16px;
+}
+
+.feed-list {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.tile {
+    padding: 14px 16px;
+    border-radius: var(--md-sys-shape-corner-medium);
+    background: var(--md-sys-color-surface-container-low);
+    overflow-wrap: anywhere;
+}
+
+.tile-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 6px;
+    color: var(--md-sys-color-on-surface-variant);
+}
+
+.tile-title {
+    font-size: 15px;
+    font-weight: 500;
+    color: var(--md-sys-color-on-surface);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.tile-body {
+    white-space: pre-wrap;
+}
+
+.tile-body.clamped {
+    display: -webkit-box;
+    -webkit-line-clamp: 8;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.tile .text-button {
+    margin: 4px 0 0 -10px;
+}
+
+.tile-note {
+    color: var(--md-sys-color-on-surface-variant);
+    font-style: italic;
+}
+
+.tile-link {
+    word-break: break-all;
+}
+
+/* ── Link preview ──────────────────────────────────────── */
+.preview {
+    display: flex;
+    gap: 12px;
+    margin-top: 10px;
+    border: 1px solid var(--md-sys-color-outline-variant);
+    border-radius: var(--md-sys-shape-corner-small);
+    overflow: hidden;
+    color: inherit;
+    text-decoration: none;
+    background: var(--md-sys-color-surface);
+}
+
+.preview:hover {
+    background: var(--md-sys-color-surface-container);
+}
+
+.preview-image {
+    width: 120px;
+    min-height: 90px;
+    object-fit: cover;
+    flex-shrink: 0;
+    background: var(--md-sys-color-surface-container-high);
+}
+
+.preview-text {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 10px 12px 10px 0;
+    min-width: 0;
+}
+
+.preview-image + .preview-text {
+    padding-left: 0;
+}
+
+.preview-text:first-child {
+    padding-left: 12px;
+}
+
+.preview-title {
+    font-weight: 500;
+}
+
+.preview-description {
+    font-size: 13px;
+    color: var(--md-sys-color-on-surface-variant);
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.preview-host {
+    font-size: 12px;
+    color: var(--md-sys-color-on-surface-variant);
+}
+
+@media (max-width: 480px) {
+    .preview {
+        flex-direction: column;
+    }
+
+    .preview-image {
+        width: 100%;
+        max-height: 180px;
+    }
+
+    .preview-text,
+    .preview-image + .preview-text {
+        padding: 10px 12px;
+    }
+}
+
+/* ── End of the feed ───────────────────────────────────── */
+.feed-end {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    padding: 28px 16px;
+    text-align: center;
+    color: var(--md-sys-color-on-surface-variant);
+}
+
+.feed-end.error {
+    color: var(--md-sys-color-error);
+}
+
+.spinner {
+    display: inline-block;
+    width: 22px;
+    height: 22px;
+    border: 2px solid var(--md-sys-color-primary);
+    border-right-color: transparent;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
+
+/* ── Sign-in ───────────────────────────────────────────── */
+.sign-in {
+    max-width: 420px;
+    margin: 0 auto;
+    padding: 64px 24px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+    text-align: center;
+}
+
+.sign-in h1 {
+    font-size: 26px;
+    font-weight: 500;
+    line-height: 1.25;
+}
+
+.sign-in-lead {
+    color: var(--md-sys-color-on-surface-variant);
+}
+
+.sign-in-message {
+    padding: 10px 14px;
+    border-radius: var(--md-sys-shape-corner-small);
+    background: var(--md-sys-color-error-container);
+    color: var(--md-sys-color-on-error-container);
+}
+
+.google-button {
+    min-height: 44px;
+}
+
+.dev-sign-in {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 16px;
+    border: 1px dashed var(--md-sys-color-outline);
+    border-radius: var(--md-sys-shape-corner-medium);
+    text-align: left;
+}
+
+.dev-sign-in label {
+    font-weight: 500;
+}
+
+.dev-sign-in-row {
+    display: flex;
+    gap: 8px;
+}
+
+.dev-sign-in input {
+    flex: 1;
+    min-width: 0;
+    font: inherit;
+    padding: 8px 12px;
+    border: 1px solid var(--md-sys-color-outline);
+    border-radius: var(--md-sys-shape-corner-extra-small);
+    background: var(--md-sys-color-surface);
+    color: var(--md-sys-color-on-surface);
+}
+
+.dev-sign-in-hint,
+.sign-in-legal {
+    font-size: 13px;
+    color: var(--md-sys-color-on-surface-variant);
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .spinner,
+    .icon-button.spinning .icon {
+        animation-duration: 2.4s;
+    }
+}
