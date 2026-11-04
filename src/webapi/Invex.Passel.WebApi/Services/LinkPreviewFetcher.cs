@@ -155,6 +155,9 @@ internal sealed partial class LinkPreviewFetcher : ILinkPreviewFetcher, IDisposa
             request.Headers.TryAddWithoutValidation("Accept", Accept);
             request.Options.Set(CheckedAddresses, addresses);
 
+            // The URL is what the user linked, so its host and path must not reach the traces
+            request.ExcludeFromTelemetry();
+
             // The invoker returns once the headers are in; the body is read below, up to the cap
             using var response = await _http.SendAsync(request, cancellationToken);
             var status = (int)response.StatusCode;

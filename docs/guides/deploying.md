@@ -166,7 +166,9 @@ Run the Deploy workflow on the commit to go back to (the branch or tag picker of
 
 ## Logs and telemetry
 
-The API's requests, dependencies, exceptions and logs are in Application Insights (`passel-insights`). Container output, including the migration job's, is in the Log Analytics workspace (`passel-logs`), table `ContainerAppConsoleLogs_CL`; each job run's status is also on the job's Execution history page in the portal.
+The API's requests, dependencies, exceptions and logs are in Application Insights (`passel-insights`). Container output, including the migration job's, is in the Log Analytics workspace (`passel-logs`), table `ContainerAppConsoleLogs_CL`; each job run's status is also on the job's Execution history page in the portal. Both keep data for the workspace's default of 30 days.
+
+None of it holds what users send: requests are recorded by path (packet ids, never content) with the query redacted, SQL without parameter values, and logs name packet ids. The page fetches for link previews go to the hosts users link, so they are left out of the dependencies, the outgoing HTTP and DNS metrics carry no host name, and the reason a link got no preview is logged at Debug, which Production doesn't keep. A new outgoing request to a URL a user supplied must call `ExcludeFromTelemetry` on its `HttpRequestMessage` in the same way.
 
 ## Troubleshooting
 

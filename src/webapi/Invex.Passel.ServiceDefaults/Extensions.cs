@@ -8,6 +8,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Logging;
 using OpenTelemetry;
+using OpenTelemetry.Instrumentation.Http;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Trace;
 
@@ -32,6 +33,23 @@ public static class Extensions
     ///     and export one long empty trace per stream, until the client disconnects.
     /// </summary>
     private const string PacketEventsPath = "/api/packets/events";
+
+    private const string HttpMeterName = "System.Net.Http";
+    private const string DnsMeterName = "System.Net.NameResolution";
+
+    /// <summary>
+    ///     The dimensions outgoing HTTP and DNS metrics keep. Left out: <c>server.address</c>, <c>server.port</c>,
+    ///     <c>network.peer.address</c> and <c>dns.question.name</c>, which name the host or address.
+    /// </summary>
+    private static readonly string[] OutgoingMetricTags =
+    [
+        "error.type",
+        "http.connection.state",
+        "http.request.method",
+        "http.response.status_code",
+        "network.protocol.version",
+        "url.scheme",
+    ];
 
     extension<TBuilder>(TBuilder builder)
         where TBuilder : IHostApplicationBuilder
@@ -80,7 +98,12 @@ public static class Extensions
                     metrics
                         .AddAspNetCoreInstrumentation()
                         .AddHttpClientInstrumentation()
-                        .AddRuntimeInstrumentation();
+                        .AddRuntimeInstrumentation()
+                        // Outgoing HTTP and DNS metrics keep no host name or address: the link preview fetcher
+                        // connects to the hosts users link, which would otherwise become metric dimensions
+                        .AddView(instrument => instrument.Meter.Name is HttpMeterName or DnsMeterName
+                            ? new MetricStreamConfiguration { TagKeys = OutgoingMetricTags }
+                            : null);
                 })
                 .WithTracing(tracing =>
                 {
@@ -96,6 +119,17 @@ public static class Extensions
                         //.AddGrpcClientInstrumentation()
                         .AddHttpClientInstrumentation();
                 });
+
+            // A request marked with ExcludeFromTelemetry records no client span. Post-configured for every name, so it
+            // also covers the Azure Monitor distro's HttpClient instrumentation, which shares these options, and keeps
+            // any filter that sets
+            builder.Services.PostConfigureAll<HttpClientTraceInstrumentationOptions>(options =>
+            {
+                var filter = options.FilterHttpRequestMessage;
+
+                options.FilterHttpRequestMessage = request =>
+                    !request.IsExcludedFromTelemetry() && (filter?.Invoke(request) ?? true);
+            });
 
             builder.AddOpenTelemetryExporters();
 
