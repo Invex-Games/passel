@@ -1,7 +1,10 @@
 using System.Diagnostics;
 using System.Net;
 using System.Net.Http.Headers;
+using System.Reflection;
 using Invex.Passel.WebApi.Services;
+using JasperFx;
+using Marten;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
@@ -11,9 +14,12 @@ namespace Invex.Passel.WebApi.IntegrationTests;
 
 /// <summary>
 ///     The API as <c>Program.cs</c> builds it, in the Development environment, against the given database. Clients
-///     from <see cref="CreateClientFor" /> are signed in through the Development <c>Dev</c> scheme.
+///     from <see cref="CreateClientFor" /> are signed in through the Development <c>Dev</c> scheme. With
+///     <paramref name="migratedSchema" />, the API treats the schema as every other environment does: it applies
+///     nothing and checks at startup that the schema matches, so it can run on a role that has only DML.
 /// </summary>
-internal sealed class PasselApiFactory(string connectionString) : WebApplicationFactory<Program>
+internal sealed class PasselApiFactory(string connectionString, bool migratedSchema = false)
+    : WebApplicationFactory<Program>
 {
     /// <summary>
     ///     The host name the tests link their pages by. The factory's resolver points it at the loopback, where
@@ -55,12 +61,28 @@ internal sealed class PasselApiFactory(string connectionString) : WebApplication
         // in once the delegate type is registered
         builder.ConfigureTestServices(services =>
         {
+            if (migratedSchema)
+                services.ConfigureMarten(options =>
+                {
+                    options.AutoCreateSchemaObjects = AutoCreate.None;
+                    SetStartupFlag(options, "ShouldApplyChangesOnStartup", false);
+                    SetStartupFlag(options, "ShouldAssertDatabaseMatchesConfigurationOnStartup", true);
+                });
+
             services.AddSingleton<ILinkPreviewAddressPolicy, LoopbackAllowingAddressPolicy>();
 
             LinkPreviewFetcher.HostResolver resolver = ResolveOfflineAsync;
             services.AddSingleton(resolver);
         });
     }
+
+    /// <summary>
+    ///     Sets what ApplyAllDatabaseChangesOnStartup and AssertDatabaseMatchesConfigurationOnStartup set; Marten keeps
+    ///     the flags internal.
+    /// </summary>
+    private static void SetStartupFlag(StoreOptions options, string name, bool value) =>
+        (typeof(StoreOptions).GetProperty(name, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic) ??
+         throw new InvalidOperationException($"StoreOptions has no {name} property.")).SetValue(options, value);
 
     private static Task<IPAddress[]> ResolveOfflineAsync(string host, CancellationToken cancellationToken) =>
         Task.FromResult<IPAddress[]>(host == TestPagesHost

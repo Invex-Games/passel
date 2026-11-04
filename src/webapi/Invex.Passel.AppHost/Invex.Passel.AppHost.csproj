@@ -20,6 +20,7 @@
         <PackageReference Include="Aspire.Hosting.DevTunnels" />
         <PackageReference Include="Aspire.Hosting.JavaScript" />
         <PackageReference Include="Aspire.Hosting.PostgreSQL" />
+        <PackageReference Include="Azure.ResourceManager.AppContainers" />
     </ItemGroup>
 
     <ItemGroup>
