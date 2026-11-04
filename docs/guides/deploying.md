@@ -16,11 +16,15 @@ Versions come from GitVersion and the conventional commit prefixes described in 
 | Container app | `invex-passel-webapi` | The API: one replica, 0.5 vCPU, 1 GiB, HTTPS ingress, readiness on `/health` and liveness on `/alive` |
 | Container Apps job | `passel-migrate` | The API's image started as `db-migrate`: applies the schema and grants the API's role its privileges |
 | PostgreSQL flexible server and database | `passel-pg`, `passel-db` | PostgreSQL 18, Burstable B1ms, 32 GB with auto-grow, 14 days of point-in-time restore, Entra authentication only |
+| Storage account, with the `parcels` blob container | `passel-storage`, `passel-blobs`, `passel-parcels` | Uploaded files. Standard LRS, no anonymous access, TLS 1.2, no shared keys (the API signs in as its identity, with Storage Blob Data Contributor and no other role on the account). Blob soft delete and versioning are off, so a deleted file is erased; deleted containers are kept for 7 days. |
 | Key Vault | `passel-kv` | The Sqids alphabet |
 | Log Analytics workspace and Application Insights | `passel-logs`, `passel-insights` | Container logs, and the API's logs, traces and metrics |
 | Managed identities | `passel-api-identity` and one per job and environment | What each resource signs in as; no passwords |
 
-Azure names are derived from these and made unique per resource group, so the server, the vault and the environment get a suffix (`passelpg-…`, `passelkv-…`, `passelenv…`). The container app and the job keep their names.
+Azure names are derived from these and made unique per resource group, so the server, the vault, the storage account and the environment get a suffix (`passelpg-…`, `passelkv-…`, `passelstorage…`, `passelenv…`). The container app and the job keep their names.
+
+> [!WARNING]
+> Leave blob soft delete and versioning off on the storage account. Deleting a file must erase it ([ADR 0001](../decisions/0001-packets-as-documents.md)); with either on, Azure keeps every deleted file for the retention period, out of reach of the API's sweep. Container soft delete is on, and keeps no deleted files: it only lets a container deleted by mistake be restored within 7 days.
 
 ## The Deploy workflow
 
@@ -50,6 +54,7 @@ az provider register --namespace Microsoft.Insights
 az provider register --namespace Microsoft.KeyVault
 az provider register --namespace Microsoft.ManagedIdentity
 az provider register --namespace Microsoft.OperationalInsights
+az provider register --namespace Microsoft.Storage
 ```
 
 Create the API's resource group, and a separate one for the deployment identity. The identity lives apart so that its rights in the API's group don't include changing its own credentials:
@@ -70,13 +75,15 @@ Note the identity's `clientId` and `principalId` (`az identity show --name passe
 
 ### Role assignments
 
-The deployment identity needs **Contributor** on the API's resource group to create and update the resources, and **Role Based Access Control Administrator** there for the two role assignments Aspire makes: AcrPull for the environment's identity on the registry, and Key Vault Secrets User for the API's identity on the vault. The condition limits it to those two roles:
+The deployment identity needs **Contributor** on the API's resource group to create and update the resources, and **Role Based Access Control Administrator** there for the three role assignments Aspire makes: AcrPull for the environment's identity on the registry, Key Vault Secrets User for the API's identity on the vault, and Storage Blob Data Contributor for the API's identity on the storage account. The condition limits it to those three roles:
 
 ```
 az role assignment create --assignee-object-id <principalId> --assignee-principal-type ServicePrincipal --role Contributor --scope /subscriptions/<sub>/resourceGroups/<rg>
 
-az role assignment create --assignee-object-id <principalId> --assignee-principal-type ServicePrincipal --role "Role Based Access Control Administrator" --scope /subscriptions/<sub>/resourceGroups/<rg> --condition-version 2.0 --condition "((!(ActionMatches{'Microsoft.Authorization/roleAssignments/write'})) OR (@Request[Microsoft.Authorization/roleAssignments:RoleDefinitionId] ForAnyOfAnyValues:GuidEquals {7f951dda-4ed3-4680-a7ca-43fe172d538d, 4633458b-17de-408a-b874-0445c86b69e6})) AND ((!(ActionMatches{'Microsoft.Authorization/roleAssignments/delete'})) OR (@Resource[Microsoft.Authorization/roleAssignments:RoleDefinitionId] ForAnyOfAnyValues:GuidEquals {7f951dda-4ed3-4680-a7ca-43fe172d538d, 4633458b-17de-408a-b874-0445c86b69e6}))"
+az role assignment create --assignee-object-id <principalId> --assignee-principal-type ServicePrincipal --role "Role Based Access Control Administrator" --scope /subscriptions/<sub>/resourceGroups/<rg> --condition-version 2.0 --condition "((!(ActionMatches{'Microsoft.Authorization/roleAssignments/write'})) OR (@Request[Microsoft.Authorization/roleAssignments:RoleDefinitionId] ForAnyOfAnyValues:GuidEquals {7f951dda-4ed3-4680-a7ca-43fe172d538d, 4633458b-17de-408a-b874-0445c86b69e6, ba92f5b4-2d11-453d-a403-e96b0029c9fe})) AND ((!(ActionMatches{'Microsoft.Authorization/roleAssignments/delete'})) OR (@Resource[Microsoft.Authorization/roleAssignments:RoleDefinitionId] ForAnyOfAnyValues:GuidEquals {7f951dda-4ed3-4680-a7ca-43fe172d538d, 4633458b-17de-408a-b874-0445c86b69e6, ba92f5b4-2d11-453d-a403-e96b0029c9fe}))"
 ```
+
+If the identity was given the role with the two-role condition before files were added, replace its assignment with this one (`az role assignment delete` with the same assignee, role and scope, then the command above); otherwise the first deployment with the storage account fails with `AuthorizationFailed` on the storage role assignment.
 
 The deployment identity gets no access to the database: the migration runs inside Azure as the job's own identity.
 
@@ -182,6 +189,8 @@ The API's requests, dependencies, exceptions and logs are in Application Insight
 
 None of it holds what users send: requests are recorded by path (packet ids, never content) with the query redacted, SQL without parameter values, and logs name packet ids. The page fetches for link previews go to the hosts users link, so they are left out of the dependencies, the outgoing HTTP and DNS metrics carry no host name, and the reason a link got no preview is logged at Debug, which Production doesn't keep. A new outgoing request to a URL a user supplied must call `ExcludeFromTelemetry` on its `HttpRequestMessage` in the same way.
 
+Uploaded files stay out of it in the same way. The storage requests are recorded as dependencies by blob URI, and a blob is named after its parcel's Guid alone, never a user or a file name; requests to the API are recorded by path, which carries the public parcel id. File names are never logged, and the file sweep logs counts at Information and parcel ids at Warning. The Azure SDK's own event log, which logs every storage request at Information, is kept to warnings (`Azure.Core` in `appsettings.json`).
+
 ## Troubleshooting
 
 | Symptom | Likely cause |
@@ -192,14 +201,18 @@ None of it holds what users send: requests are recorded by path (packet ids, nev
 | The new revision never becomes ready | The API refused to start: usually a missing setting, or a schema that lacks a table, column or function it needs (the migration didn't run). The revision's console log says which |
 | Every request gets `400 Invalid Hostname` | The host isn't in `AllowedHosts`: set `API_DOMAIN` for a custom domain |
 | Every request gets `401` | `GOOGLE_WEB_CLIENT_ID` or `CHROME_EXTENSION_CLIENT_ID` doesn't match the client the token was issued to |
+| `AuthorizationFailed` on the `invex-passel-webapi-roles-passel-storage` assignment | The deployment identity's Role Based Access Control Administrator condition doesn't include Storage Blob Data Contributor; see [Role assignments](#role-assignments) |
+| File requests get `503` "File storage unavailable", while packets work | Storage can't be reached or refuses the API. A `403` (`AuthorizationPermissionMismatch`) in the API's dependencies means the API identity lacks Storage Blob Data Contributor on the account; a missing `ConnectionStrings__passel-blobs` is logged as a warning when the API starts. `/health` stays healthy either way, by design |
+| The first revision with files never becomes ready | Its schema check found no `mt_doc_parcel` table: the migration job didn't run, or failed. Its log says which |
 
 ## What was verified locally
 
 Nothing has been deployed yet: the setup above needs the owner's subscription. Without it, these were checked offline:
 
-- `aspire publish` writes the Bicep, `aspire do diagnostics` shows the migration ordered between the job and the API, and the run-mode model of the AppHost is the same as before.
+- `aspire publish` writes the Bicep, `aspire do diagnostics` shows the migration ordered between the job and the API, and the Azure modelling leaves the run-mode model of the AppHost as it was.
+- With the storage account added, the Bicep has one role assignment on the account, Storage Blob Data Contributor for `passel-api-identity`; blob soft delete and versioning off and container delete retention at 7 days; the `parcels` container; `ConnectionStrings__passel-blobs` on the API set to the blob endpoint; and nothing of storage on `passel-migrate`. The migration still runs between the job and the API.
 - The image built with `dotnet publish -t:PublishContainer` runs `db-migrate` against PostgreSQL 18 and then serves `/health` as a role that only has DML, refusing other hosts with 400.
 - The API in Production refuses to start on a database that hasn't been migrated, and starts with an Application Insights connection string set.
 - The integration tests run the migration twice and the API on the DML-only role, and check that the role can't create or alter tables. They also run a newer release's migration, then this build's API on it, then this build's migration as a rollback, and check that the API serves throughout and the newer column survives.
 
-What can only be checked in Azure: the first `aspire deploy`, the Entra mapping of the API's role (a security label set by `db-migrate`), the probes' `Host` header, and the custom-domain steps.
+What can only be checked in Azure: the first `aspire deploy`, the Entra mapping of the API's role (a security label set by `db-migrate`), the probes' `Host` header, the custom-domain steps, the API's managed-identity sign-in to storage, and how much ephemeral disk the container has for uploads buffered while they are checked (at most four 25 MB files at once).

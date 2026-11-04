@@ -43,6 +43,12 @@
                     "title": "Packet title",
                     "body": "Packet body"
                   }
+                },
+                "File": {
+                  "value": {
+                    "parcelId": "qrjMmYBVnK8m3coMo0hiMeN",
+                    "fileName": "screenshot.png"
+                  }
                 }
               }
             }
@@ -76,6 +82,16 @@
               "application/problem+json": {
                 "schema": {
                   "$ref": "#/components/schemas/HttpValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
                 }
               }
             }
@@ -668,6 +684,304 @@
           }
         }
       }
+    },
+    "/api/parcels": {
+      "post": {
+        "tags": [
+          "Parcels"
+        ],
+        "summary": "",
+        "parameters": [
+          {
+            "name": "api-version",
+            "in": "query",
+            "description": "The requested API version",
+            "schema": {
+              "enum": [
+                "1"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/ParcelUploadForm"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ParcelResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Payload Too Large",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Unsupported Media Type",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/parcels/{id}": {
+      "get": {
+        "tags": [
+          "Parcels"
+        ],
+        "summary": "",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "api-version",
+            "in": "query",
+            "description": "The requested API version",
+            "schema": {
+              "enum": [
+                "1"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "$ref": "#/components/schemas/Stream"
+                }
+              }
+            }
+          },
+          "206": {
+            "description": "Partial Content",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "$ref": "#/components/schemas/Stream"
+                }
+              }
+            }
+          },
+          "304": {
+            "description": "Not Modified"
+          },
+          "404": {
+            "description": "Not Found"
+          },
+          "416": {
+            "description": "Range Not Satisfiable"
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Parcels"
+        ],
+        "summary": "",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "api-version",
+            "in": "query",
+            "description": "The requested API version",
+            "schema": {
+              "enum": [
+                "1"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "204": {
+            "description": "No Content"
+          },
+          "404": {
+            "description": "Not Found"
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/parcels/{id}/thumbnail": {
+      "get": {
+        "tags": [
+          "Parcels"
+        ],
+        "summary": "",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "api-version",
+            "in": "query",
+            "description": "The requested API version",
+            "schema": {
+              "enum": [
+                "1"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "OK",
+            "content": {
+              "image/webp": {
+                "schema": {
+                  "$ref": "#/components/schemas/Stream"
+                }
+              }
+            }
+          },
+          "304": {
+            "description": "Not Modified"
+          },
+          "404": {
+            "description": "Not Found"
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -805,6 +1119,10 @@
             }
           }
         }
+      },
+      "IFormFile": {
+        "type": "string",
+        "format": "binary"
       },
       "LinkPreviewResponse": {
         "required": [
@@ -990,6 +1308,81 @@
           }
         }
       },
+      "ParcelResponse": {
+        "required": [
+          "parcelId",
+          "fileName",
+          "contentType",
+          "size",
+          "isImage",
+          "width",
+          "height"
+        ],
+        "type": "object",
+        "properties": {
+          "parcelId": {
+            "type": "string",
+            "description": "The file's public id, opaque to clients, in the same space as packet ids: a File packet's\n`parcelId`."
+          },
+          "fileName": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "The file name the client gave, made safe to store and to send back, or `null` when nothing of it\nwas left."
+          },
+          "contentType": {
+            "type": "string",
+            "description": "The type sniffed from the bytes: `image/jpeg`, `image/png`, `image/gif`,\n`image/webp`, `application/pdf`, or `application/octet-stream` for anything else."
+          },
+          "size": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "description": "The file's size in bytes.",
+            "format": "int64"
+          },
+          "isImage": {
+            "type": "boolean",
+            "description": "Whether the file decoded as an image, in which case it has a thumbnail and is shown inline."
+          },
+          "width": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "description": "The image's width as displayed, after its EXIF orientation; `null` when it is not an image.",
+            "format": "int32"
+          },
+          "height": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "description": "The image's height as displayed, after its EXIF orientation; `null` when it is not an image.",
+            "format": "int32"
+          }
+        },
+        "description": "An uploaded file as the API returns it: the answer to an upload, and what a client sends the id of to\ncreate a File packet."
+      },
+      "ParcelUploadForm": {
+        "required": [
+          "file"
+        ],
+        "type": "object",
+        "properties": {
+          "file": {
+            "$ref": "#/components/schemas/IFormFile"
+          }
+        },
+        "description": "An upload as the OpenAPI document describes it: a `multipart/form-data` body whose one part, named\n`file`, carries the file and its name. The endpoint reads the body as a stream and never binds this."
+      },
       "PostPacketRequestBody": {
         "required": [
           "$type"
@@ -1017,9 +1410,7 @@
       },
       "PostPacketRequestBodyFile": {
         "required": [
-          "fileName",
-          "contentType",
-          "payload"
+          "parcelId"
         ],
         "properties": {
           "$type": {
@@ -1028,17 +1419,19 @@
             ],
             "type": "string"
           },
+          "parcelId": {
+            "type": "string",
+            "description": "The `parcelId` the upload answered with."
+          },
           "fileName": {
             "type": [
               "null",
               "string"
-            ]
-          },
-          "contentType": {
-            "type": "string"
-          },
-          "payload": {}
-        }
+            ],
+            "description": "The name to send the file under, or `null` to keep the one it was uploaded with."
+          }
+        },
+        "description": "Sends a file uploaded to `POST /api/parcels`. Its type and whether it is an image come from the\nupload; only its name may be changed."
       },
       "PostPacketRequestBodyLink": {
         "required": [
@@ -1214,6 +1607,10 @@
           }
         }
       },
+      "Stream": {
+        "type": "string",
+        "format": "binary"
+      },
       "WebPushKeys": {
         "required": [
           "p256dh",
@@ -1262,6 +1659,9 @@
     },
     {
       "name": "Devices"
+    },
+    {
+      "name": "Parcels"
     }
   ]
 }

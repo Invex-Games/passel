@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace Invex.Passel.WebApi.IntegrationTests;
 
@@ -17,8 +18,16 @@ namespace Invex.Passel.WebApi.IntegrationTests;
 ///     from <see cref="CreateClientFor" /> are signed in through the Development <c>Dev</c> scheme. With
 ///     <paramref name="migratedSchema" />, the API treats the schema as every other environment does: it applies
 ///     nothing and checks at startup that the schema has what it needs, so it can run on a role that has only DML.
+///     Files go to the blob storage at <paramref name="blobConnectionString" />, or, without one, to
+///     <paramref name="parcelStore" /> when it is given and an <see cref="InMemoryParcelStore" /> otherwise.
+///     <paramref name="settings" /> are applied last, over the factory's own.
 /// </summary>
-internal sealed class PasselApiFactory(string connectionString, bool migratedSchema = false)
+internal sealed class PasselApiFactory(
+    string connectionString,
+    bool migratedSchema = false,
+    string? blobConnectionString = null,
+    IReadOnlyDictionary<string, string?>? settings = null,
+    IParcelStore? parcelStore = null)
     : WebApplicationFactory<Program>
 {
     /// <summary>
@@ -43,6 +52,9 @@ internal sealed class PasselApiFactory(string connectionString, bool migratedSch
         // including the git-ignored appsettings.Development.json next to the API, which may carry a developer's
         // Google settings or connection string
         builder.UseSetting("ConnectionStrings:passel-db", connectionString);
+
+        if (blobConnectionString is not null)
+            builder.UseSetting("ConnectionStrings:passel-blobs", blobConnectionString);
         builder.UseSetting("Authentication:Google:ClientId", string.Empty);
         builder.UseSetting("Authentication:Google:ClientSecret", string.Empty);
 
@@ -55,6 +67,15 @@ internal sealed class PasselApiFactory(string connectionString, bool migratedSch
         builder.UseSetting("RateLimits:ReadsPerMinute", "10000");
         builder.UseSetting("RateLimits:StreamsPerMinute", "10000");
         builder.UseSetting("RateLimits:DeviceWritesPerMinute", "10000");
+        builder.UseSetting("RateLimits:ParcelUploadsPerMinute", "10000");
+        builder.UseSetting("RateLimits:ParcelReadsPerMinute", "10000");
+
+        // Files small enough to make the limits cheap to reach: a 1 MiB file limit, 3 MiB of files per user and five
+        // unsent files. The sweep never runs on its own; the tests that need it run it at a time of their choosing
+        builder.UseSetting("Parcels:SweepEnabled", "false");
+        builder.UseSetting("Parcels:MaxParcelBytes", "1048576");
+        builder.UseSetting("Quotas:MaxParcelBytesPerUser", "3145728");
+        builder.UseSetting("Quotas:MaxPendingParcelsPerUser", "5");
 
         // The web app's origin, so the CORS tests see the policy as a deployment with a web app configures it
         builder.UseSetting("Cors:AllowedOrigins:0", WebAppOrigin);
@@ -65,6 +86,9 @@ internal sealed class PasselApiFactory(string connectionString, bool migratedSch
         // The test server has no request size limit to apply, and warns so on every request to an endpoint that
         // declares one, which every create and device write does
         builder.UseSetting("Logging:LogLevel:Microsoft.AspNetCore.Routing.EndpointRoutingMiddleware", "Error");
+
+        foreach (var (key, value) in settings ?? new Dictionary<string, string?>())
+            builder.UseSetting(key, value);
 
         // The link preview fetcher must never leave the test machine. Names are resolved by a stub rather than DNS:
         // the page server's name to the loopback, which the policy here allows, and every other name (the links to
@@ -84,6 +108,10 @@ internal sealed class PasselApiFactory(string connectionString, bool migratedSch
 
                 services.AddHostedService<DatabaseSchemaCheck>();
             }
+
+            // Hosts started beside the shared one have no blob storage of their own
+            if (blobConnectionString is null)
+                services.Replace(ServiceDescriptor.Singleton<IParcelStore>(parcelStore ?? new InMemoryParcelStore()));
 
             services.AddSingleton<ILinkPreviewAddressPolicy, LoopbackAllowingAddressPolicy>();
 

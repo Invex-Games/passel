@@ -99,7 +99,7 @@ public sealed class CorsTests
     }
 
     [Fact]
-    public async Task A_request_from_the_web_app_may_read_the_response_and_its_retry_after()
+    public async Task A_request_from_the_web_app_may_read_the_response_and_the_headers_it_needs()
     {
         await using var app = await StartAsync(("Cors:AllowedOrigins:0", WebOrigin));
         using var client = app.GetTestClient();
@@ -109,7 +109,47 @@ public sealed class CorsTests
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Equal(WebOrigin, Assert.Single(response.Headers.GetValues("Access-Control-Allow-Origin")));
-        Assert.Equal("Retry-After", Assert.Single(response.Headers.GetValues("Access-Control-Expose-Headers")));
+        Assert.Equal("Retry-After,Location,ETag,Content-Disposition,Content-Range,Accept-Ranges,Content-Length",
+            Assert.Single(response.Headers.GetValues("Access-Control-Expose-Headers")));
+    }
+
+    [Theory]
+    [InlineData("authorization")]
+    [InlineData("authorization,content-type")]
+    [InlineData("accept,authorization")]
+    [InlineData("authorization,range")]
+    [InlineData("authorization,if-none-match")]
+    public async Task A_preflight_for_any_header_the_clients_send_is_allowed(string headers)
+    {
+        await using var app = await StartAsync(("Cors:AllowedOrigins:0", WebOrigin));
+        using var client = app.GetTestClient();
+
+        using var preflight = Preflight(WebOrigin);
+        preflight.Headers.Remove("Access-Control-Request-Headers");
+        preflight.Headers.Add("Access-Control-Request-Headers", headers);
+
+        using var response = await client.SendAsync(preflight, CancellationToken);
+
+        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+        Assert.Equal(WebOrigin, Assert.Single(response.Headers.GetValues("Access-Control-Allow-Origin")));
+    }
+
+    [Fact]
+    public async Task A_preflight_for_a_header_the_clients_never_send_is_not_allowed_it()
+    {
+        await using var app = await StartAsync(("Cors:AllowedOrigins:0", WebOrigin));
+        using var client = app.GetTestClient();
+
+        using var preflight = Preflight(WebOrigin);
+        preflight.Headers.Remove("Access-Control-Request-Headers");
+        preflight.Headers.Add("Access-Control-Request-Headers", "authorization,x-custom");
+
+        using var response = await client.SendAsync(preflight, CancellationToken);
+
+        // The answer names only the headers the policy allows, so the browser does not send the request
+        Assert.DoesNotContain("x-custom",
+            Assert.Single(response.Headers.GetValues("Access-Control-Allow-Headers")),
+            StringComparison.OrdinalIgnoreCase);
     }
 
     [Theory]

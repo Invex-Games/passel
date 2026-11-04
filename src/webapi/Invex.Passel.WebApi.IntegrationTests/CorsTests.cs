@@ -29,6 +29,10 @@ public sealed class CorsTests(PasselApiFixture fixture)
     [InlineData(PacketApi.PacketsPath, "POST", "authorization,content-type")]
     [InlineData(PacketApi.PacketsPath + "/some-id", "DELETE", "authorization")]
     [InlineData(PacketApi.EventsPath, "GET", "accept,authorization")]
+    [InlineData(ParcelApi.ParcelsPath, "POST", "authorization,content-type")]
+    [InlineData(ParcelApi.ParcelsPath + "/some-id", "GET", "authorization,if-none-match,range")]
+    [InlineData(ParcelApi.ParcelsPath + "/some-id/thumbnail", "GET", "authorization,if-none-match")]
+    [InlineData(ParcelApi.ParcelsPath + "/some-id", "DELETE", "authorization")]
     public async Task A_preflight_from_the_web_app_is_answered_without_a_token(string path, string method, string headers)
     {
         using var client = fixture.Api.CreateClient();
@@ -56,6 +60,30 @@ public sealed class CorsTests(PasselApiFixture fixture)
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Equal(PasselApiFactory.WebAppOrigin, Assert.Single(response.Headers.GetValues("Access-Control-Allow-Origin")));
         Assert.False(response.Headers.Contains("Access-Control-Allow-Credentials"));
+    }
+
+    [Fact]
+    public async Task The_web_app_can_read_what_it_needs_to_save_and_resume_a_file()
+    {
+        using var alice = fixture.Api.CreateClientFor(PasselApiFixture.User("alice"));
+        var parcel = await alice.UploadAsync(new byte[] { 1, 2, 3, 4, 5, 6, 7, 8 }, "notes.bin", "application/octet-stream",
+            CancellationToken);
+
+        using var response = await alice.DownloadParcelAsync(parcel.ParcelId,
+            CancellationToken,
+            request =>
+            {
+                request.Headers.Add("Origin", PasselApiFactory.WebAppOrigin);
+                request.Headers.Range = new(2, 5);
+            });
+
+        Assert.Equal(HttpStatusCode.PartialContent, response.StatusCode);
+        Assert.Equal(PasselApiFactory.WebAppOrigin, Assert.Single(response.Headers.GetValues("Access-Control-Allow-Origin")));
+
+        var exposed = Assert.Single(response.Headers.GetValues("Access-Control-Expose-Headers")).Split(',');
+
+        Assert.Subset(exposed.ToHashSet(),
+            new HashSet<string> { "ETag", "Content-Disposition", "Content-Range", "Accept-Ranges", "Content-Length" });
     }
 
     [Fact]

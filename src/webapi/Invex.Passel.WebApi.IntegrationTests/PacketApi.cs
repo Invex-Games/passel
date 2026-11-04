@@ -24,7 +24,8 @@ internal sealed record PreviewJson(string? Title, string? Description, string? I
 
 /// <summary>
 ///     A packet as the API returns it, read straight from the JSON: the discriminator, the id, the creation time,
-///     whichever content fields the kind of packet has, and a link's preview once it has one.
+///     whichever content fields the kind of packet has, and a link's preview once it has one. A file's
+///     <see cref="IsImage" /> is <c>null</c> for the other kinds.
 /// </summary>
 internal sealed record PacketJson(
     string Type,
@@ -34,7 +35,11 @@ internal sealed record PacketJson(
     string? Body,
     string? Name,
     string? Url,
-    PreviewJson? Preview)
+    PreviewJson? Preview,
+    string? FileName = null,
+    string? ContentType = null,
+    string? ParcelId = null,
+    bool? IsImage = null)
 {
     public static PacketJson Parse(JsonElement packet) =>
         new(packet.GetProperty("$type").GetString()!,
@@ -44,7 +49,11 @@ internal sealed record PacketJson(
             OptionalString(packet, "body"),
             OptionalString(packet, "name"),
             OptionalString(packet, "url"),
-            PreviewJson.Parse(packet));
+            PreviewJson.Parse(packet),
+            OptionalString(packet, "fileName"),
+            OptionalString(packet, "contentType"),
+            OptionalString(packet, "parcelId"),
+            OptionalBoolean(packet, "isImage"));
 
     public static PacketJson Parse(string json)
     {
@@ -52,6 +61,11 @@ internal sealed record PacketJson(
 
         return Parse(document.RootElement);
     }
+
+    private static bool? OptionalBoolean(JsonElement element, string name) =>
+        element.TryGetProperty(name, out var property) && property.ValueKind is JsonValueKind.True or JsonValueKind.False
+            ? property.GetBoolean()
+            : null;
 
     internal static string? OptionalString(JsonElement element, string name) =>
         element.TryGetProperty(name, out var property) && property.ValueKind == JsonValueKind.String
@@ -100,6 +114,45 @@ internal static class PacketApi
                 ["url"] = url,
             },
             cancellationToken);
+
+    /// <summary>
+    ///     Sends an uploaded file in a packet, renamed to <paramref name="fileName" /> unless it is <c>null</c>. Returns
+    ///     the response for the test to judge, since a file can be refused in ways a text cannot.
+    /// </summary>
+    public static async Task<HttpResponseMessage> CreateFileAsync(
+        this HttpClient client,
+        string parcelId,
+        string? fileName,
+        CancellationToken cancellationToken)
+    {
+        var packet = new JsonObject
+        {
+            ["$type"] = "File",
+            ["parcelId"] = parcelId,
+        };
+
+        if (fileName is not null)
+            packet["fileName"] = fileName;
+
+        using var content = new StringContent(packet.ToJsonString(), Encoding.UTF8, "application/json");
+
+        return await client.PostAsync(PacketsPath, content, cancellationToken);
+    }
+
+    /// <summary>
+    ///     Sends an uploaded file in a packet and checks that it was sent.
+    /// </summary>
+    public static async Task<PacketJson> SendFileAsync(
+        this HttpClient client,
+        string parcelId,
+        string? fileName,
+        CancellationToken cancellationToken)
+    {
+        using var response = await client.CreateFileAsync(parcelId, fileName, cancellationToken);
+        using var document = await ReadJsonAsync(response, HttpStatusCode.OK, cancellationToken);
+
+        return PacketJson.Parse(document.RootElement);
+    }
 
     private static async Task<PacketJson> CreateAsync(
         HttpClient client,

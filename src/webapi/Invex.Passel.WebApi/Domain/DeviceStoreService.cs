@@ -1,6 +1,4 @@
-using Marten.Exceptions;
 using Microsoft.Extensions.Options;
-using Npgsql;
 
 namespace Invex.Passel.WebApi.Domain;
 
@@ -303,7 +301,7 @@ internal sealed partial class DeviceStoreService(
 
             return true;
         }
-        catch (Exception exception) when (IsLostRace(exception))
+        catch (Exception exception) when (MartenRaces.IsLostRace(exception))
         {
             session.EjectAllPendingChanges();
 
@@ -312,20 +310,6 @@ internal sealed partial class DeviceStoreService(
 
             throw new DeviceWriteConflictException(MaxAttempts, exception);
         }
-    }
-
-    private static bool IsLostRace(Exception exception)
-    {
-        // Marten may report several failed operations of one batch together
-        if (exception is AggregateException aggregate)
-            return aggregate.InnerExceptions.All(IsLostRace);
-
-        for (var inner = exception; inner is not null; inner = inner.InnerException)
-            if (inner is NonExistentDocumentException or ConcurrencyException
-                or PostgresException { SqlState: PostgresErrorCodes.UniqueViolation })
-                return true;
-
-        return false;
     }
 
     // Device ids only: the token is never logged

@@ -8,6 +8,7 @@ using Azure;
 using Azure.Provisioning.AppContainers;
 using Azure.Provisioning.Expressions;
 using Azure.Provisioning.PostgreSql;
+using Azure.Provisioning.Storage;
 using Azure.ResourceManager;
 using Azure.ResourceManager.AppContainers;
 using JobExecutionRunningState = Azure.ResourceManager.AppContainers.Models.JobExecutionRunningState;
@@ -17,7 +18,8 @@ using Microsoft.Extensions.Logging;
 
 /// <summary>
 ///     The Azure deployment of the API (ADR 0003): Azure Container Apps for the API and for its database migration
-///     job, Azure Database for PostgreSQL flexible server, Key Vault for the one secret, and Application Insights over
+///     job, Azure Database for PostgreSQL flexible server, a storage account for uploaded files, Key Vault for the one
+///     secret, and Application Insights over
 ///     a Log Analytics workspace. Only added when the AppHost is published or deployed, so the local run needs nothing
 ///     from Azure. `aspire deploy` provisions it all, builds both images with the .NET SDK's container support, runs the
 ///     migration job, and only then rolls out the API. See docs/guides/deploying.md.
@@ -57,7 +59,8 @@ internal static class AzureHosting
         this IDistributedApplicationBuilder builder,
         IResourceBuilder<ProjectResource> webApi,
         IResourceBuilder<AzurePostgresFlexibleServerResource> postgres,
-        IResourceBuilder<AzurePostgresFlexibleServerDatabaseResource> database)
+        IResourceBuilder<AzurePostgresFlexibleServerDatabaseResource> database,
+        IResourceBuilder<AzureStorageResource> storage)
     {
         // Optional deployment settings, from configuration (Deployment__ImageTag and Deployment__ApiDomain in the
         // workflow): the tag the images are pushed with, GitVersion's version in CI, and the custom domain once it
@@ -93,6 +96,8 @@ internal static class AzureHosting
         // Only the migration job should be: the API's identity gets a plain role that the job grants DML to
         RemoveDefaultRoleAssignments(postgres.Resource);
 
+        storage.ConfigureInfrastructure(ConfigureParcelStorage);
+
         var apiIdentity = builder.AddAzureUserAssignedIdentity("passel-api-identity");
 
         // Two deployments bind a custom domain: the first adds it without a certificate, the second with the managed
@@ -108,6 +113,10 @@ internal static class AzureHosting
         webApi
             .WithAzureUserAssignedIdentity(apiIdentity)
             .WithReference(insights)
+            // The API reads and writes blobs and creates its container if it is missing, and needs nothing else from
+            // the account. This replaces Aspire's default Blob, Queue and Table Data Contributor roles. The migration
+            // job has no storage reference, so it gets no role on the account
+            .WithRoleAssignments(storage, StorageBuiltInRole.StorageBlobDataContributor)
             // No password: the API signs in as its identity's role with an Entra token (Aspire.Azure.Npgsql)
             .WithEnvironment("ConnectionStrings__passel-db",
                 ReferenceExpression.Create(
@@ -216,6 +225,46 @@ internal static class AzureHosting
         {
             StorageSizeInGB = 32,
             AutoGrow = StorageAutoGrow.Enabled,
+        };
+    }
+
+    private static void ConfigureParcelStorage(AzureResourceInfrastructure infrastructure)
+    {
+        var account = infrastructure
+            .GetProvisionableResources()
+            .OfType<StorageAccount>()
+            .Single();
+
+        // Locally redundant, as the database has no geo-redundant backup either. No anonymous reads and no shared keys:
+        // the API signs in with its identity (shared keys are already off by Aspire's default)
+        account.Sku = new StorageSku
+        {
+            Name = StorageSkuName.StandardLrs,
+        };
+
+        account.AllowBlobPublicAccess = false;
+        account.MinimumTlsVersion = StorageMinimumTlsVersion.Tls1_2;
+        account.AllowSharedKeyAccess = false;
+
+        var blobService = infrastructure
+            .GetProvisionableResources()
+            .OfType<BlobService>()
+            .Single();
+
+        // A deleted file is erased (ADR 0001), so neither blob soft delete nor versioning may keep a copy. Turning
+        // either on would keep every deleted file for its retention. Container soft delete keeps no deleted blobs; it
+        // only lets a container deleted by mistake be restored for a week
+        blobService.DeleteRetentionPolicy = new DeleteRetentionPolicy
+        {
+            IsEnabled = false,
+        };
+
+        blobService.IsVersioningEnabled = false;
+
+        blobService.ContainerDeleteRetentionPolicy = new DeleteRetentionPolicy
+        {
+            IsEnabled = true,
+            Days = 7,
         };
     }
 

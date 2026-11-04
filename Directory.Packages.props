@@ -10,6 +10,7 @@
     <PackageVersion Include="Asp.Versioning.Mvc.ApiExplorer" Version="10.2.1" />
     <PackageVersion Include="Asp.Versioning.OpenApi" Version="10.2.3" />
     <PackageVersion Include="Aspire.Azure.Npgsql" Version="13.6.2" />
+    <PackageVersion Include="Aspire.Azure.Storage.Blobs" Version="13.6.2" />
     <PackageVersion Include="Dunet" Version="1.16.2" />
     <PackageVersion Include="Google.Apis.Auth.AspNetCore3" Version="1.77.0" />
     <PackageVersion Include="Marten" Version="9.51.0" />
@@ -18,6 +19,8 @@
     <PackageVersion Include="Microsoft.AspNetCore.TestHost" Version="10.0.13" />
     <PackageVersion Include="Microsoft.IdentityModel.JsonWebTokens" Version="8.23.0" />
     <PackageVersion Include="Scalar.AspNetCore" Version="2.18.2" />
+    <PackageVersion Include="SkiaSharp" Version="3.119.4" />
+    <PackageVersion Include="SkiaSharp.NativeAssets.Linux.NoDependencies" Version="3.119.4" />
     <PackageVersion Include="Sqids" Version="3.2.1" />
     <PackageVersion Include="System.IdentityModel.Tokens.Jwt" Version="8.23.0" />
   </ItemGroup>
@@ -28,6 +31,7 @@
     <PackageVersion Include="Aspire.Hosting.Azure.ApplicationInsights" Version="13.6.2" />
     <PackageVersion Include="Aspire.Hosting.Azure.KeyVault" Version="13.6.2" />
     <PackageVersion Include="Aspire.Hosting.Azure.PostgreSQL" Version="13.6.2" />
+    <PackageVersion Include="Aspire.Hosting.Azure.Storage" Version="13.6.2" />
     <PackageVersion Include="Aspire.Hosting.DevTunnels" Version="13.6.2" />
     <PackageVersion Include="Aspire.Hosting.JavaScript" Version="13.6.2" />
     <PackageVersion Include="Aspire.Hosting.PostgreSQL" Version="13.6.2" />
@@ -52,6 +56,7 @@
 
   <ItemGroup Label="Tests">
     <PackageVersion Include="Microsoft.AspNetCore.Mvc.Testing" Version="10.0.13" />
+    <PackageVersion Include="Testcontainers.Azurite" Version="4.16.0" />
     <PackageVersion Include="Testcontainers.PostgreSql" Version="4.16.0" />
     <PackageVersion Include="xunit.v3" Version="4.0.2" />
   </ItemGroup>

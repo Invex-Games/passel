@@ -13,6 +13,7 @@ global using Invex.Passel.WebApi.Domain;
 global using Invex.Passel.WebApi.Domain.Commands;
 global using Invex.Passel.WebApi.Endpoints.DeviceEndpoints;
 global using Invex.Passel.WebApi.Endpoints.PacketEndpoints;
+global using Invex.Passel.WebApi.Endpoints.ParcelEndpoints;
 global using Invex.Passel.WebApi.Extensions;
 global using Invex.Passel.WebApi.Options;
 global using JasperFx;

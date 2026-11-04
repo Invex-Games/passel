@@ -1,9 +1,11 @@
 using System.Reflection;
+using Invex.Passel.WebApi.Domain;
 using Invex.Passel.WebApi.Extensions;
 using Invex.Passel.WebApi.Services;
 using JasperFx;
 using JasperFx.CodeGeneration;
 using Marten;
+using Marten.Schema;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -13,8 +15,9 @@ namespace Invex.Passel.WebApi.Tests;
 public sealed class DatabaseSetupTests
 {
     /// <summary>
-    ///     The store as <c>Program.cs</c> registers it in <paramref name="environment" />. Nothing connects: the
-    ///     connection string points at a port no database listens on.
+    ///     The store as <c>Program.cs</c> registers it in <paramref name="environment" />, with the file services
+    ///     beside it as the db-migrate job builds them: without blob settings. Nothing connects: the connection string
+    ///     points at a port no database listens on.
     /// </summary>
     private static WebApplication BuildHost(string environment)
     {
@@ -27,6 +30,7 @@ public sealed class DatabaseSetupTests
             "Host=localhost;Port=1;Username=x;Password=x;Database=x";
 
         builder.AddPasselDatabase();
+        builder.AddPasselParcels();
 
         return builder.Build();
     }
@@ -78,6 +82,38 @@ public sealed class DatabaseSetupTests
         using var app = BuildHost(Environments.Production);
 
         Assert.Empty(app.Services.GetServices<ICodeFileCollection>());
+    }
+
+    /// <summary>
+    ///     A document type the store does not know of is created lazily on first use, which outside Development the
+    ///     API may not do; db-migrate and the startup check only cover the types declared. Attaching, discarding and
+    ///     the sweep rely on the version check to let one of two racing writers win.
+    /// </summary>
+    [Fact]
+    public void A_parcel_is_a_known_document_with_a_version_check()
+    {
+        using var app = BuildHost(Environments.Production);
+        var store = app.Services.GetRequiredService<IDocumentStore>();
+
+        var mapping = Assert.IsType<DocumentMapping>(store.Options.FindOrResolveDocumentType(typeof(Parcel)),
+            exactMatch: false);
+
+        Assert.True(mapping.UseOptimisticConcurrency);
+        Assert.Contains(store.Storage.AllObjects(), table => table.Identifier.Name == "mt_doc_parcel");
+        Assert.Contains(mapping.Indexes,
+            index => index is ComputedIndex { Name: "mt_doc_parcel_uidx_attached_packet_id", IsUnique: true });
+    }
+
+    /// <summary>
+    ///     The db-migrate job runs all of <c>Program.cs</c> with no blob storage configured; the host must still
+    ///     build, with a store that refuses every use instead of failing at startup.
+    /// </summary>
+    [Fact]
+    public void The_api_host_builds_without_blob_settings()
+    {
+        using var app = BuildHost(Environments.Production);
+
+        Assert.IsType<UnavailableParcelStore>(app.Services.GetRequiredService<IParcelStore>());
     }
 
     [Theory]

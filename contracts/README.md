@@ -8,6 +8,8 @@ What the API puts on the wire, committed so that every side is checked against t
 | `fixtures/*.json` | Sample payloads serialized by the API with its real JSON options: a list page with every packet type (the link with its preview), a create response, a `packet-created`, a `packet-updated` and a `packet-deleted` event | `ContractTests`, which also fail when one is stale or an endpoint answers in another shape | `test/contracts.test.ts` in the extension and `test/contracts_test.dart` in the mobile app, with their real parsers |
 | `feed-scenarios.json` | Feed sequences with the list each must leave behind: first page, cursor page, live create, live delete, live update, resync, undo | By hand; the file explains its format | Both client suites, through their feed stores; the API tests check that every packet in it is a valid wire packet |
 
+The File item in `fixtures/list-page.json` is also checked against a File packet the tests really create, from an uploaded image, so its shape is the one the API lists. The file upload endpoints are in `openapi.json` but have no fixtures until a client uploads files.
+
 ## Regenerating
 
 `openapi.json` and `fixtures/` are generated. When a test says one is out of date, run the Web API integration tests with `PASSEL_UPDATE_CONTRACTS=1` in the environment (Docker running):

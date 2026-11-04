@@ -17,7 +17,8 @@ The Aspire dashboard opens at `https://localhost:17106`. It asks for a login tok
 | Resource | What it is |
 |---|---|
 | `passel-pg` | PostgreSQL in Docker, with pgweb for browsing data. The container is persistent, so data survives AppHost restarts. |
-| `invex-passel-webapi` | The API at `https://localhost:7030`. It waits for the database. |
+| `passel-storage` | Azurite in Docker, the Azure Storage emulator, holding uploaded files in its `parcels` blob container (`passel-blobs` and `passel-parcels` are its blob service and that container). Persistent too, with a data volume, so files survive AppHost restarts as their records in the database do. |
+| `invex-passel-webapi` | The API at `https://localhost:7030`. It waits for the database and the `parcels` container. |
 | `chrome-extension` | The extension's watch build. It rebuilds `src/chrome-extension/dist` on every change. |
 | `web-app` | The web app's dev server at `http://localhost:5245`, rebuilt on every change. See [Web app](#web-app). |
 | `passel-api-tunnel` | A dev tunnel giving the API a public HTTPS URL, for a phone that is not on USB. It doesn't start with the AppHost: start it from the dashboard when you need it, see [the dev tunnel](#a-phone-that-is-not-on-usb-the-dev-tunnel). |
@@ -27,13 +28,13 @@ The Google client values are optional in Development. Without them, use the Dev 
 ## Web API
 
 - Scalar API reference: `https://localhost:7030/scalar`. Use the **Login with Google** banner, or the **Dev** security scheme, to call authenticated endpoints from the browser.
-- Health checks: `/health` (every check, including the database) and `/alive` (liveness only).
+- Health checks: `/health` (every check, including the database; file storage is deliberately not one, so the API stays ready while Azurite is down and only the file endpoints answer 503) and `/alive` (liveness only).
 - Logs, traces and metrics: the dashboard.
 
 > [!WARNING]
-> In development, Marten recreates any table whose schema doesn't match the code (`AutoCreate.All`). Expect local data to be dropped when you change the document model.
+> In development, Marten recreates any table whose schema doesn't match the code (`AutoCreate.All`). Expect local data to be dropped when you change the document model. When the parcel table is recreated, the files it described stay in Azurite until the orphan scan removes them, which first runs a day after the API starts (`Parcels:OrphanScanInterval`) and only takes files more than two hours old. An API restarted more often than that never gets there; lower the interval in `appsettings.Development.json`, or remove the `passel-storage` container and its volume to start with no files.
 
-To run the API on its own, outside the AppHost, use its `https` launch profile. You then need to supply a `passel-db` connection string, and any `Authentication:Google:*` settings you want, in `src/webapi/Invex.Passel.WebApi/appsettings.Development.json` (git-ignored). See [Configuration](../reference/configuration.md#web-api).
+To run the API on its own, outside the AppHost, use its `https` launch profile. You then need to supply a `passel-db` connection string, a `passel-blobs` one if you want file uploads to work (without it they answer 503), and any `Authentication:Google:*` settings you want, in `src/webapi/Invex.Passel.WebApi/appsettings.Development.json` (git-ignored). See [Configuration](../reference/configuration.md#web-api).
 
 ## Run without Google
 

@@ -5,6 +5,9 @@ builder.AddWebDefaults();
 
 builder.AddPasselDatabase();
 
+// Uploaded files: the documents live in the database above, their bytes in blob storage
+builder.AddPasselParcels();
+
 builder
     .Services
     .AddOptions<QuotaOptions>()
@@ -39,7 +42,9 @@ builder
 builder
     .Services
     .AddScoped<IDeviceStoreService, DeviceStoreService>()
-    .AddExceptionHandler<DeviceWriteConflictHandler>();
+    .AddExceptionHandler<DeviceWriteConflictHandler>()
+    // A file storage outage is a 503 on the file endpoints alone
+    .AddExceptionHandler<ParcelStoreUnavailableHandler>();
 
 // Link previews: the page of a new link is fetched in the background, behind guards that keep the fetcher on the
 // public internet (LinkPreviewAddressPolicy), and attached to the link with a packet-updated event
@@ -58,6 +63,7 @@ app.UseWebDefaults();
 
 app.MapPacketEndpoints();
 app.MapDeviceEndpoints();
+app.MapParcelEndpoints();
 
 if (app.Environment.IsDevelopment())
     app.MapDevApi();

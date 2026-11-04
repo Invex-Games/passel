@@ -6,7 +6,7 @@
 |---|---|---|
 | [.NET 10 SDK](https://dotnet.microsoft.com/download) | The Web API, the Aspire AppHost and the Atom build | Yes |
 | [Atom tool](https://github.com/Invex-Games/atom), installed by `dotnet tool restore` from `dotnet-tools.json` | Running build, test, setup and docs targets | Yes |
-| [Docker](https://docs.docker.com/get-started/get-docker/) | The PostgreSQL container the AppHost starts | Yes |
+| [Docker](https://docs.docker.com/get-started/get-docker/) | The PostgreSQL and Azurite containers the AppHost starts, and the integration tests | Yes |
 | [Node.js](https://nodejs.org/) (with npm) | The Chrome extension and the shared TypeScript packages | Yes |
 | [Aspire CLI](https://aspire.dev/get-started/install-cli/) | `aspire run` (`dotnet run --project src/webapi/Invex.Passel.AppHost` works without it). `dotnet tool restore` also installs the version the deployment uses, as `dotnet aspire` | No |
 | [Flutter](https://docs.flutter.dev/get-started/install) and the Android SDK | The mobile app; the SDK's `adb` connects a phone on USB to your local API | Mobile work only |

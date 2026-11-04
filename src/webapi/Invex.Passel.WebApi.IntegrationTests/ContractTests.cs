@@ -4,6 +4,7 @@ using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Invex.Passel.WebApi.Endpoints.PacketEndpoints;
+using Invex.Passel.WebApi.Tests;
 
 namespace Invex.Passel.WebApi.IntegrationTests;
 
@@ -79,7 +80,8 @@ public sealed class ContractTests(PasselApiFixture fixture)
     /// <summary>
     ///     The fixtures are serialized from the response types; this checks that the endpoints really answer with
     ///     those types, property for property, so a fixture can't be current while an endpoint returns something
-    ///     else. File packets can't be created through the API, so only links and texts are compared.
+    ///     else. The list page is compared item by item, with a link, a text and a file really created: the file is
+    ///     uploaded and sent, so the File item of the fixture is held to a File packet the API made.
     /// </summary>
     [Fact]
     public async Task The_endpoints_answer_in_the_shape_of_the_fixtures()
@@ -120,6 +122,11 @@ public sealed class ContractTests(PasselApiFixture fixture)
         using var createdData = JsonDocument.Parse(linkCreated.Data);
         AssertSameProperties(fixtures[ContractFixtures.PacketCreatedEvent], createdData.RootElement, "the packet-created event");
 
+        var parcel = await client.UploadAsync(TestImages.Png(8, 8), "screenshot.png", "image/png", CancellationToken);
+        await client.SendFileAsync(parcel.ParcelId, null, CancellationToken);
+
+        Assert.Equal(EventStream.PacketCreatedEventType, (await stream.ReadAsync(CancellationToken)).EventType);
+
         using var listResponse = await client.GetAsync(PacketApi.PacketsPath, CancellationToken);
         using var list = await PacketApi.ReadJsonAsync(listResponse, HttpStatusCode.OK, CancellationToken);
         using var listFixture = JsonDocument.Parse(fixtures[ContractFixtures.ListPage]);
@@ -128,7 +135,7 @@ public sealed class ContractTests(PasselApiFixture fixture)
 
         var listed = list.RootElement.GetProperty("packets").EnumerateArray().ToList();
 
-        Assert.Equal(2, listed.Count);
+        Assert.Equal(["File", "Link", "Text"], listed.Select(packet => packet.GetProperty("$type").GetString()).Order());
 
         foreach (var packet in listed)
         {
