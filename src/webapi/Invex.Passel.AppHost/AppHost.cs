@@ -14,16 +14,16 @@ var googleClientId = AddGoogleParameter("google-client-id")
     .WithDescription("Google OAuth **web** client id. The API's token audience and the mobile app's SERVER_CLIENT_ID.",
         enableMarkdown: true);
 
-var googleClientSecret = AddGoogleParameter("google-client-secret", secret: true)
-    .WithDescription("Secret of the Google OAuth web client. Only used for the development-only Scalar login.");
-
 var extensionClientId = AddGoogleParameter("google-extension-client-id")
     .WithDescription("Google OAuth client id of the Chrome extension. Accepted by the API as an additional audience.");
 
+// A PostgreSQL container locally (the same container AddPostgres gives, named passel-pg, with its password in user
+// secrets), and an Azure Database for PostgreSQL flexible server when the AppHost is published or deployed
 var postgres = builder
-    .AddPostgres("passel-pg")
-    .WithPgWeb()
-    .WithLifetime(ContainerLifetime.Persistent);
+    .AddAzurePostgresFlexibleServer("passel-pg")
+    .RunAsContainer(container => container
+        .WithPgWeb()
+        .WithLifetime(ContainerLifetime.Persistent));
 
 var postgresdb = postgres.AddDatabase("passel-db");
 
@@ -31,11 +31,30 @@ var postgresdb = postgres.AddDatabase("passel-db");
 // API_URL) keeps working across runs
 var webApi = builder
     .AddProject<Projects.Invex_Passel_WebApi>("invex-passel-webapi", launchProfileName: "https")
+    .WithEnvironment("Authentication__Google__ClientId", googleClientId)
+    .WithEnvironment("Authentication__Google__AdditionalAudiences__0", extensionClientId);
+
+// `aspire publish` and `aspire deploy` describe the Azure deployment (AzureHosting.cs and
+// docs/guides/deploying.md); everything below it is for local development only
+if (builder.ExecutionContext.IsPublishMode)
+{
+    builder.AddAzureHosting(webApi, postgres, postgresdb);
+
+    builder
+        .Build()
+        .Run();
+
+    return;
+}
+
+// Only the development-only Scalar login uses the secret, so it is never deployed
+var googleClientSecret = AddGoogleParameter("google-client-secret", secret: true)
+    .WithDescription("Secret of the Google OAuth web client. Only used for the development-only Scalar login.");
+
+webApi
     .WithReference(postgresdb)
     .WaitFor(postgresdb)
-    .WithEnvironment("Authentication__Google__ClientId", googleClientId)
-    .WithEnvironment("Authentication__Google__ClientSecret", googleClientSecret)
-    .WithEnvironment("Authentication__Google__AdditionalAudiences__0", extensionClientId);
+    .WithEnvironment("Authentication__Google__ClientSecret", googleClientSecret);
 
 // Rebuilds src/chrome-extension/dist on every change; load that folder unpacked in Chrome. These variables take
 // precedence over the extension's own .env file. The extension's API_URL is the packets endpoint, not the API root.
