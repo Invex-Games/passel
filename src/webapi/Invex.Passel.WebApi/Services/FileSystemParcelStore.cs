@@ -159,7 +159,9 @@ internal sealed partial class FileSystemParcelStore(
     ///     The files in the root, then the names of uploads still in their temps, once each. Each is as old as its last
     ///     write: a blob is never written again, and a temp still being written keeps looking young, so the orphan
     ///     scan leaves it alone while it runs. A temp whose name the store never writes is left out, as the
-    ///     <c>.uploading</c> directory itself is.
+    ///     <c>.uploading</c> directory itself is. Any other file in the root is listed as it is, as a foreign blob is
+    ///     in Azure: the scan deletes only names <see cref="ParcelKeys.TryParse" /> accepts, which this store accepts
+    ///     as keys too, and reports the rest.
     /// </summary>
     public async IAsyncEnumerable<StoredBlob> ListAsync([EnumeratorCancellation] CancellationToken cancellationToken)
     {
@@ -390,8 +392,7 @@ internal sealed partial class FileSystemParcelStore(
         IsKey(key, out _);
 
     private static bool IsKey(string key, out Guid id) =>
-        ParcelKeys.TryParse(key, out id) &&
-        (key == ParcelKeys.Original(id) || key == ParcelKeys.Thumbnail(id));
+        ParcelKeys.TryParse(key, out id);
 
     /// <summary>
     ///     The parcel <paramref name="key" /> names, throwing an <see cref="ArgumentException" /> for any other name.

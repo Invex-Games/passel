@@ -146,6 +146,41 @@ public sealed class FileSystemParcelStoreTests : IDisposable
     }
 
     /// <summary>
+    ///     A file in the root whose name is a key in upper case was not written by the store. It is listed, as a
+    ///     foreign blob in Azure is, but it is no parcel's, so the orphan scan reports it instead of deleting it and
+    ///     never hands the store a name it refuses: one stray file must not stop the scan of every other.
+    /// </summary>
+    [Fact]
+    public async Task A_root_file_named_like_a_key_in_upper_case_is_listed_but_is_no_parcel_and_stays()
+    {
+        var store = Store();
+        var orphan = ParcelKeys.Original(Guid.CreateVersion7());
+        await PutAsync(store, orphan, [1]);
+
+        var stray = Guid.CreateVersion7().ToString("N").ToUpperInvariant();
+        var strayThumbnail = $"{Guid.CreateVersion7().ToString("N").ToUpperInvariant()}.thumb";
+        await File.WriteAllBytesAsync(Path.Combine(_root, stray), [2], CancellationToken);
+        await File.WriteAllBytesAsync(Path.Combine(_root, strayThumbnail), [3], CancellationToken);
+
+        var listed = (await store.ListAsync(CancellationToken).ToListAsync(CancellationToken))
+            .Select(blob => blob.Name)
+            .ToArray();
+
+        Assert.Equal(new[] { orphan, stray, strayThumbnail }.Order(StringComparer.Ordinal),
+            listed.Order(StringComparer.Ordinal),
+            StringComparer.Ordinal);
+
+        // What the scan does with each name it lists
+        foreach (var name in listed)
+            if (ParcelKeys.TryParse(name, out _))
+                await store.DeleteAsync(name, CancellationToken);
+
+        Assert.Equal(new[] { stray, strayThumbnail }.Order(StringComparer.Ordinal),
+            Directory.GetFiles(_root).Select(Path.GetFileName).Order(StringComparer.Ordinal),
+            StringComparer.Ordinal);
+    }
+
+    /// <summary>
     ///     The sweep erases a parcel whose upload is still sending when the upload has taken too long. The upload then
     ///     ends as discarded, as it does in Azure when its staged blocks are gone, and leaves nothing behind.
     /// </summary>
@@ -233,13 +268,15 @@ public sealed class FileSystemParcelStoreTests : IDisposable
     [InlineData("{0}.thumb.x")]
     [InlineData("{0}.THUMB")]
     [InlineData("{1}")]
+    [InlineData("{2}")]
+    [InlineData("{2}.thumb")]
     [InlineData("../{0}")]
     public async Task A_key_that_is_not_a_parcel_blob_name_is_refused(string format)
     {
         var store = Store();
-        // The id in the form a key has, and with dashes
+        // The id in the form a key has, with dashes, and in upper case
         var id = Guid.CreateVersion7();
-        var key = string.Format(format, id.ToString("N"), id.ToString("D"));
+        var key = string.Format(format, id.ToString("N"), id.ToString("D"), id.ToString("N").ToUpperInvariant());
 
         await Assert.ThrowsAsync<ArgumentException>(() => PutAsync(store, key, [1]));
         await Assert.ThrowsAsync<ArgumentException>(() => store.OpenReadAsync(key, CancellationToken));

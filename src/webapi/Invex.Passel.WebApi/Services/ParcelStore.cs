@@ -62,14 +62,25 @@ internal static class ParcelKeys
         $"{id:N}{ThumbnailSuffix}";
 
     /// <summary>
-    ///     The parcel a blob belongs to, from either of its names; <c>false</c> for a name the API never writes.
+    ///     The parcel a blob belongs to, from either of its names; <c>false</c> for a name the API never writes. Only
+    ///     the exact names <see cref="Original" /> and <see cref="Thumbnail" /> give parse, so an id in upper case is
+    ///     some other file: the orphan scan reports it and leaves it, and no store would take it as a key.
     /// </summary>
     public static bool TryParse(string name, out Guid id)
     {
-        var original = name.EndsWith(ThumbnailSuffix, StringComparison.Ordinal)
+        var thumbnail = name.EndsWith(ThumbnailSuffix, StringComparison.Ordinal);
+        var original = thumbnail
             ? name[..^ThumbnailSuffix.Length]
             : name;
 
-        return Guid.TryParseExact(original, "N", out id);
+        if (Guid.TryParseExact(original, "N", out id) &&
+            name == (thumbnail
+                ? Thumbnail(id)
+                : Original(id)))
+            return true;
+
+        id = Guid.Empty;
+
+        return false;
     }
 }

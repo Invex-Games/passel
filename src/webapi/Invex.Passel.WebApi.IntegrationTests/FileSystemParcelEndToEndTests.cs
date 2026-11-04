@@ -151,6 +151,10 @@ public sealed class FileSystemParcelEndToEndTests(PasselApiFixture fixture) : ID
         var cutOff = Path.Combine(_root, ".uploading", $"{ParcelKeys.Original(Guid.CreateVersion7())}.{Guid.NewGuid():N}.tmp");
         await File.WriteAllBytesAsync(cutOff, [4], CancellationToken);
 
+        // A file put there by hand, named like a key in upper case, is no parcel's: reported, kept, and no obstacle
+        var stray = Guid.CreateVersion7().ToString("N").ToUpperInvariant();
+        await File.WriteAllBytesAsync(Path.Combine(_root, stray), [5], CancellationToken);
+
         await using (var scope = api.Services.CreateAsyncScope())
         {
             var result = await scope
@@ -161,6 +165,6 @@ public sealed class FileSystemParcelEndToEndTests(PasselApiFixture fixture) : ID
             Assert.Equal(new ParcelOrphanResult(0, 2), result);
         }
 
-        Assert.Empty(FilesOnDisk());
+        Assert.Equal([stray], FilesOnDisk());
     }
 }
