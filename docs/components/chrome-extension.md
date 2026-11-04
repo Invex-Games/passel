@@ -90,7 +90,7 @@ Run `npm install` once in `src/` (the workspace root, not the extension folder),
 | `npm run harness` | Serves the built popup with `chrome.*` stubbed; see [The popup harness](#the-popup-harness) |
 | `dotnet atom BuildChromeExtension` | Release build, zipped into `atom-publish/ChromeExtension` |
 
-The tests live with the code they test, in `@passel/core`; `npm test` in `src/` runs every package's tests, and `dotnet atom TestChromeExtension` runs the type-checks and tests of the whole workspace.
+The tests of the platform-free logic live with it in `@passel/core`; the extension's own modules, the ones that call `chrome.*`, are tested in `test/` against a stubbed `chrome` (see [Testing](../guides/testing.md)). `npm test` in `src/` runs every package's tests, `npm run test:coverage` adds the coverage reports, and `dotnet atom TestChromeExtension` runs the type-checks and the tests of the whole workspace with coverage.
 
 Load `dist/` unpacked; see [Running Locally](../getting-started/running-locally.md#chrome-extension). The source folder deliberately has no manifest, so it can't be loaded by mistake.
 

@@ -8,8 +8,8 @@ On Windows the generator writes CRLF line endings, so after an interactive run g
 
 | Workflow | Runs on | Jobs |
 |---|---|---|
-| `Validate` | Pull requests into `main`, manual dispatch | `TestWebApi`, `TestChromeExtension`, `TestMobileApp` (its coverage report attached to the run as `MobileAppCoverage`) and `BuildDocs`, in parallel; nothing is published |
-| `Build` | Pushes to `main`, manual dispatch | The three test suites (the mobile app's coverage report attached to the run), `BuildWebApi` and `BuildChromeExtension` (artifacts attached to the run), `BuildDocs` and `PublishDocs` (the site force-pushed to the `gh-pages` branch) |
+| `Validate` | Pull requests into `main`, manual dispatch | `TestWebApi`, `TestChromeExtension` and `TestMobileApp` (their coverage reports attached to the run as `ChromeExtensionCoverage` and `MobileAppCoverage`) and `BuildDocs`, in parallel; nothing is published |
+| `Build` | Pushes to `main`, manual dispatch | The three test suites (the extension's and the mobile app's coverage reports attached to the run), `BuildWebApi` and `BuildChromeExtension` (artifacts attached to the run), `BuildDocs` and `PublishDocs` (the site force-pushed to the `gh-pages` branch) |
 | Dependabot | Weekly, Monday 06:00 Brisbane time | One grouped pull request each for NuGet, npm, pub and GitHub Actions, with `build(...)` commit prefixes so versions don't bump |
 
 A newer run of a workflow on the same branch cancels the one still in progress. Every job checks the repository out and sets up the .NET 10 SDK; Node and Docker come with the runner (`TestWebApi` starts PostgreSQL in a container for the integration tests), and `TestMobileApp` installs the Flutter version pinned in `_atom/appsettings.json` into `.flutter/` because runners don't have one.
