@@ -146,7 +146,7 @@ public sealed class DeviceTests(PasselApiFixture fixture)
         using var response = await alice.PostDeviceAsync(DeviceApi.Registration(installationId, "Browser", "extension"),
             CancellationToken);
 
-        Assert.Contains("a web device", await AssertProblemAsync(response, HttpStatusCode.Conflict));
+        Assert.Contains("registered for the web app", await AssertProblemAsync(response, HttpStatusCode.Conflict));
     }
 
     [Fact]

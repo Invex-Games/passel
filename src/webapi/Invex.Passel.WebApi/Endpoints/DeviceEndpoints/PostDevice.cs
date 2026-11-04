@@ -61,6 +61,23 @@ public static partial class DeviceEndpoints
             errors["name"] = [$"Name must be non-blank and at most {MaxNameLength} characters, without control characters."];
     }
 
+    /// <summary>
+    ///     The detail of the 409 for an installation registered with another platform. Clients show a problem's
+    ///     detail, so it names the client rather than the platform's wire name.
+    /// </summary>
+    internal static string PlatformMismatchDetail(DevicePlatform registeredPlatform)
+    {
+        var client = registeredPlatform switch
+        {
+            DevicePlatform.Android => "the Android app",
+            DevicePlatform.Extension => "the browser extension",
+            DevicePlatform.Web => "the web app",
+            _ => throw new UnreachableException(),
+        };
+
+        return $"This installation is registered for {client}. Use a new installation id for another platform.";
+    }
+
     // A UUID in any of its usual spellings, or base64url, fits; nothing that needs escaping in a URL or a log does
     private static bool IsInstallationIdCharacter(char c) =>
         char.IsAsciiLetterOrDigit(c) || c is '-' or '_';
@@ -100,7 +117,7 @@ public static partial class DeviceEndpoints
                         RegisterDeviceResult.Existing existing => Results.Ok(
                             DeviceResponse.From(existing.Device, encodingService)),
                         RegisterDeviceResult.PlatformMismatch mismatch => Results.Problem(
-                            $"This installation is registered as a {JsonNamingPolicy.CamelCase.ConvertName(mismatch.RegisteredPlatform.ToString())} device. Use a new installation id for another platform.",
+                            PlatformMismatchDetail(mismatch.RegisteredPlatform),
                             statusCode: StatusCodes.Status409Conflict,
                             title: "Platform mismatch"),
                         RegisterDeviceResult.LimitReached limit => Results.Problem(limit.Exceeded.Detail,

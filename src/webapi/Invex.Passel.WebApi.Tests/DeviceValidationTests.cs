@@ -105,6 +105,24 @@ public sealed class DeviceValidationTests
         Assert.Contains("platform", DeviceEndpoints.Validate(Registration(platform: (DevicePlatform)7)).Keys);
     }
 
+    [Theory]
+    [InlineData(DevicePlatform.Android, "registered for the Android app.")]
+    [InlineData(DevicePlatform.Extension, "registered for the browser extension.")]
+    [InlineData(DevicePlatform.Web, "registered for the web app.")]
+    public void A_platform_mismatch_names_the_client_the_installation_is_registered_for(
+        DevicePlatform registeredPlatform,
+        string expected)
+    {
+        Assert.Contains(expected, DeviceEndpoints.PlatformMismatchDetail(registeredPlatform));
+    }
+
+    [Fact]
+    public void Every_platform_has_a_platform_mismatch_detail()
+    {
+        foreach (var platform in Enum.GetValues<DevicePlatform>())
+            Assert.NotEmpty(DeviceEndpoints.PlatformMismatchDetail(platform));
+    }
+
     [Fact]
     public void An_fcm_token_is_printable_ascii_without_spaces()
     {
