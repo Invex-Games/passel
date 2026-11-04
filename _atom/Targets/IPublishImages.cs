@@ -249,9 +249,11 @@ internal interface IPublishImages : IBuildWebApp, ITestTargets, ISetupBuildInfo,
 
         if (result.ExitCode is not 0)
         {
-            // Only a missing tag counts as free; an error reaching the registry must not let a push go ahead
+            // Only a missing tag counts as free, or a missing repository (the registry's NAME_UNKNOWN) before an
+            // image's first push; any other error, a refused login included, must not let a push go ahead
             if (result.Error.Contains("not found", StringComparison.OrdinalIgnoreCase) ||
-                result.Error.Contains("manifest unknown", StringComparison.OrdinalIgnoreCase))
+                result.Error.Contains("manifest unknown", StringComparison.OrdinalIgnoreCase) ||
+                result.Error.Contains("name unknown", StringComparison.OrdinalIgnoreCase))
                 return null;
 
             throw new StepFailedException($"Could not read {image} from the registry: {result.Error.Trim()}");
