@@ -11,9 +11,9 @@ internal static class HostParcelExtensions
     public const string BlobConnectionName = "passel-blobs";
 
     /// <summary>
-    ///     Uploaded files: their options, the blob store their bytes go to, and what checks and thumbnails them on the
-    ///     way in. Kept apart from <see cref="HostDatabaseExtensions.AddPasselDatabase" />, which hosts without
-    ///     storage call too.
+    ///     Uploaded files: their options, the blob store their bytes go to, what checks and thumbnails them on the way
+    ///     in, and the quota on them. Kept apart from <see cref="HostDatabaseExtensions.AddPasselDatabase" />,
+    ///     which hosts without storage call too.
     /// </summary>
     public static void AddPasselParcels(this WebApplicationBuilder builder)
     {
@@ -45,6 +45,7 @@ internal static class HostParcelExtensions
             .Services
             .AddSingleton<ParcelInspector>()
             .AddSingleton<ParcelUploadGate>()
+            .AddSingleton<IParcelQuotaService, ParcelQuotaService>()
             .AddSingleton<ParcelSweepSignal>()
             .AddSingleton<IParcelSweepSignal>(services => services.GetRequiredService<ParcelSweepSignal>());
     }
