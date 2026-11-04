@@ -19,12 +19,13 @@ internal interface IParcelStore
     Task<ParcelContent?> OpenReadAsync(string key, CancellationToken cancellationToken);
 
     /// <summary>
-    ///     Deletes the blob. Idempotent: a blob that is not there is success.
+    ///     Deletes the blob, and whatever an upload cut off part way left under the name. Idempotent: a blob that is
+    ///     not there is success.
     /// </summary>
     Task DeleteAsync(string key, CancellationToken cancellationToken);
 
     /// <summary>
-    ///     Every blob, for the orphan scan.
+    ///     Every blob, for the orphan scan, with the names of uploads cut off before their bytes became a blob.
     /// </summary>
     IAsyncEnumerable<StoredBlob> ListAsync(CancellationToken cancellationToken);
 }

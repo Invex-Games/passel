@@ -8,7 +8,8 @@ namespace Invex.Passel.WebApi.IntegrationTests;
 ///     A blob store in memory, for the API hosts a test starts beside the shared one (an empty database, a migrated
 ///     schema), which have no Azurite container of their own. It keeps the contract of the real store, which
 ///     <see cref="ParcelStoreContractTests" /> holds both to: a put never overwrites, a read is seekable with its
-///     length known, and a delete of nothing succeeds.
+///     length known, and a delete of nothing succeeds. A put is stored whole or not at all, so there is never an
+///     unfinished upload for a delete to discard, as there is for the real store.
 /// </summary>
 internal sealed class InMemoryParcelStore(TimeProvider? time = null) : IParcelStore
 {

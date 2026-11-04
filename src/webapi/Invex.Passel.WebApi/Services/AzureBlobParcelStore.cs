@@ -2,6 +2,7 @@ using System.Runtime.CompilerServices;
 using Azure;
 using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Models;
+using Azure.Storage.Blobs.Specialized;
 using Microsoft.Extensions.Options;
 
 namespace Invex.Passel.WebApi.Services;
@@ -86,13 +87,23 @@ internal sealed class AzureBlobParcelStore(BlobServiceClient service, IOptions<P
         }
     }
 
+    /// <summary>
+    ///     Deletes the blob, and when there is none, the blocks an upload cut off part way staged under its name
+    ///     without committing them: those are no blob to delete, and Azure would keep them for about a week. A parcel
+    ///     is only erased once it is deleted, so an upload still running under the name has had its parcel failed or
+    ///     expired already; it then fails its own put, its blocks gone.
+    /// </summary>
     public async Task DeleteAsync(string key, CancellationToken cancellationToken)
     {
+        var blob = Container().GetBlockBlobClient(key);
+
         try
         {
-            await Container()
-                .GetBlobClient(key)
-                .DeleteIfExistsAsync(DeleteSnapshotsOption.IncludeSnapshots, cancellationToken: cancellationToken);
+            var deleted = await blob.DeleteIfExistsAsync(DeleteSnapshotsOption.IncludeSnapshots,
+                cancellationToken: cancellationToken);
+
+            if (!deleted.Value)
+                await DiscardUncommittedAsync(blob, cancellationToken);
         }
         catch (RequestFailedException exception) when (exception.ErrorCode == BlobErrorCode.ContainerNotFound)
         {
@@ -107,8 +118,53 @@ internal sealed class AzureBlobParcelStore(BlobServiceClient service, IOptions<P
         if (!await container.ExistsAsync(cancellationToken))
             yield break;
 
-        await foreach (var item in container.GetBlobsAsync(cancellationToken: cancellationToken))
-            yield return new(item.Name, item.Properties.CreatedOn ?? DateTimeOffset.MinValue);
+        // With the names that hold only uncommitted blocks, so the orphan scan erases what a cut-off upload staged.
+        // Such a name may have no creation time; it then counts as old, and only its parcel, recorded before the
+        // upload stages a block, keeps it from being deleted while the upload runs
+        await foreach (var item in container.GetBlobsAsync(BlobTraits.None, BlobStates.Uncommitted, prefix: null,
+                           cancellationToken: cancellationToken))
+            yield return new(item.Name,
+                item.Properties.CreatedOn ?? item.Properties.LastModified ?? DateTimeOffset.MinValue);
+    }
+
+    /// <summary>
+    ///     Discards the uncommitted blocks staged under a name with no blob: committing an empty block list replaces
+    ///     them with an empty blob, which is then deleted. Costs one request when there is nothing staged.
+    /// </summary>
+    private static async Task DiscardUncommittedAsync(BlockBlobClient blob, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var blocks = await blob.GetBlockListAsync(BlockListTypes.Uncommitted, cancellationToken: cancellationToken);
+
+            if (!blocks.Value.UncommittedBlocks.Any())
+                return;
+        }
+        catch (RequestFailedException exception) when (exception.Status == StatusCodes.Status404NotFound &&
+                                                       exception.ErrorCode != BlobErrorCode.ContainerNotFound)
+        {
+            // Nothing staged under the name either
+            return;
+        }
+
+        try
+        {
+            // Only where there is still no blob: one committed since is deleted below all the same
+            await blob.CommitBlockListAsync([],
+                new CommitBlockListOptions
+                {
+                    Conditions = new()
+                    {
+                        IfNoneMatch = ETag.All,
+                    },
+                },
+                cancellationToken);
+        }
+        catch (RequestFailedException exception) when (exception.ErrorCode == BlobErrorCode.BlobAlreadyExists)
+        {
+        }
+
+        await blob.DeleteIfExistsAsync(DeleteSnapshotsOption.IncludeSnapshots, cancellationToken: cancellationToken);
     }
 
     private BlobContainerClient Container() =>

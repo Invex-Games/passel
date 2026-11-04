@@ -1,4 +1,7 @@
+using Azure;
 using Azure.Storage.Blobs;
+using Azure.Storage.Blobs.Models;
+using Azure.Storage.Blobs.Specialized;
 using Invex.Passel.WebApi.Options;
 using Invex.Passel.WebApi.Services;
 using Microsoft.Extensions.Options;
@@ -32,6 +35,43 @@ public sealed class ParcelStoreContractTests(PasselApiFixture fixture)
             Memory => new InMemoryParcelStore(),
             _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, null),
         };
+
+    /// <summary>
+    ///     The Azure store over a fresh container, with that container, to reach the blobs behind the store.
+    /// </summary>
+    private (AzureBlobParcelStore Store, BlobContainerClient Container) AzureStore()
+    {
+        var service = new BlobServiceClient(fixture.BlobConnectionString);
+        var name = $"contract-{Guid.NewGuid():N}";
+
+        return (new AzureBlobParcelStore(service,
+                Microsoft.Extensions.Options.Options.Create(new ParcelOptions
+                {
+                    ContainerName = name,
+                })),
+            service.GetBlobContainerClient(name));
+    }
+
+    /// <summary>
+    ///     Stages a block under <paramref name="key" /> and commits nothing, as an upload of a large file cut off part
+    ///     way leaves it.
+    /// </summary>
+    private static async Task StageAsync(BlobContainerClient container, string key) =>
+        await container.GetBlockBlobClient(key).StageBlockAsync(Convert.ToBase64String("block-0"u8),
+            new MemoryStream([1, 2, 3]),
+            cancellationToken: CancellationToken);
+
+    private static async Task AssertNothingUnderAsync(BlobContainerClient container, string key)
+    {
+        var blob = container.GetBlockBlobClient(key);
+
+        Assert.False((await blob.ExistsAsync(CancellationToken)).Value);
+
+        var exception = await Assert.ThrowsAsync<RequestFailedException>(() =>
+            blob.GetBlockListAsync(BlockListTypes.All, cancellationToken: CancellationToken));
+
+        Assert.Equal(404, exception.Status);
+    }
 
     private static string NewKey() =>
         ParcelKeys.Original(Guid.CreateVersion7());
@@ -157,5 +197,38 @@ public sealed class ParcelStoreContractTests(PasselApiFixture fixture)
             Assert.True(ParcelKeys.TryParse(blob.Name, out var parsed));
             Assert.Equal(id, parsed);
         });
+    }
+
+    /// <summary>
+    ///     An upload cut off part way leaves blocks staged under the name and no blob. The list finds the name, so the
+    ///     orphan scan sees it, and a delete discards the blocks rather than leaving them for Azure to collect after a
+    ///     week. The in-memory store stores a put whole or not at all, so it has nothing of the kind to hold.
+    /// </summary>
+    [Fact]
+    public async Task A_delete_discards_the_blocks_of_an_unfinished_upload_which_the_list_finds()
+    {
+        var (store, container) = AzureStore();
+        var staged = NewKey();
+        var kept = NewKey();
+
+        await PutAsync(store, kept, [9]);
+        await StageAsync(container, staged);
+
+        var listed = await store.ListAsync(CancellationToken).ToListAsync(CancellationToken);
+
+        Assert.Equal(new[] { kept, staged }.Order(), listed.Select(blob => blob.Name).Order());
+
+        await store.DeleteAsync(staged, CancellationToken);
+
+        await AssertNothingUnderAsync(container, staged);
+        Assert.Equal([kept], (await store.ListAsync(CancellationToken).ToListAsync(CancellationToken)).Select(blob => blob.Name));
+
+        // A second delete finds nothing at all, and the blob beside it is untouched
+        await store.DeleteAsync(staged, CancellationToken);
+
+        var content = await store.OpenReadAsync(kept, CancellationToken);
+
+        Assert.NotNull(content);
+        Assert.Equal([9], await ReadAllAsync(content));
     }
 }
