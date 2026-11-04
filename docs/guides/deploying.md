@@ -67,7 +67,7 @@ Once, as an administrator on the server, then on GitHub.
    command="/opt/passel/deploy-gate.sh",restrict ssh-ed25519 AAAA... passel-deploy
    ```
    Whatever a client asks for, SSH runs the gate, which accepts only `deploy <tag>` and `deploy <tag> --no-migrate` and refuses anything else before running a thing; `restrict` turns off forwarding, terminals and agent use. The private key goes to GitHub in step 7; delete both files from your machine afterwards.
-5. **The settings.** Copy `deploy/compose/.env.example` to `/opt/passel/.env`, readable by the deploy user only (`chmod 600`), and fill it in. Generate each password with `openssl rand -hex 32`: hex needs no quoting in a connection string or in the file. `ENCODING_ALPHABET` is the Sqids alphabet for public ids, single-quoted. Generate it once and never change it; if the Azure deployment ever held data, use its `ENCODING_ALPHABET` secret instead, or every id a client holds stops working. `POSTGRES_PASSWORD` only takes effect when the database is first created (see [Troubleshooting](#troubleshooting-the-server)).
+5. **The settings.** Copy `deploy/compose/.env.example` to `/opt/passel/.env`, readable by the deploy user only (`chmod 600`), and fill it in. Generate each password with `openssl rand -hex 32`: hex needs no quoting in a connection string or in the file. `ENCODING_ALPHABET` is the Sqids alphabet for public ids, single-quoted. Generate it once and never change it; if the Azure deployment ever held data, use its `ENCODING_ALPHABET` secret instead, or every id a client holds stops working. Keep a copy of the finished `.env` off the server, in a password manager for instance: the backups don't include it, and without the same alphabet a restored database's ids and shared links no longer decode. `POSTGRES_PASSWORD` only takes effect when the database is first created (see [Troubleshooting](#troubleshooting-the-server)).
 6. **DNS and the proxy.** Point `API_HOST` and `WEB_HOST` at the server, then pick how requests reach the stack, with `COMPOSE_FILE` and `COMPOSE_PROFILES` in `.env`:
 
    | Setup | `COMPOSE_FILE` | `COMPOSE_PROFILES` | `PROXY_TRUSTED_CIDR` |
@@ -148,10 +148,11 @@ The API exports logs, traces and metrics over OTLP when `OTEL_EXPORTER_OTLP_ENDP
 15 3 * * * /opt/passel/current/backup.sh /var/backups/passel >>/var/log/passel/backup.log 2>&1
 ```
 
-The directory and the log's directory must exist and belong to the deploy user. Shipping the files off the server and pruning old ones is for an offsite tool such as restic or rclone, run after it. The database and the parcels are consistent only as a pair from the same run.
+The directory and the log's directory must exist and belong to the deploy user. Shipping the files off the server and pruning old ones is for an offsite tool such as restic or rclone, run after it. The database and the parcels are consistent only as a pair from the same run. The backups leave out `/opt/passel/.env`, which holds the passwords and `ENCODING_ALPHABET`: keep a copy of it off the server, apart from the backup files (step 5 of [Server setup](#server-setup)). The passwords can be set anew, but every packet, parcel and device id a client holds, and every shared link, depends on the alphabet, and a restore with another one brings the data back with none of them decoding.
 
 To restore, or to rehearse a restore on a spare server, from `/opt/passel/current` with `dc` standing for `docker compose --env-file ../../.env --env-file ../../release.env`:
 
+0. On a new server, set it up as in [Server setup](#server-setup), but put the kept copy of `.env` at `/opt/passel/.env` instead of a new one, with the same `ENCODING_ALPHABET`, and deploy the release the backup came from once, so that `current` and `release.env` exist.
 1. `dc down`, and for a full restore remove the old volumes too (`dc down -v`).
 2. `dc up -d --wait postgres`, which creates an empty database.
 3. `dc run --rm --no-deps -T db-roles` for the two logins.
