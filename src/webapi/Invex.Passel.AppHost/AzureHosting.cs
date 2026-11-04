@@ -161,27 +161,38 @@ internal static class AzureHosting
 
         // After the job is updated to the new image and before the API's container app is: a revision of the API
         // never starts on a schema it does not expect, and a failed migration stops the deployment with the running
-        // revision untouched. The container app steps only exist when deploying (not for `aspire publish`), so the step
-        // is wired in once the pipeline knows its steps
+        // revision untouched. The container app steps only exist once the environment has prepared the deployment
+        // targets, so the step is wired in when the pipeline knows them
         builder.Pipeline.AddStep(MigrationStepName, RunMigrationJobAsync);
-        builder.Pipeline.AddPipelineConfiguration(OrderMigrationStep);
+        builder.Pipeline.AddPipelineConfiguration(context => OrderMigrationStep(context, migration.Resource, webApi.Resource));
     }
 
-    private static Task OrderMigrationStep(PipelineConfigurationContext context)
+    /// <summary>
+    ///     Orders the migration between provisioning the job and provisioning the API. The pipeline is configured
+    ///     twice: first before the container app environment has given the two projects their container apps, when
+    ///     there is nothing to order, and again once it has. From then on the provisioning steps must be found, so an
+    ///     Aspire upgrade that changes how they are tagged or attached fails every <c>aspire publish</c> (each pull
+    ///     request runs one) rather than deploying the API without its migration.
+    /// </summary>
+    private static Task OrderMigrationStep(PipelineConfigurationContext context, IResource job, IResource api)
     {
-        var steps = context.Steps.ToDictionary(step => step.Name);
+        if (job.GetDeploymentTargetAnnotation()?.DeploymentTarget is not { } jobApp ||
+            api.GetDeploymentTargetAnnotation()?.DeploymentTarget is not { } apiApp)
+            return Task.CompletedTask;
 
-        if (steps.TryGetValue($"provision-{MigrationJobName}-containerapp", out var job) &&
-            steps.TryGetValue($"provision-{ApiName}-containerapp", out var api))
-        {
-            var migration = steps[MigrationStepName];
+        var migration = context.Steps.Single(step => step.Name == MigrationStepName);
 
-            migration.DependsOn(job);
-            api.DependsOn(migration);
-        }
+        migration.DependsOn(ProvisioningStep(context, jobApp));
+        ProvisioningStep(context, apiApp).DependsOn(migration);
 
         return Task.CompletedTask;
     }
+
+    private static PipelineStep ProvisioningStep(PipelineConfigurationContext context, IResource containerApp) =>
+        context.GetSteps(containerApp, WellKnownPipelineTags.ProvisionInfrastructure).ToList() is [var step]
+            ? step
+            : throw new InvalidOperationException(
+                $"The deployment pipeline has no single step that provisions {containerApp.Name}, so the database migration cannot be ordered before the API. An Aspire upgrade may have changed the pipeline; see AzureHosting.OrderMigrationStep.");
 
     private static void ConfigureDatabaseServer(AzureResourceInfrastructure infrastructure)
     {
