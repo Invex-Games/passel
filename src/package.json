@@ -12,10 +12,12 @@
   "scripts": {
     "typecheck": "npm run typecheck --workspaces --if-present",
     "test": "npm test --workspaces --if-present",
+    "test:coverage": "npm run test:coverage --workspaces --if-present",
     "build": "npm run build --workspace chrome-extension"
   },
   "devDependencies": {
     "@types/node": "^22.20.5",
+    "@vitest/coverage-v8": "^5.0.5",
     "typescript": "^5.8.3",
     "vitest": "^5.0.5"
   }

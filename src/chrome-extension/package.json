@@ -13,7 +13,8 @@
     "typecheck": "tsc --noEmit",
     "harness": "node harness/serve.mjs",
     "clean": "node -e \"for (const dir of ['dist', 'out']) require('fs').rmSync(dir, {recursive: true, force: true})\"",
-    "test": "vitest run --passWithNoTests"
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
     "@passel/core": "*",
@@ -21,6 +22,7 @@
   },
   "devDependencies": {
     "@types/chrome": "^0.0.304",
-    "esbuild": "^0.28.2"
+    "esbuild": "^0.28.2",
+    "jsdom": "^29.1.1"
   }
 }
