@@ -6,7 +6,7 @@ namespace Atom.Targets;
 ///     database migration job and then rolls out the API. Needs a signed-in Azure CLI (the workflow's OIDC login);
 ///     see docs/guides/deploying.md and ADR 0003.
 /// </summary>
-internal interface IDeployWebApi : IBuildChromeExtension, ISetupBuildInfo
+internal interface IDeployWebApi : IBuildChromeExtension, ISetupBuildInfo, IImageTagHelper
 {
     const string AzureInfrastructureArtifactName = "AzureInfrastructure";
 
@@ -51,11 +51,7 @@ internal interface IDeployWebApi : IBuildChromeExtension, ISetupBuildInfo
                     throw new StepFailedException(
                         $"{EncodingAlphabetVariable} must be set (the ENCODING_ALPHABET secret of the workflow's environment)");
 
-                // Docker tags allow neither '+' nor '/', which a SemVer's build metadata or a branch label can carry
-                var imageTag = BuildVersion
-                    .ToString()
-                    .Replace('+', '-')
-                    .Replace('/', '-');
+                var imageTag = ImageTag;
 
                 Dictionary<string, string?> deployment = new()
                 {

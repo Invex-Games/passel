@@ -4,6 +4,8 @@ namespace Atom;
 [GenerateEntryPoint]
 [GenerateSolutionModel]
 internal interface IBuild : IWorkflowBuildDefinition,
+    IGitVersion,
+    IDotnetToolInstallHelper,
     IGithubWorkflows,
     IAzureKeyVault,
     IBuildWebApi,
@@ -11,6 +13,7 @@ internal interface IBuild : IWorkflowBuildDefinition,
     IBuildMobileAppAndroid,
     IBuildChromeExtension,
     IBuildWebApp,
+    IPublishImages,
     ITestTargets,
     IDocTargets,
     ISetupDevEnvironment
@@ -24,6 +27,10 @@ internal interface IBuild : IWorkflowBuildDefinition,
     IReadOnlyList<IBuildOption> IBuildDefinition.Options =>
     [
         BuildOptions.AzureKeyVault.UseAzureKeyVault,
+
+        // Versions and build ids come from GitVersion (GitVersion.yml), so every commit on main gets its own version
+        BuildOptions.GitVersion.ProvideBuildVersion,
+        BuildOptions.GitVersion.ProvideBuildId,
 
         // Runners get the .NET SDK that global.json asks for
         BuildOptions.Steps.SetupDotnet.Dotnet100X(),
@@ -53,7 +60,8 @@ internal interface IBuild : IWorkflowBuildDefinition,
             Options = [CancelSupersededWorkflowRuns],
         },
 
-        // Every push to main: tests, release builds of the API and the extension, and the docs site
+        // Every push to main: tests, release builds of the API, the extension and the web app, the images of the
+        // self-hosted deployment (pushed to GHCR from main only) and the docs site
         new("Build")
         {
             Triggers = [WorkflowTriggers.Manual, WorkflowTriggers.PushToMain],
@@ -71,6 +79,32 @@ internal interface IBuild : IWorkflowBuildDefinition,
                         // A client id is public configuration, so it lives in a repository variable
                         BuildOptions.Inject.Param(nameof(ChromeExtensionClientId),
                             TextExpressions.Github.VarsVar("CHROME_EXTENSION_CLIENT_ID")),
+                    ],
+                },
+                new(nameof(BuildWebApp))
+                {
+                    Options =
+                    [
+                        // Both are compiled into the site, so they are repository variables: the build jobs run in no
+                        // environment and could not read the production environment's
+                        BuildOptions.Inject.Param(nameof(ServerClientId),
+                            TextExpressions.Github.VarsVar("GOOGLE_WEB_CLIENT_ID")),
+                        BuildOptions.Inject.Param(nameof(ApiBaseUrlProduction),
+                            TextExpressions.Github.VarsVar("API_BASE_URL")),
+                    ],
+                },
+                new(nameof(PublishImages))
+                {
+                    Options =
+                    [
+                        BuildOptions.Github.TokenPermissions.Set(new Permissions.Exact(new()
+                        {
+                            Contents = PermissionsLevel.Read,
+                            Packages = PermissionsLevel.Write,
+                        })),
+                        GhcrLogin,
+                        // Still only on refs/heads/main: a manual run on another branch builds the images only
+                        BuildOptions.Inject.Param(nameof(PushImages), "true"),
                     ],
                 },
                 new(nameof(BuildDocs)),
@@ -167,6 +201,26 @@ internal interface IBuild : IWorkflowBuildDefinition,
                 ["client-id"] = "${{ vars.AZURE_CLIENT_ID }}",
                 ["tenant-id"] = "${{ vars.AZURE_TENANT_ID }}",
                 ["subscription-id"] = "${{ vars.AZURE_SUBSCRIPTION_ID }}",
+            },
+        },
+        Order = -1,
+    };
+
+    /// <summary>
+    ///     Signs Docker in to GHCR with the job's own token, which the job's packages: write permission lets push the
+    ///     repository's images. The .NET SDK's container push reads the same Docker credentials.
+    /// </summary>
+    static readonly IBuildOption GhcrLogin = new GithubCustomAdditionalStep
+    {
+        Step = new Step.UsesStep
+        {
+            Name = "GHCR login",
+            Uses = "docker/login-action@v3",
+            With = new Dictionary<string, TextExpressionCollection>
+            {
+                ["registry"] = "ghcr.io",
+                ["username"] = "${{ github.actor }}",
+                ["password"] = "${{ secrets.GITHUB_TOKEN }}",
             },
         },
         Order = -1,

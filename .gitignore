@@ -2,6 +2,8 @@
 
 # Atom
 atom-publish
+# The site staged next to the web image's Dockerfile for a build by hand
+deploy/web/site/
 .gitversioncache
 # Flutter SDK the build clones when none is on PATH
 .flutter/

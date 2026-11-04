@@ -15,6 +15,8 @@ global using Invex.FileSystem;
 global using Invex.Atom.Module.AzureKeyVault;
 global using Invex.Atom.Module.AzureKeyVault.Options;
 global using Invex.Atom.Module.Dotnet.Helpers;
+global using Invex.Atom.Module.GitVersion;
+global using Invex.Atom.Module.GitVersion.Flags;
 global using Invex.Atom.Module.GithubWorkflows.Extensions;
 global using Invex.Atom.Module.GithubWorkflows.Helpers;
 global using Invex.Atom.Workflows;
