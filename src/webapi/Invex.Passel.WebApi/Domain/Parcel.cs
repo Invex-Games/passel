@@ -20,7 +20,8 @@ public enum ParcelStatus
 /// <summary>
 ///     An uploaded file as stored: one Marten document per upload, with the bytes in blob storage under names that
 ///     <c>ParcelKeys</c> derives from <see cref="Id" />. A File packet refers to it by id, and attaching it
-///     to a packet sets <see cref="AttachedPacketId" />, which a unique index holds to one packet.
+///     to a packet sets <see cref="AttachedPacketId" />. The version check on every update keeps a parcel to one
+///     packet, and a unique index keeps a packet to one parcel.
 /// </summary>
 [PublicAPI]
 public sealed record Parcel

@@ -109,8 +109,9 @@ internal sealed partial class PacketStoreService(
 
         // One commit: the packet never exists without its file attached, and the file is never attached to a packet
         // that was rolled back. The update checks the version read above, so of two sends of one file (or a send and
-        // a discard, or a send and the sweep's expiry) exactly one commits; the unique index on the attached packet
-        // holds even against a writer that skipped the check
+        // a discard, or a send and the sweep's expiry) exactly one commits. The check alone decides this: both sends
+        // write the same row, so the unique index on the attached packet (which keeps a packet to one parcel) plays
+        // no part
         session.Store(packet);
         session.Update(parcel with
         {

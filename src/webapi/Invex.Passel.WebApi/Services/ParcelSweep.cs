@@ -249,10 +249,11 @@ internal sealed partial class ParcelSweep(
                 { Status: ParcelStatus.Uploaded, AttachedPacketId: not null } parcel)
                 continue;
 
-            LogDanglingReleased(parcel.Id, parcel.AttachedPacketId.Value);
+            if (!await ExpireAsync(parcel, now, cancellationToken))
+                continue;
 
-            if (await ExpireAsync(parcel, now, cancellationToken))
-                released++;
+            LogDanglingReleased(parcel.Id, parcel.AttachedPacketId.Value);
+            released++;
         }
 
         return released;
@@ -336,7 +337,7 @@ internal sealed partial class ParcelSweep(
     [LoggerMessage(Level = LogLevel.Information, Message = "The parcel orphan scan released {Released} parcels whose packet was gone and deleted {Deleted} blobs with no parcel")]
     private partial void LogScanned(int released, int deleted);
 
-    [LoggerMessage(Level = LogLevel.Warning, Message = "Parcel {ParcelId} was sent in packet {PacketId}, which is gone; marking it deleted")]
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Parcel {ParcelId} was sent in packet {PacketId}, which is gone, and has been marked deleted")]
     private partial void LogDanglingReleased(Guid parcelId, Guid packetId);
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "Deleted {Count} blobs of parcel {ParcelId}, which has no document")]

@@ -82,9 +82,10 @@ internal static class HostDatabaseExtensions
 
         // Parcels are the documents behind uploaded files. Attaching, discarding, deleting the packet and the sweep
         // all move a parcel from one status to another, so optimistic concurrency makes exactly one of two racing
-        // writers win, and the unique index on the packet means two packets can never claim one parcel (unsent
-        // parcels leave it null, which a unique index allows any number of times). The user index serves the quota,
-        // and the status and creation time the sweep's search for parcels to expire or erase
+        // writers on a parcel win; that alone stops two packets claiming one parcel. The unique index on the packet
+        // keeps it the other way round: no packet id is on two parcels (unsent parcels leave it null, which a unique
+        // index allows any number of times). The user index serves the quota, and the status and creation time the
+        // sweep's search for parcels to expire or erase
         storeOptions
             .Schema
             .For<Parcel>()
