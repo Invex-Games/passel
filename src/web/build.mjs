@@ -3,8 +3,8 @@ import {cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync} from
 
 // Produces the static site in OUT_DIR: the landing, privacy and terms pages as plain HTML with no script, and the
 // web app under app/ (index.html, app.js, styles.css). Any static host can serve the folder as it is; see
-// docs/components/web-app.md for the paths it expects.
-const OUT_DIR = "dist";
+// docs/components/web-app.md for the paths it expects. WEB_APP_OUT_DIR builds elsewhere, which the tests use.
+const OUT_DIR = process.env.WEB_APP_OUT_DIR || "dist";
 
 // ── Load environment variables ───────────────────────────────
 // Reads from .env file if present (local dev); values already set in process.env (CI / build tooling)
@@ -103,9 +103,9 @@ const csp = [
     "form-action 'none'",
 ].join("; ");
 
-// Google's sign-in needs the full referrer when a page on plain http://localhost talks to it; a deployed page on
-// https keeps the browser's default.
-const referrer = isDev ? "no-referrer-when-downgrade" : "strict-origin-when-cross-origin";
+// Google's sign-in needs the full referrer when a page on plain http://localhost talks to it, which is where --serve
+// serves every build, minified or not; a deployed page on https keeps the browser's default.
+const referrer = isServe ? "no-referrer-when-downgrade" : "strict-origin-when-cross-origin";
 
 function writeAppPage() {
     const page = readFileSync(`${STATIC_DIR}/app/index.html`, "utf-8")
