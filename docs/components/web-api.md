@@ -29,12 +29,36 @@ Packets are stored with [Marten](https://martendb.io/) on PostgreSQL, as plain d
 - Each packet is one `Packet` document (`Domain/Packet.cs`) in the `mt_doc_packet` table: `Id`, `UserId`, `CreatedAt` and the `Content` union (`Link`, `Text` or `File`, stored with a `$type` discriminator). The id is a version 7 `Guid`, so id order is creation order; the feed and its cursor rely on that. A `Link` also carries its `Preview` once one has been fetched; see [Link previews](#link-previews).
 - `PacketStoreService` handles creating and deleting packets, and attaching a link's preview: one upsert to create, one delete to remove, one update for the preview. Deleting checks ownership first. A missing packet and someone else's packet both return 404, so ids can't be probed. A delete removes the document, and nothing else keeps the content.
 - The documents carry one composite computed index on `UserId` and `Id`, which serves the feed query. See [The feed index](#the-feed-index).
-- Marten applies the schema at startup (`ApplyAllDatabaseChangesOnStartup`), so the table exists before the first request; the quota check reads it with plain SQL, which Marten's on-first-use creation would not cover.
-- The data source comes from `Aspire.Azure.Npgsql` (`Program.cs`): a connection string with a password is used as it is, and one without signs in with a Microsoft Entra token for the managed identity, as the Azure deployment does.
+- In Development, Marten applies the schema at startup (`ApplyAllDatabaseChangesOnStartup`), so the table exists before the first request; the quota check reads it with plain SQL, which Marten's on-first-use creation would not cover. Everywhere else the deployment applies it; see [Schema in production](#schema-in-production).
+- The data source comes from `Aspire.Azure.Npgsql` (`Extensions/HostDatabaseExtensions.cs`): a connection string with a password is used as it is, and one without signs in with a Microsoft Entra token for the managed identity, as the Azure deployment does.
 
 File packets exist in the model, but nothing creates them yet: the API rejects them with 400 and there is no file storage.
 
 A database from before the move still has the event-sourcing tables (`mt_doc_packetaggregate`, `mt_events`, `mt_streams`); nothing reads them, and they can be dropped. Marten does not migrate the old packets into the new table.
+
+### Schema in production
+
+Outside Development the API never changes the schema ([ADR 0003](../decisions/0003-hosting-on-azure.md)):
+
+- The store uses `AutoCreate.None`, so nothing is created or altered at runtime, and the API's database role needs no more than DML.
+- At startup it checks that the schema matches its configuration (`AssertDatabaseMatchesConfigurationOnStartup`) and refuses to start otherwise, so a revision whose migration didn't run never becomes ready.
+- The deployment's migration job applies the schema before each new revision starts, by running the API's image with the `db-migrate` command.
+
+`db-migrate` (`Extensions/MigrateDatabaseCommand.cs`, `Services/DatabaseMigrator.cs`) logs in as a role that may change the schema, and then:
+
+1. Applies the configured schema with `AutoCreate.CreateOrUpdate`, which adds and changes objects, drops indexes and functions that are no longer configured, and never drops a table or a column.
+2. Creates the role `passel_app` if it doesn't exist (no login), and grants it select, insert, update and delete on the tables in the store's schema, use of its sequences and execution of its functions, now and, through default privileges, on what the migration creates later.
+3. If `Database:ApiRole` is set, makes that role a member of `passel_app`. If `Database:ApiRoleObjectId` is set too, it first creates the role as a Microsoft Entra principal of that managed identity (a login role carrying the `pgaadauth` security label), so the API can sign in with tokens.
+
+Every step is idempotent, so the job runs on every deployment. The API's role can then read and write packets, listen and notify, and run the quota query, but not create, alter or drop anything; the integration tests check both sides.
+
+`Program.cs` runs [JasperFx's command line](https://martendb.io/configuration/cli.html) when the first argument names a command, and the API otherwise. Besides `db-migrate`, `db-assert` checks a database against the configuration, `db-patch <file>` writes the statements a migration would run without running them, and `help` lists the rest. For example, against the database in `appsettings.Development.json`:
+
+```
+dotnet run --project src/webapi/Invex.Passel.WebApi -- db-patch patch.sql
+```
+
+There is no code generation step. Marten 9 removed runtime code generation, so there is nothing for `codegen write` to produce and nothing to regenerate when a document type is added. A unit test (`DatabaseSetupTests`) fails if a package ever registers code that would need generating ahead of time; that is when to add `codegen write` to the build, with a check that its committed output is current.
 
 ### The feed index
 
@@ -128,7 +152,7 @@ dotnet test --project src/webapi/Invex.Passel.WebApi.IntegrationTests/Invex.Pass
 
 The suite starts one `postgres:18.3` container (the image the AppHost runs) with [Testcontainers](https://dotnet.testcontainers.org/) and hosts the API in-process with `WebApplicationFactory`, pointed at the container through the `passel-db` connection string. Requests are signed in with the Development `Authorization: Dev <user>` scheme, and every test acts as users of its own, so the tests share one database without seeing each other's packets. The rate limits are raised for the run, because paging alone creates 51 packets in a minute; the limits have unit tests of their own. Before the first test, the fixture creates packets until one arrives on an event stream, because the notification listener connects after the host has started and a packet created before then is announced to nobody.
 
-The tests speak HTTP only, as the clients do: they assert the JSON and the events, never tables or Marten types. They cover creating and listing with ownership isolation, paging over 51 packets through the cursor, the delete semantics (a second delete and another user's packet are both 404), the event stream end to end (a create and a delete committed through the API arrive as `packet-created` and `packet-deleted` on the owner's stream, through the database notification, and on nobody else's), link previews (the page of a new link is fetched from the tests' own server, its preview listed and announced as `packet-updated`, a page with nothing to show and a refused host leave the link without one, and a link deleted while its page is being fetched stays deleted), the schema: a second API host on an empty database serves a create as its very first request, and the contract files described next. A run takes under ten seconds once the images are local, about thirty the first time, and removes its container when it ends.
+The tests speak HTTP only, as the clients do: they assert the JSON and the events, never tables or Marten types, apart from the privilege checks of the migration test. They cover creating and listing with ownership isolation, paging over 51 packets through the cursor, the delete semantics (a second delete and another user's packet are both 404), the event stream end to end (a create and a delete committed through the API arrive as `packet-created` and `packet-deleted` on the owner's stream, through the database notification, and on nobody else's), link previews (the page of a new link is fetched from the tests' own server, its preview listed and announced as `packet-updated`, a page with nothing to show and a refused host leave the link without one, and a link deleted while its page is being fetched stays deleted), the schema: a second API host on an empty database serves a create as its very first request; the production path: after `db-migrate` (run twice) the API serves creates, lists, events and deletes on a role that only has DML, which the test then checks can neither create nor alter a table, and without the migration it does not start; and the contract files described next. A run takes under ten seconds once the images are local, about thirty the first time, and removes its container when it ends.
 
 ## Contracts
 

@@ -12,14 +12,15 @@ Versions come from GitVersion and the conventional commit prefixes described in 
 
 | Resource | Name in the AppHost | Purpose |
 |---|---|---|
-| Container Apps environment, with a container registry | `passel-env` | Runs the API; the registry holds its images |
+| Container Apps environment, with a container registry | `passel-env` | Runs the API and the migration job; the registry holds their images |
 | Container app | `invex-passel-webapi` | The API: one replica, 0.5 vCPU, 1 GiB, HTTPS ingress, readiness on `/health` and liveness on `/alive` |
+| Container Apps job | `passel-migrate` | The API's image started as `db-migrate`: applies the schema and grants the API's role its privileges |
 | PostgreSQL flexible server and database | `passel-pg`, `passel-db` | PostgreSQL 18, Burstable B1ms, 32 GB with auto-grow, 14 days of point-in-time restore, Entra authentication only |
 | Key Vault | `passel-kv` | The Sqids alphabet |
 | Log Analytics workspace and Application Insights | `passel-logs`, `passel-insights` | Container logs, and the API's logs, traces and metrics |
-| Managed identities | `passel-api-identity`, and one for the environment | What each resource signs in as; no passwords |
+| Managed identities | `passel-api-identity` and one per job and environment | What each resource signs in as; no passwords |
 
-Azure names are derived from these and made unique per resource group, so the server, the vault and the environment get a suffix (`passelpg-…`, `passelkv-…`, `passelenv…`). The container app keeps its name.
+Azure names are derived from these and made unique per resource group, so the server, the vault and the environment get a suffix (`passelpg-…`, `passelkv-…`, `passelenv…`). The container app and the job keep their names.
 
 ## The Deploy workflow
 
@@ -27,9 +28,9 @@ Azure names are derived from these and made unique per resource group, so the se
 
 1. Checks that the Google client ids are real client ids and that the Sqids alphabet is set.
 2. Writes the Bicep with `aspire publish` and attaches it to the run as `AzureInfrastructure`, a record of what was provisioned.
-3. Runs `aspire deploy --environment Production`. Aspire provisions or updates every resource in the resource group, builds the API's image with `dotnet publish` (the .NET SDK's container support), pushes it with the version tag and updates the container app. Container Apps then starts the new revision and moves traffic to it when its readiness probe passes.
+3. Runs `aspire deploy --environment Production`. Aspire provisions or updates every resource in the resource group, builds the two images with `dotnet publish` (the .NET SDK's container support) and pushes them with the version tag, updates the migration job and runs it, and only once the migration has succeeded updates the API's container app. Container Apps then starts the new revision and moves traffic to it when its readiness probe passes.
 
-If a new revision never becomes ready, the previous one keeps serving.
+If the migration fails, the deployment stops before the API is touched, and the running revision keeps serving. If a new revision never becomes ready (it refuses to start on a schema it doesn't expect, for example), the previous one keeps serving too.
 
 To see the Bicep without deploying, run `dotnet atom PublishAzureInfrastructure`; it writes the files to `atom-publish/AzureInfrastructure` without signing in to anything. Every pull request runs it too, so a change that breaks the Azure model fails in review.
 
@@ -77,7 +78,7 @@ az role assignment create --assignee-object-id <principalId> --assignee-principa
 az role assignment create --assignee-object-id <principalId> --assignee-principal-type ServicePrincipal --role "Role Based Access Control Administrator" --scope /subscriptions/<sub>/resourceGroups/<rg> --condition-version 2.0 --condition "((!(ActionMatches{'Microsoft.Authorization/roleAssignments/write'})) OR (@Request[Microsoft.Authorization/roleAssignments:RoleDefinitionId] ForAnyOfAnyValues:GuidEquals {7f951dda-4ed3-4680-a7ca-43fe172d538d, 4633458b-17de-408a-b874-0445c86b69e6})) AND ((!(ActionMatches{'Microsoft.Authorization/roleAssignments/delete'})) OR (@Resource[Microsoft.Authorization/roleAssignments:RoleDefinitionId] ForAnyOfAnyValues:GuidEquals {7f951dda-4ed3-4680-a7ca-43fe172d538d, 4633458b-17de-408a-b874-0445c86b69e6}))"
 ```
 
-The deployment identity gets no access to the database itself.
+The deployment identity gets no access to the database: the migration runs inside Azure as the job's own identity.
 
 ### GitHub
 
@@ -124,7 +125,23 @@ Every later deployment keeps the binding, because both values come from the vari
 
 ## The database
 
-The server accepts Microsoft Entra tokens only. The API's identity is one of its Entra administrators, because the API still creates and updates the schema at startup (`AutoCreate.CreateOrUpdate`); moving that into the deployment, with a role for the API that can only read and write rows, is roadmap package 0.A3.
+Three kinds of role exist on the server:
+
+| Role | Who | Can |
+|---|---|---|
+| Microsoft Entra administrator | The migration job's identity, made one by the deployment | Change the schema; create roles. Owns the tables |
+| `passel_app` | Nobody logs in as it | Select, insert, update and delete rows, use the sequences and run the functions in the store's schema |
+| The API's role, named after `passel-api-identity` | The API, with an Entra token | What `passel_app` can, nothing more |
+
+`db-migrate` ([Web API](../components/web-api.md#schema-in-production)) creates the last two the first time and is a no-op for them afterwards. The API checks at startup that the schema matches what it expects and refuses to start otherwise, so a revision deployed without its migration never takes traffic.
+
+A schema change reaches production at the next deployment, applied by the migration job while the previous revision is still serving. So a change must work with the code before it as well as after it: add a column or a table in one release, and stop using or drop the old one in a later one. Marten's `CreateOrUpdate` adds and alters, but never drops a table.
+
+To see what a migration would change without applying it, run `db-patch` against the database: it writes the statements to a file instead of running them. Locally it uses the connection string from `ConnectionStrings__passel-db` or the API's `appsettings.Development.json` ([Configuration](../reference/configuration.md#web-api)):
+
+```
+dotnet run --project src/webapi/Invex.Passel.WebApi -- db-patch patch.sql
+```
 
 To look at the database yourself, add your own account as a Microsoft Entra administrator of the server (portal, the server, Security, Authentication), then connect with a token as the password:
 
@@ -145,11 +162,11 @@ The deployment keeps pointing at the original server, so copy what you need back
 
 ## Rolling back
 
-Run the Deploy workflow on the commit to go back to (the branch or tag picker of the run dialog). Its image is rebuilt with its own version tag and becomes the running revision.
+Run the Deploy workflow on the commit to go back to (the branch or tag picker of the run dialog). Its image is rebuilt with its own version tag, and its migration job brings the schema back to what that release expects: an index or a function the newer release added is dropped, a table it added stays and is ignored. A column is never dropped, and the API's startup check counts one it doesn't know as a mismatch, so rolling back across a release that added columns to a table means dropping them by hand first; `db-patch` (below) writes the statements.
 
 ## Logs and telemetry
 
-The API's requests, dependencies, exceptions and logs are in Application Insights (`passel-insights`). Container output is in the Log Analytics workspace (`passel-logs`), table `ContainerAppConsoleLogs_CL`.
+The API's requests, dependencies, exceptions and logs are in Application Insights (`passel-insights`). Container output, including the migration job's, is in the Log Analytics workspace (`passel-logs`), table `ContainerAppConsoleLogs_CL`; each job run's status is also on the job's Execution history page in the portal.
 
 ## Troubleshooting
 
@@ -157,7 +174,8 @@ The API's requests, dependencies, exceptions and logs are in Application Insight
 |---|---|
 | The workflow fails at Azure login | The federated credential's subject doesn't match: the job must run in the `production` environment of this repository |
 | `AuthorizationFailed` while provisioning | A missing role on the resource group, or an unregistered resource provider |
-| The new revision never becomes ready | The API refused to start, usually over a missing setting. The revision's console log says which |
+| The deployment fails at `run-database-migration` | The migration job failed; its output is in the workspace. The API was not changed |
+| The new revision never becomes ready | The API refused to start: usually a schema it doesn't expect, or a missing setting. The revision's console log says which |
 | Every request gets `400 Invalid Hostname` | The host isn't in `AllowedHosts`: set `API_DOMAIN` for a custom domain |
 | Every request gets `401` | `GOOGLE_WEB_CLIENT_ID` or `CHROME_EXTENSION_CLIENT_ID` doesn't match the client the token was issued to |
 
@@ -165,8 +183,9 @@ The API's requests, dependencies, exceptions and logs are in Application Insight
 
 Nothing has been deployed yet: the setup above needs the owner's subscription. Without it, these were checked offline:
 
-- `aspire publish` writes the Bicep, and the run-mode model of the AppHost is the same as before.
-- The image built with `dotnet publish -t:PublishContainer` serves `/health` against PostgreSQL 18 and refuses other hosts with 400.
-- The API in Production starts with an Application Insights connection string set.
+- `aspire publish` writes the Bicep, `aspire do diagnostics` shows the migration ordered between the job and the API, and the run-mode model of the AppHost is the same as before.
+- The image built with `dotnet publish -t:PublishContainer` runs `db-migrate` against PostgreSQL 18 and then serves `/health` as a role that only has DML, refusing other hosts with 400.
+- The API in Production refuses to start on a database that hasn't been migrated, and starts with an Application Insights connection string set.
+- The integration tests run the migration twice and the API on the DML-only role, and check that the role can't create or alter tables.
 
-What can only be checked in Azure: the first `aspire deploy`, the Entra sign-in to the database, the probes' `Host` header, and the custom-domain steps.
+What can only be checked in Azure: the first `aspire deploy`, the Entra mapping of the API's role (a security label set by `db-migrate`), the probes' `Host` header, and the custom-domain steps.

@@ -22,12 +22,12 @@ The AppHost reads one setting of its own:
 
 | Setting | Secret | Source in the workflow | Description |
 |---|---|---|---|
-| `Azure:SubscriptionId`, `Azure:ResourceGroup`, `Azure:Location` | No | `AZURE_SUBSCRIPTION_ID`, `AZURE_RESOURCE_GROUP`, `AZURE_LOCATION` | Where Aspire deploys. The resource group must exist (`Azure:AllowResourceGroupCreation` is `false`). |
+| `Azure:SubscriptionId`, `Azure:ResourceGroup`, `Azure:Location` | No | `AZURE_SUBSCRIPTION_ID`, `AZURE_RESOURCE_GROUP`, `AZURE_LOCATION` | Where Aspire deploys. The resource group must exist (`Azure:AllowResourceGroupCreation` is `false`), and the migration step needs the first two to find the job. |
 | `Azure:CredentialSource` | No | Always `AzureCli` | The Azure CLI session that `azure/login` leaves behind |
 | `Parameters:google-client-id` | No | `GOOGLE_WEB_CLIENT_ID` | The API's `Authentication:Google:ClientId` |
 | `Parameters:google-extension-client-id` | No | `CHROME_EXTENSION_CLIENT_ID` | The API's `Authentication:Google:AdditionalAudiences:0` |
 | `Parameters:encoding-alphabet` | Yes | `ENCODING_ALPHABET` (environment secret) | Stored in Key Vault as `encoding-alphabet`; the container app reads it as the API's `Encoding:Alphabet`. Must never change once ids are in use. |
-| `Deployment:ImageTag` | No | GitVersion's version for the commit | The tag the image is pushed with. Without it, it is pushed as `latest`. |
+| `Deployment:ImageTag` | No | GitVersion's version for the commit | The tag both images are pushed with. Without it they are pushed as `latest`. |
 | `Deployment:ApiDomain` | No | `API_DOMAIN` | The API's custom domain. Empty for none; when set, the container app binds it and `AllowedHosts` includes it. |
 | `Parameters:api-certificate-name` | No | `API_CERTIFICATE_NAME` | The managed certificate for the domain; empty for the first deployment with it. Only asked for when `Deployment:ApiDomain` is set. |
 
@@ -35,13 +35,15 @@ In Azure the API's container gets:
 
 | Variable | Value |
 |---|---|
-| `ConnectionStrings__passel-db` | `Host=<server>;Database=passel-db;Username=<the API identity's name>;Ssl Mode=Require`, with no password |
+| `ConnectionStrings__passel-db` | `Host=<server>;Database=passel-db;Username=<the API identity's role>;Ssl Mode=Require`, with no password |
 | `Encoding__Alphabet` | The Key Vault secret, through the API identity |
 | `AllowedHosts` | The container app's default host name, `localhost` (the health probes send it) and the custom domain when there is one |
 | `Authentication__Google__ClientId`, `Authentication__Google__AdditionalAudiences__0` | From the parameters above |
 | `APPLICATIONINSIGHTS_CONNECTION_STRING` | From the Application Insights resource |
 | `AZURE_CLIENT_ID`, `AZURE_TOKEN_CREDENTIALS` | Set by Aspire, so the Entra tokens are for the API's managed identity |
 | `ASPNETCORE_FORWARDEDHEADERS_ENABLED`, `HTTP_PORTS` | Set by Aspire for Container Apps ingress |
+
+The migration job gets the database's connection string (as its own identity, an Entra administrator) and `Database__ApiRole` and `Database__ApiRoleObjectId`, the API identity's role name and object id.
 
 ## Web API
 
@@ -74,6 +76,8 @@ In Azure the API's container gets:
 | `LinkPreviews:RetryDelay` | No | The wait before the second attempt; each later attempt waits that much longer again. Default `00:00:05`. |
 | `LinkPreviews:MaxConcurrentFetches` | No | How many pages one instance fetches at the same time. Default 4. |
 | `LinkPreviews:QueueCapacity` | No | How many links may wait for a fetch on one instance; beyond it, new links go without a preview. Default 1000. |
+| `Database:ApiRole` | No | Only read by `db-migrate`: the role the API logs in as, which it grants the API's DML-only privileges. See [Schema in production](../components/web-api.md#schema-in-production). |
+| `Database:ApiRoleObjectId` | No | Only read by `db-migrate`: the Microsoft Entra object id of the API's managed identity, so the role is created as its Entra principal. |
 
 Outside Development, `appsettings.Production.json` keeps Npgsql's log of every command it runs to warnings, so production logs don't carry each SQL statement.
 

@@ -28,6 +28,7 @@ All notable changes to Passel. The format follows [Keep a Changelog](https://kee
 
 ### Changed
 
+- Outside Development the API no longer creates or changes the database schema (roadmap 0.A3): a migration job runs the API's new `db-migrate` command before each release, applying the schema and granting the API's database role only DML, and the API refuses to start on a schema that doesn't match its configuration. Development still applies the schema at startup. Marten 9 generates no code at runtime, so no `codegen write` step is needed.
 - Npgsql's log of every command is kept to warnings in Production.
 - The TypeScript code is an npm workspace at `src/` (roadmap 1.E1): `@passel/core` holds the platform-free client logic (wire types and parsing, the feed store, the server-sent events parser, the authorization header) with its tests and the contract checks, `@passel/ui` holds the design tokens, and the extension consumes both, so the web app can share them. The popup script is split into a controller, a feed view, a composer and the toast, and a popup harness serves the built popup with `chrome.*` stubbed (`npm run harness`).
 - The mobile feed shows the newest item at the top like the extension, with pull-to-refresh at the top and older items loading at the bottom, and its screens say "Send" and speak of links, notes and files rather than packets (ADR 0002, which also settles the web app stack, the parcel store and the hosting).
