@@ -87,7 +87,7 @@ Once, as an administrator on the server, then on GitHub.
    | `DEPLOY_SSH_KEY` | Secret | The private key from step 4 |
 
    The repository variables `GOOGLE_WEB_CLIENT_ID` and `API_BASE_URL` (`https://<API_HOST>`), which the web image is built with, are listed in [Continuous Integration](ci.md#what-the-repository-needs).
-8. **The packages.** After the first build of `main` has pushed them, make `passel-webapi`, `passel-web` and `passel-deploy` private (the package's settings on GitHub) and give this repository read access under Manage Actions access. The deploy job's own token then reads them, and the server signs in with that token for the one deploy only.
+8. **The packages.** After the first build of `main` has pushed them, make `passel-webapi`, `passel-web` and `passel-deploy` private (the package's settings on GitHub). Leave this repository's role under Manage Actions access as the first push set it, Admin, or at least Write, or leave the package inheriting access from the repository: the `Build` workflow pushes every later release to the same packages with its own token, and a Read role makes those pushes fail. The deploy job only reads them, with its own token, and the server signs in with that token for the one deploy only.
 9. **Google.** Add `https://<WEB_HOST>` to the Google web client's Authorized JavaScript origins ([Google OAuth Clients](../getting-started/google-oauth.md)).
 10. **The first deploy.** Run the `DeployCompose` workflow from `main` with the tag left blank. Then `https://<API_HOST>/health` should answer `Healthy`, and signing in at `https://<WEB_HOST>/app/` should show an empty feed.
 
