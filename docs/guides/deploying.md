@@ -33,7 +33,7 @@ The version tag is the one deployed and rolled back to. It never moves: a build 
 | `edge` | `caddy:2.10-alpine` | With the `edge` profile | TLS for both hosts on ports 80 and 443, with certificates from Let's Encrypt |
 | `dashboard` | `aspire-dashboard` | With the `telemetry` profile | A telemetry viewer on the server's loopback |
 
-`api` and `web` publish no port: a proxy reaches them on the `edge` network as `passel-api:8080` and `passel-web:8080`. Both run with every capability dropped and `no-new-privileges`, and every service's logs rotate at 10 MB, five files. The server's `.env` supplies every setting; [Configuration](../reference/configuration.md#compose-deployment) maps each one to the API's.
+`api` and `web` publish no port: a proxy reaches them on the `edge` network as `passel-api:8080` and `passel-web:8080`. Both run with every capability dropped and `no-new-privileges`, and so does `edge` but for `NET_BIND_SERVICE`, which it needs to bind 80 and 443. Every service's logs rotate at 10 MB, five files. The server's `.env` supplies every setting; [Configuration](../reference/configuration.md#compose-deployment) maps each one to the API's.
 
 ### Server requirements
 

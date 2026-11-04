@@ -181,7 +181,10 @@ services:
     logging: *logging
 
   # The bundled TLS edge (COMPOSE_PROFILES=edge): Caddy gets certificates from Let's Encrypt for API_HOST and WEB_HOST.
-  # It binds 80 and 443, so it keeps the capability to; its fixed address is the one the API trusts
+  # It is the one service facing the internet, so it keeps a single capability, NET_BIND_SERVICE, to bind 80 and 443
+  # (the image's caddy binary carries it as a file capability, which fails to start without it). It runs as the
+  # image's root user, which owns /data and /config, so it writes its certificates there without DAC_OVERRIDE or
+  # CHOWN. Its fixed address is the one the API trusts
   edge:
     image: caddy:2.10-alpine
     profiles: [edge]
@@ -205,6 +208,10 @@ services:
         ipv4_address: 172.30.0.2
     security_opt:
       - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE
     logging: *logging
 
   # A local telemetry viewer (COMPOSE_PROFILES=telemetry), on the server's loopback only. Point the API at it with
