@@ -80,6 +80,19 @@ internal static class HostDatabaseExtensions
                 d => d.InstallationId)
             .UniqueIndex(UniqueIndexType.Computed, "mt_doc_device_uidx_push_key", d => d.PushKey!);
 
+        // Parcels are the documents behind uploaded files. Attaching, discarding, deleting the packet and the sweep
+        // all move a parcel from one status to another, so optimistic concurrency makes exactly one of two racing
+        // writers win, and the unique index on the packet means two packets can never claim one parcel (unsent
+        // parcels leave it null, which a unique index allows any number of times). The user index serves the quota,
+        // and the status and creation time the sweep's search for parcels to expire or erase
+        storeOptions
+            .Schema
+            .For<Parcel>()
+            .UseOptimisticConcurrency(true)
+            .Index(p => p.UserId, index => index.Name = "mt_doc_parcel_idx_user_id")
+            .Index([p => p.Status, p => p.CreatedAt], index => index.Name = "mt_doc_parcel_idx_status_created_at")
+            .UniqueIndex(UniqueIndexType.Computed, "mt_doc_parcel_uidx_attached_packet_id", p => p.AttachedPacketId!);
+
         // AutoCreate.All drops and recreates mismatched tables, which is only acceptable for local data. Elsewhere the
         // API's role may not change the schema at all; db-migrate applies it
         storeOptions.AutoCreateSchemaObjects = isDevelopment

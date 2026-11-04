@@ -1,9 +1,11 @@
 using System.Reflection;
+using Invex.Passel.WebApi.Domain;
 using Invex.Passel.WebApi.Extensions;
 using Invex.Passel.WebApi.Services;
 using JasperFx;
 using JasperFx.CodeGeneration;
 using Marten;
+using Marten.Schema;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -78,6 +80,26 @@ public sealed class DatabaseSetupTests
         using var app = BuildHost(Environments.Production);
 
         Assert.Empty(app.Services.GetServices<ICodeFileCollection>());
+    }
+
+    /// <summary>
+    ///     A document type the store does not know of is created lazily on first use, which outside Development the
+    ///     API may not do; db-migrate and the startup check only cover the types declared. Attaching, discarding and
+    ///     the sweep rely on the version check to let one of two racing writers win.
+    /// </summary>
+    [Fact]
+    public void A_parcel_is_a_known_document_with_a_version_check()
+    {
+        using var app = BuildHost(Environments.Production);
+        var store = app.Services.GetRequiredService<IDocumentStore>();
+
+        var mapping = Assert.IsType<DocumentMapping>(store.Options.FindOrResolveDocumentType(typeof(Parcel)),
+            exactMatch: false);
+
+        Assert.True(mapping.UseOptimisticConcurrency);
+        Assert.Contains(store.Storage.AllObjects(), table => table.Identifier.Name == "mt_doc_parcel");
+        Assert.Contains(mapping.Indexes,
+            index => index is ComputedIndex { Name: "mt_doc_parcel_uidx_attached_packet_id", IsUnique: true });
     }
 
     [Theory]
