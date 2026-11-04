@@ -134,7 +134,8 @@ internal sealed class AzureBlobParcelStore(BlobServiceClient service, IOptions<P
 
     /// <summary>
     ///     Discards the uncommitted blocks staged under a name with no blob: committing an empty block list replaces
-    ///     them with an empty blob, which is then deleted. Costs one request when there is nothing staged.
+    ///     them with an empty blob, which is then deleted. When nothing is staged it costs one request, the block-list lookup, on top of the delete
+    ///     that found no blob; erasing a parcel without a thumbnail pays it for the thumbnail name.
     /// </summary>
     private static async Task DiscardUncommittedAsync(BlockBlobClient blob, CancellationToken cancellationToken)
     {
