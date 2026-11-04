@@ -34,7 +34,7 @@ The self-hosted deployment ([Releasing and Deploying](../guides/deploying.md#sel
 | `API_HOST` | Yes | `AllowedHosts`, as `<API_HOST>;localhost` (the healthcheck sends `localhost`); the edge's site for the API; the smoke check's default `https://<API_HOST>/health` |
 | `WEB_HOST` | With the edge | The edge's site for the web app |
 | `WEB_ORIGIN` | Yes | `Cors__AllowedOrigins__0`, written as a browser sends it |
-| `PROXY_TRUSTED_CIDR` | No | `ForwardedHeaders__KnownNetworks__0`, with `ForwardedHeaders__Enabled=true`. Default `172.30.0.2/32`, the bundled edge |
+| `PROXY_TRUSTED_CIDR` | No | `ForwardedHeaders__KnownNetworks__0`, with `ForwardedHeaders__Enabled=true`. Default `172.30.0.2/32`, the bundled edge. `compose.ports.yaml` replaces it with the host's addresses on the two networks, `172.30.0.1/32` and `172.30.1.1/32` |
 | `PROXY_NETWORK` | With `compose.external-proxy.yaml` | The existing Docker network the `edge` network becomes |
 | `API_PORT`, `WEB_PORT` | No | The loopback ports of `compose.ports.yaml` (18080, 18081) |
 | `SMOKE_URL` | No | What `deploy.sh` fetches after starting a release |

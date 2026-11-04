@@ -74,9 +74,9 @@ Once, as an administrator on the server, then on GitHub.
    |---|---|---|---|
    | The bundled edge: Caddy on 80 and 443 with Let's Encrypt (the default) | `compose.yaml` | `edge` | `172.30.0.2/32`, the edge's fixed address |
    | A proxy already running in a Docker network of its own | `compose.yaml:compose.external-proxy.yaml`, and `PROXY_NETWORK` naming the network | empty | The proxy container's address as a `/32`, or the network's CIDR |
-   | A proxy running on the host, such as nginx | `compose.yaml:compose.ports.yaml` (the API on `127.0.0.1:18080`, the web app on `127.0.0.1:18081`) | empty | `172.30.0.1/32`, the edge network's gateway, which Docker's port forwarding connects from |
+   | A proxy running on the host, such as nginx | `compose.yaml:compose.ports.yaml` (the API on `127.0.0.1:18080`, the web app on `127.0.0.1:18081`) | empty | Not used: Docker's port forwarding connects from the host's address on one of the API's two networks, which one depending on the Docker version, so the override trusts both, `172.30.0.1` and `172.30.1.1` |
 
-   The API believes `X-Forwarded-For` and `X-Forwarded-Proto` from `PROXY_TRUSTED_CIDR` only. For the bundled edge, open 80/tcp, 443/tcp and 443/udp. Another proxy must pass the client address and scheme in those two headers, stream the event stream at `/api/packets/events` without buffering, keep it open for up to an hour and accept 25 MB uploads; for nginx that is `proxy_buffering off`, `proxy_read_timeout 1h` and `client_max_body_size 32m`, besides the usual `proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for` and `X-Forwarded-Proto $scheme`. Caddy does all of it by default.
+   The API believes `X-Forwarded-For` and `X-Forwarded-Proto` from `PROXY_TRUSTED_CIDR` only. The stack's two networks have fixed subnets, `172.30.0.0/24` (`edge`) and `172.30.1.0/24` (`backend`), so no other Docker network on the server may use them. For the bundled edge, open 80/tcp, 443/tcp and 443/udp. Another proxy must pass the client address and scheme in those two headers, stream the event stream at `/api/packets/events` without buffering, keep it open for up to an hour and accept 25 MB uploads; for nginx that is `proxy_buffering off`, `proxy_read_timeout 1h` and `client_max_body_size 32m`, besides the usual `proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for` and `X-Forwarded-Proto $scheme`. Caddy does all of it by default.
 7. **The `production` environment on GitHub** (Settings, Environments): required reviewers, and deployment branches limited to `main`. Add these to it:
 
    | Name | Kind | Value |
@@ -181,6 +181,8 @@ To restore, or to rehearse a restore on a spare server, from `/opt/passel/curren
 | Rate limits hit everyone at once, or the API logs the proxy's address for every client | `PROXY_TRUSTED_CIDR` doesn't match the proxy, so the forwarded headers are ignored |
 | Clients can set their own address | The forwarded headers are applied twice: `ASPNETCORE_FORWARDEDHEADERS_ENABLED` must stay unset, or the API is reachable other than through the proxy |
 | `edge` fails with "address already in use" | Something else holds port 80 or 443 on the host |
+| A network fails to be created, saying its pool overlaps | Another Docker network on the server uses `172.30.0.0/24` or `172.30.1.0/24` |
+| A deploy fails because a network "has active endpoints" | The release changed a network's settings, which Docker can only apply to a new network. `dc down` (the volumes stay), then deploy the release again |
 
 ### Verified locally
 
@@ -191,6 +193,7 @@ Without the owner's server, the stack was run on a development machine as a sepa
 - A deploy whose smoke check failed: it printed the logs, left `release.env` as it was and exited non-zero.
 - The gate refusing `deploy local; id`, a tag with `;`, extra words and a second line, and `deploy.sh` refusing `x;rm`.
 - `backup.sh`, then the restore drill above onto empty volumes, with the data, the table owner, the grants and the files back.
+- In `compose.ports.yaml` mode, the forwarded headers believed from a request through the published port (HSTS sent for `X-Forwarded-Proto: https`) and ignored from another container on the `edge` network.
 - The bundled edge on a spare port, proxying both hosts, at its fixed address; and the `telemetry` profile, with the dashboard running without capabilities.
 
 What only the server can show: the first pull from GHCR with the job's token, Let's Encrypt certificates for the real hosts, the deploy over SSH with the forced command, and the external-proxy setups.

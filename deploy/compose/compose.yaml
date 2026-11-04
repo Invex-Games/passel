@@ -221,15 +221,22 @@ services:
     logging: *logging
 
 networks:
-  # Not internal: the API fetches link previews and Google's signing keys
-  backend: {}
+  # Not internal: the API fetches link previews and Google's signing keys. A fixed subnet gives the host a fixed
+  # address on it, which compose.ports.yaml trusts
+  backend:
+    ipam:
+      config:
+        - subnet: 172.30.1.0/24
+          gateway: 172.30.1.1
   # The proxy's network. A fixed subnet gives the bundled edge a fixed address for PROXY_TRUSTED_CIDR, and the other
-  # containers get addresses from the upper half only, so none of them can take it first.
+  # containers get addresses from the upper half only, so none of them can take it first. The gateway is pinned too:
+  # with an ip_range Docker would otherwise put it at the start of the range.
   # compose.external-proxy.yaml swaps this network for an existing proxy's network
   edge:
     ipam:
       config:
         - subnet: 172.30.0.0/24
+          gateway: 172.30.0.1
           ip_range: 172.30.0.128/25
 
 volumes:

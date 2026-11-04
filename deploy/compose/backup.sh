@@ -2,7 +2,7 @@
 # Backs up Passel's data on this server (ADR 0004, docs/guides/deploying.md): the database, its roles and the
 # uploaded files. Run it from host cron as the deploy user, from the running release:
 #
-#   15 3 * * * /opt/passel/current/backup.sh /var/backups/passel >>/var/log/passel-backup.log 2>&1
+#   15 3 * * * /opt/passel/current/backup.sh /var/backups/passel >>/var/log/passel/backup.log 2>&1
 #
 # It writes three files with the same UTC timestamp into the directory given (<root>/backups by default):
 #
