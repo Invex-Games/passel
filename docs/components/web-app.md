@@ -93,7 +93,7 @@ The image keeps the rules above:
 - Responses are compressed with zstd or gzip, and request bodies are capped at 1 MB.
 - The Caddy binary has its capability to bind low ports removed, so the container runs with every capability dropped.
 
-To build and look at it locally (nothing is pushed off `main`), run `dotnet atom BuildWebApp --server-client-id <id>.apps.googleusercontent.com`, then `dotnet atom PublishImages --skip`, and `docker run --rm -p 127.0.0.1:18081:8080 invex-games/passel-web:<version>`.
+To build and look at it locally (nothing is pushed off `main`), run `dotnet atom SetupBuildInfo` (with `--skip`, `PublishImages` uses the version that last stored), then `dotnet atom BuildWebApp --server-client-id <id>.apps.googleusercontent.com`, then `dotnet atom PublishImages --skip`, and `docker run --rm -p 127.0.0.1:18081:8080 invex-games/passel-web:<version>`. Locally the images are named without the registry, as `invex-games/passel-webapi` and `invex-games/passel-web`.
 
 Nothing runs the image yet: the compose stack and the workflow that deploy it come next (ADR 0004), and with them the preview deployment in roadmap 1.E2. The production build is checked on every pull request: `build.test.ts` runs `build.mjs` as part of `npm test`. Before the site goes up:
 
