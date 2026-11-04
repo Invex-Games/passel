@@ -5,6 +5,7 @@ using System.Net.Sockets;
 using System.Text;
 using Invex.Passel.WebApi.Options;
 using Invex.Passel.WebApi.Services;
+using Microsoft.Extensions.Hosting;
 
 namespace Invex.Passel.WebApi.Tests;
 
@@ -279,6 +280,9 @@ public sealed class LinkPreviewFetcherTests
         Assert.Equal(HttpMethod.Get, request.Method);
         Assert.Equal(LinkPreviewFetcher.UserAgent, request.Headers.UserAgent.ToString());
         Assert.Contains("text/html", request.Headers.Accept.ToString());
+
+        // The linked URL is user content, so its request records no client span
+        Assert.True(request.IsExcludedFromTelemetry());
     }
 
     [Fact]

@@ -1,0 +1,82 @@
+name: Deploy
+
+on:
+  workflow_dispatch:
+
+permissions: { }
+
+concurrency:
+  group: deploy-webapi
+  cancel-in-progress: false
+
+jobs:
+
+  SetupBuildInfo:
+    runs-on: ubuntu-latest
+    outputs:
+      build-name: ${{ steps.SetupBuildInfo.outputs.build-name }}
+      build-id: ${{ steps.SetupBuildInfo.outputs.build-id }}
+      build-version: ${{ steps.SetupBuildInfo.outputs.build-version }}
+      build-timestamp: ${{ steps.SetupBuildInfo.outputs.build-timestamp }}
+    steps:
+
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET 10.0.x
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+
+      - name: SetupBuildInfo
+        id: SetupBuildInfo
+        run: dotnet run --project _atom/_atom.csproj -- SetupBuildInfo --skip --headless
+
+  DeployWebApi:
+    permissions:
+      contents: read
+      id-token: write
+    needs: [ SetupBuildInfo ]
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET 10.0.x
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Azure login
+        uses: azure/login@v3
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: DeployWebApi
+        id: DeployWebApi
+        run: dotnet run --project _atom/_atom.csproj -- DeployWebApi --skip --headless
+        env:
+          build-version: ${{ needs.SetupBuildInfo.outputs.build-version }}
+          azure-subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+          azure-resource-group: ${{ vars.AZURE_RESOURCE_GROUP }}
+          azure-location: ${{ vars.AZURE_LOCATION }}
+          server-client-id: ${{ vars.GOOGLE_WEB_CLIENT_ID }}
+          chrome-extension-client-id: ${{ vars.CHROME_EXTENSION_CLIENT_ID }}
+          api-domain: ${{ vars.API_DOMAIN }}
+          api-certificate-name: ${{ vars.API_CERTIFICATE_NAME }}
+          Parameters__encoding-alphabet: ${{ secrets.ENCODING_ALPHABET }}
+
+      - name: Store AzureInfrastructure
+        uses: actions/upload-artifact@v7
+        with:
+          name: AzureInfrastructure
+          path: '${{ github.workspace }}/.github/publish/AzureInfrastructure'
+

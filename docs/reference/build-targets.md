@@ -27,3 +27,12 @@ Parameters can be passed on the command line (`--mobile-app-flavor production`),
 | `PublishDocs` | The site built by `BuildDocs`, force-pushed to the `gh-pages` branch for GitHub Pages | `github-token` |
 
 `BuildMobileAppAndroid` checks out the Flutter version in `flutter-version` (`_atom/appsettings.json`). If there's no Flutter on your `PATH`, it clones that version into `.flutter/`. Running it locally can therefore switch the version of your own Flutter SDK. The client-id parameters only take effect when they're real Google client ids (ending in `.apps.googleusercontent.com`). Otherwise the build logs a warning and uses the values in `src/mobile_app/.env`.
+
+## Deployment
+
+| Target | What it does | Parameters |
+|---|---|---|
+| `PublishAzureInfrastructure` | Writes the Bicep of the Azure deployment from the AppHost into `atom-publish/AzureInfrastructure`, without signing in to Azure. The `Validate` workflow runs it on every pull request. | None |
+| `DeployWebApi` | Runs `aspire deploy`: provisions or updates the Azure resources, builds the images with the .NET SDK's container support, runs the database migration job, then updates the API. Also attaches the Bicep as `AzureInfrastructure`. Needs a signed-in Azure CLI; the `Deploy` workflow signs in with OIDC. | `azure-subscription-id`, `azure-resource-group`, `azure-location`, `server-client-id` (the Google web client id), `chrome-extension-client-id`, optionally `api-domain` and `api-certificate-name`, and the `Parameters__encoding-alphabet` environment variable |
+
+Both run the Aspire CLI pinned in `dotnet-tools.json` (`dotnet aspire`). See [Releasing and Deploying](../guides/deploying.md) for the one-off Azure setup `DeployWebApi` needs, and [Configuration](configuration.md#azure-deployment) for where each value ends up.

@@ -126,7 +126,9 @@ internal sealed partial class LinkPreviewWorker(
     [LoggerMessage(Level = LogLevel.Information, Message = "Link previews are off; links are stored without one")]
     private partial void LogDisabled();
 
-    [LoggerMessage(Level = LogLevel.Information, Message = "No preview for link {PacketId}: {Reason}")]
+    // Debug: the reason can name the linked host ("example.com did not resolve"), which is user content and stays out
+    // of the logs Production keeps
+    [LoggerMessage(Level = LogLevel.Debug, Message = "No preview for link {PacketId}: {Reason}")]
     private partial void LogNoPreview(Guid packetId, string reason);
 
     [LoggerMessage(Level = LogLevel.Debug, Message = "Stored the preview of link {PacketId}")]

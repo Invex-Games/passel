@@ -9,7 +9,7 @@
     <PackageVersion Include="Asp.Versioning.Http" Version="10.2.3" />
     <PackageVersion Include="Asp.Versioning.Mvc.ApiExplorer" Version="10.2.1" />
     <PackageVersion Include="Asp.Versioning.OpenApi" Version="10.2.3" />
-    <PackageVersion Include="Aspire.Npgsql" Version="13.6.2" />
+    <PackageVersion Include="Aspire.Azure.Npgsql" Version="13.6.2" />
     <PackageVersion Include="Dunet" Version="1.16.2" />
     <PackageVersion Include="Google.Apis.Auth.AspNetCore3" Version="1.77.0" />
     <PackageVersion Include="Marten" Version="9.51.0" />
@@ -24,14 +24,20 @@
 
   <ItemGroup Label="Aspire">
     <PackageVersion Include="Aspire.Hosting.AppHost" Version="13.6.2" />
+    <PackageVersion Include="Aspire.Hosting.Azure.AppContainers" Version="13.6.2" />
+    <PackageVersion Include="Aspire.Hosting.Azure.ApplicationInsights" Version="13.6.2" />
+    <PackageVersion Include="Aspire.Hosting.Azure.KeyVault" Version="13.6.2" />
+    <PackageVersion Include="Aspire.Hosting.Azure.PostgreSQL" Version="13.6.2" />
     <PackageVersion Include="Aspire.Hosting.DevTunnels" Version="13.6.2" />
     <PackageVersion Include="Aspire.Hosting.JavaScript" Version="13.6.2" />
     <PackageVersion Include="Aspire.Hosting.PostgreSQL" Version="13.6.2" />
+    <PackageVersion Include="Azure.ResourceManager.AppContainers" Version="1.6.0" />
     <PackageVersion Include="Microsoft.Extensions.Http.Resilience" Version="10.11.0" />
     <PackageVersion Include="Microsoft.Extensions.ServiceDiscovery" Version="10.11.0" />
   </ItemGroup>
 
   <ItemGroup Label="Telemetry">
+    <PackageVersion Include="Azure.Monitor.OpenTelemetry.AspNetCore" Version="1.6.0" />
     <PackageVersion Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.20.1" />
     <PackageVersion Include="OpenTelemetry.Extensions.Hosting" Version="1.20.1" />
     <PackageVersion Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.20.1" />
