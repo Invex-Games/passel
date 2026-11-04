@@ -1,0 +1,26 @@
+{
+  "name": "passel-web-app",
+  "version": "1.0.0",
+  "homepage": "https://passel.link",
+  "private": true,
+  "engines": {
+    "node": ">=22.12"
+  },
+  "scripts": {
+    "dev": "node build.mjs --dev --serve",
+    "build": "tsc --noEmit && node build.mjs",
+    "serve": "node build.mjs --serve",
+    "typecheck": "tsc --noEmit",
+    "clean": "node -e \"require('fs').rmSync('dist', {recursive: true, force: true})\"",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@passel/core": "*",
+    "@passel/ui": "*",
+    "preact": "^11.1.1"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.2",
+    "preact-render-to-string": "^6.8.2"
+  }
+}

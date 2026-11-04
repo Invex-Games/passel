@@ -5,6 +5,7 @@ import {
     packetDataForInput,
     parsePacket,
     parsePackets,
+    parsePreview,
     toLiveEvent,
     truncateTitle,
     tryParseHttpUrl,
@@ -39,12 +40,46 @@ describe("parsePacket", () => {
     });
 });
 
+describe("parsePreview", () => {
+    const link = {$type: "Link", id: "1", name: null, url: "https://example.com"};
+
+    it("parses a link's preview", () => {
+        const preview = {title: "Example", description: "About it", imageUrl: "https://example.com/og.png", fetchedAt: "2026-10-22T11:03:10Z"};
+
+        expect(parsePacket({...link, preview})).toEqual({
+            id: "1", type: "link", title: null, payload: "https://example.com", isImage: false,
+            preview: {title: "Example", description: "About it", imageUrl: "https://example.com/og.png"},
+        });
+    });
+
+    it("leaves the preview out when there is none or nothing in it can be shown", () => {
+        expect(parsePacket({...link, preview: null})).not.toHaveProperty("preview");
+        expect(parsePacket(link)).not.toHaveProperty("preview");
+        expect(parsePreview({title: " ", description: null, imageUrl: "javascript:alert(1)"})).toBeNull();
+        expect(parsePreview("Example")).toBeNull();
+    });
+
+    it("drops an image URL that isn't an absolute http(s) URL and keeps the rest", () => {
+        expect(parsePreview({title: "Example", description: null, imageUrl: "data:image/png;base64,AAAA"}))
+            .toEqual({title: "Example", description: null, imageUrl: null});
+        expect(parsePreview({title: null, description: null, imageUrl: "/og.png"})).toBeNull();
+    });
+});
+
 describe("toLiveEvent", () => {
     it("maps stream events", () => {
         expect(toLiveEvent("resync", "")).toEqual({kind: "resync"});
         expect(toLiveEvent("packet-created", '{"$type":"Text","id":"1","title":null,"body":"hi"}'))
             .toEqual({kind: "created", packet: {id: "1", type: "text", title: null, payload: "hi", isImage: false}});
         expect(toLiveEvent("packet-deleted", '{"id":"1"}')).toEqual({kind: "deleted", id: "1"});
+        expect(toLiveEvent("packet-updated", '{"$type":"Link","id":"1","name":null,"url":"https://example.com","preview":{"title":"Example"}}'))
+            .toEqual({
+                kind: "updated",
+                packet: {
+                    id: "1", type: "link", title: null, payload: "https://example.com", isImage: false,
+                    preview: {title: "Example", description: null, imageUrl: null},
+                },
+            });
     });
 
     it("ignores heartbeats, unknown events and malformed data", () => {
@@ -52,6 +87,7 @@ describe("toLiveEvent", () => {
         expect(toLiveEvent("packet-moved", '{"id":"1"}')).toBeNull();
         expect(toLiveEvent("packet-created", "{not json")).toBeNull();
         expect(toLiveEvent("packet-deleted", '{"id":3}')).toBeNull();
+        expect(toLiveEvent("packet-updated", '{"$type":"Video","id":"1"}')).toBeNull();
     });
 });
 

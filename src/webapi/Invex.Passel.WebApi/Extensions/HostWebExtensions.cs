@@ -47,8 +47,9 @@ internal static class HostWebExtensions
         builder.AddForwardedHeaders();
         builder.AddHostFiltering();
 
-        // No CORS: the extension's host permissions bypass it and the mobile app is not a browser. The web app will
-        // add an allowlist of its own origin when it arrives.
+        // CORS for the web app's origins only (Cors:AllowedOrigins); the extension's host permissions bypass CORS and
+        // the mobile app is not a browser
+        builder.AddWebAppCors();
 
         builder.AddPasselAuthentication();
         builder.Services.AddAuthorization();
@@ -298,6 +299,9 @@ internal static class HostWebExtensions
             app.UseHsts();
 
         app.UseResponseCompression();
+
+        // Before authentication, so a preflight (which carries no token) is answered rather than refused
+        app.UseWebAppCors();
         app.UseAuthentication();
 
         // After authentication, so limits are counted per user rather than per address

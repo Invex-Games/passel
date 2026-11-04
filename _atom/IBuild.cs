@@ -10,6 +10,7 @@ internal interface IBuild : IWorkflowBuildDefinition,
     IDeployWebApi,
     IBuildMobileAppAndroid,
     IBuildChromeExtension,
+    IBuildWebApp,
     ITestTargets,
     IDocTargets,
     ISetupDevEnvironment

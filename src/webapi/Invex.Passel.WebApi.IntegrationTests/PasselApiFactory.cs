@@ -28,6 +28,11 @@ internal sealed class PasselApiFactory(string connectionString, bool migratedSch
     public const string TestPagesHost = "pages.test";
 
     /// <summary>
+    ///     The one origin the API allows across origins in the tests.
+    /// </summary>
+    public const string WebAppOrigin = "https://web.test";
+
+    /// <summary>
     ///     How long the live-update path may take to open once the host has started.
     /// </summary>
     private static readonly TimeSpan LiveUpdatesTimeout = TimeSpan.FromSeconds(30);
@@ -50,6 +55,9 @@ internal sealed class PasselApiFactory(string connectionString, bool migratedSch
         builder.UseSetting("RateLimits:ReadsPerMinute", "10000");
         builder.UseSetting("RateLimits:StreamsPerMinute", "10000");
         builder.UseSetting("RateLimits:DeviceWritesPerMinute", "10000");
+
+        // The web app's origin, so the CORS tests see the policy as a deployment with a web app configures it
+        builder.UseSetting("Cors:AllowedOrigins:0", WebAppOrigin);
 
         // Only problems reach the test output
         builder.UseSetting("Logging:LogLevel:Default", "Warning");

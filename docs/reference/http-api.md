@@ -2,7 +2,7 @@
 
 When the API runs locally in development, the interactive reference is at `https://localhost:7030/scalar`. This page summarises the contract.
 
-Every endpoint below requires `Authorization: Bearer <Google ID token>`. When the API runs in Development it also accepts `Authorization: Dev <user-id>`; see [Run without Google](../getting-started/running-locally.md#run-without-google). Requests may pass `?api-version=1`; when it's omitted, version 1 is assumed. Errors use `application/problem+json`.
+Every endpoint below requires `Authorization: Bearer <Google ID token>`. When the API runs in Development it also accepts `Authorization: Dev <user-id>`; see [Run without Google](../getting-started/running-locally.md#run-without-google). Browsers may call the API only from the origins in `Cors:AllowedOrigins`, which is where the web app is served from ([Configuration](configuration.md#web-api)). Requests may pass `?api-version=1`; when it's omitted, version 1 is assumed. Errors use `application/problem+json`.
 
 ## Limits
 

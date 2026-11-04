@@ -24,8 +24,13 @@ function readJson(path: string): unknown {
 /** What the parser must make of a wire packet: the one place this suite spells the field mapping out. */
 function expectedPacket(raw: WirePacket): Packet {
     switch (raw.$type) {
-        case "Link":
-            return {id: raw.id, type: "link", title: raw.name as string | null, payload: raw.url as string, isImage: false};
+        case "Link": {
+            const link: Packet = {id: raw.id, type: "link", title: raw.name as string | null, payload: raw.url as string, isImage: false};
+            const preview = raw.preview as { title: string | null; description: string | null; imageUrl: string | null } | null;
+            return preview
+                ? {...link, preview: {title: preview.title, description: preview.description, imageUrl: preview.imageUrl}}
+                : link;
+        }
         case "Text":
             return {id: raw.id, type: "text", title: raw.title as string | null, payload: raw.body as string, isImage: false};
         case "File":
@@ -66,10 +71,10 @@ const fixtureChecks: Record<string, (json: unknown) => void> = {
         expect(toLiveEvent("packet-deleted", JSON.stringify(json))).toEqual({kind: "deleted", id});
     },
     "packet-updated-event.json": json => {
-        // A link with its preview, in the shape of a created packet. The feed ignores the event until it shows
-        // previews (roadmap 2.C1); the packet in it still parses, and the preview field is simply not read.
-        expect(toLiveEvent("packet-updated", JSON.stringify(json))).toBeNull();
-        expect(parsePacket(json)).toEqual(expectedPacket(json as WirePacket));
+        // A link with its preview, in the shape of a created packet; the feed replaces the listed packet with it
+        const packet = expectedPacket(json as WirePacket);
+        expect(packet.preview).toBeDefined();
+        expect(toLiveEvent("packet-updated", JSON.stringify(json))).toEqual({kind: "updated", packet});
     },
 };
 
@@ -163,10 +168,9 @@ async function run(feed: FeedStore, step: Step): Promise<void> {
             return;
         }
         case "updated": {
-            // Ignored by this version of the feed, so the list is left alone. Once the feed store handles the
-            // event, apply it here; the scenarios then check that it changes no ids.
             const event = toLiveEvent("packet-updated", JSON.stringify(wire(named(step, "packet"))));
-            if (event !== null) throw new Error("The feed store now handles packet-updated; teach this interpreter to apply it");
+            if (event?.kind !== "updated") throw new Error(`The packet-updated event for ${step.packet} did not parse`);
+            feed.applyUpdated(event.packet);
             return;
         }
         case "hide":

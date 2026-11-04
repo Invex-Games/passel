@@ -2,9 +2,10 @@ import {mergePackets} from "./packets.js";
 import type {CachedFeed} from "./types.js";
 import type {Packet, PacketPage} from "./types.js";
 
-// The popup's packet feed: the list, paging, and keeping it in step with live events and deletions.
-// It mirrors the mobile app's PacketsNotifier. Kept free of chrome.* APIs so it can be unit-tested;
-// the popup supplies the packet source (the service worker) and the cache (local storage).
+// The packet feed of the TypeScript clients: the list, paging, and keeping it in step with live events and
+// deletions. It mirrors the mobile app's PacketsNotifier. Kept free of chrome.* APIs so it can be unit-tested;
+// the popup supplies the packet source (the service worker) and the cache (local storage), the web app its API
+// client and a cache of its own.
 
 /**
  * How many packets the API returns per page, and so how many the cache holds. The cache exists to show
@@ -41,6 +42,12 @@ export interface FeedCache {
     clear(): Promise<void>;
 }
 
+/** How many arrivals and updates there were when a fetch started. */
+interface Mark {
+    arrivals: number;
+    updates: number;
+}
+
 interface HiddenPacket {
     packet: Packet;
     index: number;
@@ -67,6 +74,12 @@ export class FeedStore {
      * when one arrived may predate it, so the ones that arrived during the fetch are merged back on top.
      */
     private arrivals: Packet[] = [];
+
+    /**
+     * Packets changed after they were created (received live), oldest first. A fetch in flight when one changed may
+     * carry the version from before, so the ones changed during the fetch replace what it brought back.
+     */
+    private updates: Packet[] = [];
 
     /**
      * Ids of deleted packets, including ones only hidden while the deletion can be undone. A fetch may
@@ -113,6 +126,7 @@ export class FeedStore {
         this.generation++;
         this.fetchSeq++;
         this.arrivals = [];
+        this.updates = [];
         this.deletedIds.clear();
         this.hidden.clear();
         this.firstPageCursor = null;
@@ -124,11 +138,11 @@ export class FeedStore {
     /** Replaces the list with the first page. Throws FeedRequestError if the request fails. */
     async refresh(): Promise<void> {
         const seq = ++this.fetchSeq;
-        const arrivalsMark = this.arrivals.length;
+        const mark = this.mark();
         const page = await this.source.fetchPage();
         if (seq !== this.fetchSeq) return;
 
-        this.replace(page, arrivalsMark);
+        this.replace(page, mark);
     }
 
     /**
@@ -138,16 +152,16 @@ export class FeedStore {
      */
     async syncLatest(): Promise<void> {
         const seq = ++this.fetchSeq;
-        const arrivalsMark = this.arrivals.length;
+        const mark = this.mark();
         const page = await this.source.fetchPage();
         if (seq !== this.fetchSeq) return;
 
         const latest = this.current;
-        const packets = this.reconcile(arrivalsMark, page.packets);
+        const packets = this.reconcile(mark, page.packets);
         const listedIds = new Set(latest.packets.map(p => p.id));
 
         if (!latest.loaded || !packets.some(p => listedIds.has(p.id))) {
-            this.replace(page, arrivalsMark);
+            this.replace(page, mark);
             return;
         }
 
@@ -166,6 +180,7 @@ export class FeedStore {
         if (current.loadMoreError && !retry) return;
 
         const generation = this.generation;
+        const mark = this.mark();
         this.set({...current, loadingMore: true, loadMoreError: null});
 
         try {
@@ -176,7 +191,7 @@ export class FeedStore {
             const latest = this.current;
             this.commit({
                 ...latest,
-                packets: mergePackets(latest.packets, this.withoutDeleted(page.packets)),
+                packets: mergePackets(latest.packets, this.withUpdates(mark, this.withoutDeleted(page.packets))),
                 // Defensive: a server echoing the same cursor would loop forever.
                 nextCursor: page.nextCursor === cursor ? null : page.nextCursor,
                 loadingMore: false,
@@ -197,6 +212,31 @@ export class FeedStore {
         const latest = this.current;
         if (!latest.loaded || latest.packets.some(p => p.id === packet.id)) return;
         this.commit({...latest, packets: mergePackets([packet], latest.packets)});
+    }
+
+    /**
+     * Replaces a packet that changed after it was created (a link that got its preview) where it is listed, or
+     * where it waits to be undone. It never adds a packet: one that isn't listed is left to the next fetch, which
+     * brings the changed version anyway.
+     */
+    applyUpdated(packet: Packet): void {
+        const hidden = this.hidden.get(packet.id);
+        if (hidden) {
+            hidden.packet = packet;
+            return;
+        }
+        if (this.deletedIds.has(packet.id)) return;
+
+        this.updates.push(packet);
+        this.arrivals = this.arrivals.map(p => p.id === packet.id ? packet : p);
+
+        const latest = this.current;
+        const index = latest.packets.findIndex(p => p.id === packet.id);
+        if (index === -1) return;
+
+        const packets = [...latest.packets];
+        packets[index] = packet;
+        this.commit({...latest, packets});
     }
 
     /** Removes a packet that was deleted (elsewhere, or here once the deletion went through). */
@@ -256,12 +296,12 @@ export class FeedStore {
 
     // ── Private ──────────────────────────────────────────
 
-    private replace(page: PacketPage, arrivalsMark: number): void {
+    private replace(page: PacketPage, mark: Mark): void {
         this.generation++;
         this.firstPageCursor = page.nextCursor;
         this.commit({
             ...this.current,
-            packets: this.reconcile(arrivalsMark, page.packets),
+            packets: this.reconcile(mark, page.packets),
             nextCursor: page.nextCursor,
             lastSyncedAt: this.now(),
             loaded: true,
@@ -270,13 +310,24 @@ export class FeedStore {
         });
     }
 
+    /** Where the arrivals and updates stand as a fetch starts, so reconcile() knows which happened during it. */
+    private mark(): Mark {
+        return {arrivals: this.arrivals.length, updates: this.updates.length};
+    }
+
     /**
      * Brings fetched packets up to date with what happened while they were in flight: packets that arrived
-     * since `arrivalsMark` are merged on top (newest first) and deleted packets are removed.
+     * since `mark` are merged on top (newest first), packets changed since then replace their fetched version,
+     * and deleted packets are removed.
      */
-    private reconcile(arrivalsMark: number, fetched: readonly Packet[]): Packet[] {
-        const arrived = this.arrivals.slice(arrivalsMark).reverse();
-        return this.withoutDeleted(mergePackets(arrived, fetched));
+    private reconcile(mark: Mark, fetched: readonly Packet[]): Packet[] {
+        const arrived = this.arrivals.slice(mark.arrivals).reverse();
+        return this.withUpdates(mark, this.withoutDeleted(mergePackets(arrived, fetched)));
+    }
+
+    private withUpdates(mark: Mark, packets: Packet[]): Packet[] {
+        const updated = new Map(this.updates.slice(mark.updates).map(p => [p.id, p]));
+        return updated.size === 0 ? packets : packets.map(p => updated.get(p.id) ?? p);
     }
 
     private withoutDeleted(packets: readonly Packet[]): Packet[] {

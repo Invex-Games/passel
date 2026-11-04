@@ -33,7 +33,7 @@ The feed page's app bar has a settings action beside the sign-in or sign-out act
 
 - **Account** shows who is signed in: the Google account's name and email (`AuthService.currentAccount`, an `AccountInfo` the repository takes from the Google sign-in and drops on sign-out) or the development user (`currentDevUser`), with a Sign out tile. Signed out it offers Sign in, through the same sheet as the feed.
 - **Appearance** chooses the theme: system default, light or dark. `themeModeProvider` (`theme_mode_setting.dart`) holds the choice, `MyApp` passes it to `MaterialApp` as the `themeMode` on top of the device's dynamic colours, and it is saved in `shared_preferences` (`settings_theme_mode`) so it survives a restart; until the saved choice has been read the app follows the device.
-- **About** shows the version and build number (`package_info_plus`, read once by `appVersionProvider`), in a development build the flavor and the API URL, and the privacy policy and terms of service at `passel.link/privacy` and `passel.link/terms`. Those two tiles stay disabled (`legalPagesPublished` in `settings_page.dart`) until roadmap package 1.E3 publishes the pages.
+- **About** shows the version and build number (`package_info_plus`, read once by `appVersionProvider`), in a development build the flavor and the API URL, and the privacy policy and terms of service at `passel.link/privacy` and `passel.link/terms`. Those two tiles stay disabled (`legalPagesPublished` in `settings_page.dart`) until the pages, which the web app has (roadmap 1.E3), are hosted at passel.link, a follow-up of roadmap 0.A2; see [Hosting](web-app.md#hosting).
 
 ## Configuration
 

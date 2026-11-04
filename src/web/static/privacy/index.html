@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
+    <meta name="color-scheme" content="light dark">
+    <meta name="robots" content="noindex">
+    <title>Privacy policy (draft) · Passel</title>
+    <link rel="icon" href="/icons/icon-48.png" sizes="48x48">
+    <link rel="stylesheet" href="/site.css">
+</head>
+<body>
+<header class="site-header">
+    <a class="wordmark" href="/"><img src="/icons/icon-128.png" alt="">Passel</a>
+    <nav aria-label="Site">
+        <a href="/privacy/" aria-current="page">Privacy</a>
+        <a href="/terms/">Terms</a>
+        <a class="button" href="/app/">Open Passel</a>
+    </nav>
+</header>
+
+<!--
+    Every statement below describes what the code in this repository does today; docs/components/web-app.md lists
+    where each one comes from, so the page can be checked again when the code changes. The bracketed placeholders
+    are facts the repository doesn't hold. Fill them all in, have the page reviewed, and remove the draft notice and
+    the noindex tag before publishing.
+-->
+<main class="page legal">
+    <h1>Privacy policy</h1>
+    <p class="updated">Last updated: <span class="placeholder">[DATE]</span></p>
+
+    <div class="draft" role="note">
+        <strong>Draft, pending legal review.</strong>
+        This policy describes what Passel's software does today. It has not been reviewed by a lawyer, the
+        highlighted parts in brackets are still to be filled in, and it may change before Passel is released.
+    </div>
+
+    <p>
+        Passel sends links and notes between your own devices. It is run by
+        <span class="placeholder">[OPERATOR LEGAL NAME]</span>, <span class="placeholder">[POSTAL ADDRESS]</span>
+        ("we"). Questions about this policy go to <span class="placeholder">[CONTACT EMAIL]</span>.
+    </p>
+
+    <h2>In short</h2>
+    <ul>
+        <li>We keep what you send (links and notes) so your other devices can show it, until you delete it.</li>
+        <li>From your Google account we keep only its unique id. We don't store your email address or your name.</li>
+        <li>To show a preview of a link, our server visits the linked page, and any page it redirects to.</li>
+        <li>What you send is not end-to-end encrypted: our server can read it, as it must to deliver it.</li>
+        <li>We don't sell your data, show ads, or put third-party analytics or trackers in our apps or on this site.</li>
+    </ul>
+
+    <h2>What we collect and why</h2>
+
+    <h3>Your account</h3>
+    <p>
+        You sign in with Google. Each request your apps make carries a Google ID token, which our server checks
+        against Google's published keys. From the token we keep one thing: your Google account's unique id, stored
+        with each item you send so that only you can see it. The token also holds your email address and name; your
+        apps show the email address on screen, but our server doesn't store either. We never see your Google
+        password, and signing in gives us no access to anything else in your Google account.
+    </p>
+
+    <h3>What you send</h3>
+    <p>
+        For a link, we store its address and the name it was sent with, if any; for a note, its text and title, if
+        any. With each item we store when it was sent and an id of our own. Sending files is not available yet;
+        this policy will say what we keep for them before it is. Items are stored in our database, which we host with
+        <span class="placeholder">[HOSTING PROVIDER]</span> in <span class="placeholder">[REGION]</span>.
+    </p>
+
+    <h3>Link previews</h3>
+    <p>
+        When you send a link to a web page, our server fetches that page shortly afterwards to read the title,
+        description and image address the page gives for itself. It only fetches public <code>http</code> and
+        <code>https</code> addresses, never addresses on private networks, follows at most three redirects, reads at
+        most 512 KB, and gives up after three attempts. So one link can mean several requests: one for each attempt,
+        and one more for each redirect along the way. A redirect can lead to another site, such as the real address
+        behind a shortened link, and that site sees our server's requests too. Each request identifies our server as
+        <code>Passel/1.0 (+https://passel.link)</code>; nothing about you is sent with it. We store the
+        title, description, image address and the time of the fetch with your link, and delete them with it.
+    </p>
+    <p>
+        Our server never downloads the preview image. When an app shows a preview, your device loads the image
+        straight from the site that hosts it, as with any image on a web page, so that site can see your device's IP
+        address. Passel's web app sends no referrer with it. Today the web app shows previews; the Chrome extension
+        and the Android app will later.
+    </p>
+
+    <h3>Live updates</h3>
+    <p>
+        While one of your apps is open and visible, it keeps a connection to our server open, so that what you send
+        from one device appears on the others straight away. Nothing extra is stored for it.
+    </p>
+
+    <h3>Limits on use</h3>
+    <p>
+        To keep Passel usable for everyone, our server counts the requests each account makes (or each IP address,
+        for requests that aren't signed in) over the last minute, in memory only, and checks how many items and how
+        much storage an account uses: up to 5,000 items and 50 MB today. The counts aren't stored.
+    </p>
+
+    <h3>Technical logs</h3>
+    <p>
+        Our server records logs, traces and metrics to keep the service running and to fix it: for example which
+        part of the service was called, when, how long it took and what it answered, errors with our own ids for
+        the items involved, and the addresses of pages fetched for previews. They do not contain the text of your
+        notes. They may contain technical details such as the IP address a request came from and your browser or
+        app version <span class="placeholder">[CONFIRM AGAINST THE PRODUCTION TELEMETRY SETUP]</span>. They are kept
+        by <span class="placeholder">[MONITORING PROVIDER]</span> for
+        <span class="placeholder">[LOG RETENTION PERIOD]</span>.
+    </p>
+
+    <h2>What stays on your devices</h2>
+    <ul>
+        <li>
+            <strong>Web app:</strong> your Google sign-in token, in the tab's session storage until you close the tab
+            or sign out, and a note in the browser's local storage that you signed in with Google, so that coming back
+            can offer one-tap sign-in; signing out removes it. Your items are kept in the open tab's memory only. The
+            sign-in page loads Google's sign-in script from Google, which
+            <a href="https://policies.google.com/privacy">Google's privacy policy</a> covers.
+        </li>
+        <li>
+            <strong>Chrome extension:</strong> your sign-in token, in the browser's session storage, which is cleared
+            when the browser closes; your email address, so it can sign you back in; and your 50 newest items, so they
+            show at once. Signing out removes the address and the items.
+        </li>
+        <li>
+            <strong>Android app:</strong> the id of the account last signed in and your 50 newest items, in the app's
+            own storage; Google's sign-in service on the phone holds the token. Signing out removes the items.
+        </li>
+    </ul>
+
+    <h2>How long we keep it</h2>
+    <p>
+        Items are kept until you delete them; nothing expires on its own today. Deleting an item erases it from our
+        database at once, together with its preview, and your other devices remove it as soon as they hear about it.
+        Backups of the database kept by our hosting provider may hold a deleted item for up to
+        <span class="placeholder">[BACKUP RETENTION PERIOD]</span>.
+    </p>
+    <p>
+        The apps can't yet delete your whole account in one step. Until they can, delete your items, or write to
+        <span class="placeholder">[CONTACT EMAIL]</span> and we will delete everything stored under your account.
+    </p>
+
+    <h2>Who else sees it</h2>
+    <ul>
+        <li>Nobody but you sees your items through Passel: every item is only ever returned to the account that sent it.</li>
+        <li><span class="placeholder">[HOSTING PROVIDER]</span> runs our server and database for us, under contract.</li>
+        <li>Google provides sign-in.</li>
+        <li>Sites you send links to, and any site such a link redirects to, see the requests from our server described above.</li>
+        <li><span class="placeholder">[DISCLOSURES REQUIRED BY LAW, TO BE WRITTEN WITH LEGAL ADVICE]</span></li>
+    </ul>
+
+    <h2>Security</h2>
+    <p>
+        All traffic to our server uses HTTPS. Every request for your items must carry a valid sign-in token, and
+        items are only returned to the account they belong to. The preview fetcher refuses addresses on private networks.
+        <span class="placeholder">[ENCRYPTION AT REST AND OTHER HOSTING SAFEGUARDS]</span>
+    </p>
+
+    <h2>Your rights</h2>
+    <p>
+        You can see and delete everything you've sent from the apps at any time. Depending on where you live, you may
+        also have the right to ask for a copy of your data, to correct it, to have it deleted or to object to how it
+        is used; write to <span class="placeholder">[CONTACT EMAIL]</span>.
+        <span class="placeholder">[LEGAL BASES FOR PROCESSING, INTERNATIONAL TRANSFERS AND THE RIGHT TO COMPLAIN TO A
+        SUPERVISORY AUTHORITY]</span>
+    </p>
+
+    <h2>Children</h2>
+    <p>Passel is not meant for children under <span class="placeholder">[MINIMUM AGE]</span>.</p>
+
+    <h2>Changes</h2>
+    <p>
+        When this policy changes, we'll update this page and the date at the top.
+        <span class="placeholder">[HOW USERS ARE TOLD ABOUT MATERIAL CHANGES]</span>
+    </p>
+</main>
+
+<footer class="site-footer">
+    <a href="/">Passel</a>
+    <a href="/terms/">Terms of service</a>
+    <a href="https://docs.passel.link/">Documentation</a>
+</footer>
+</body>
+</html>

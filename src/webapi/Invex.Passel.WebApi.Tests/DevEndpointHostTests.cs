@@ -1,3 +1,4 @@
+using Asp.Versioning;
 using Invex.Passel.WebApi.Domain;
 using Invex.Passel.WebApi.Endpoints;
 using Invex.Passel.WebApi.Extensions;
@@ -28,7 +29,8 @@ public sealed class DevEndpointHostTests
 
         builder
             .Services
-            .AddApiVersioning()
+            // The reader the API uses by default, named so the versioning analyzer (AV0015) is satisfied
+            .AddApiVersioning(options => options.ApiVersionReader = new QueryStringApiVersionReader())
             .AddApiExplorer();
 
         var app = builder.Build();
@@ -101,7 +103,8 @@ public sealed class DevEndpointHostTests
 
         builder
             .Services
-            .AddApiVersioning()
+            // The reader the API uses by default, named so the versioning analyzer (AV0015) is satisfied
+            .AddApiVersioning(options => options.ApiVersionReader = new QueryStringApiVersionReader())
             .AddApiExplorer();
 
         // The packet endpoints inject these. Mapping only needs them registered, since the delegates are built

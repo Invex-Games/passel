@@ -1,4 +1,4 @@
-import type {LiveEvent, Packet, PacketData} from "./types.js";
+import type {LinkPreview, LiveEvent, Packet, PacketData} from "./types.js";
 
 /**
  * Parses a packet from the API's wire format, e.g. `{"$type": "Text", "id": "…", "title": "…", "body": "…"}`.
@@ -12,10 +12,13 @@ export function parsePacket(raw: unknown): Packet | null {
     if (!id) return null;
 
     switch (json.$type) {
-        case "Link":
-            return typeof json.url === "string" && json.url
-                ? {id, type: "link", title: optionalString(json.name), payload: json.url, isImage: false}
-                : null;
+        case "Link": {
+            if (typeof json.url !== "string" || !json.url) return null;
+
+            const link: Packet = {id, type: "link", title: optionalString(json.name), payload: json.url, isImage: false};
+            const preview = parsePreview(json.preview);
+            return preview ? {...link, preview} : link;
+        }
 
         case "Text":
             return typeof json.body === "string" && json.body
@@ -45,6 +48,26 @@ export function parsePackets(raw: unknown): Packet[] {
 
 function optionalString(value: unknown): string | null {
     return typeof value === "string" ? value : null;
+}
+
+/**
+ * Parses a link's `preview`, or returns null when there is none or nothing in it can be shown. Blank strings count
+ * as missing, and an image URL that isn't an absolute http(s) URL is dropped: a client puts it in an `<img>`.
+ */
+export function parsePreview(raw: unknown): LinkPreview | null {
+    if (typeof raw !== "object" || raw === null) return null;
+    const json = raw as Record<string, unknown>;
+
+    const title = nonBlank(json.title);
+    const description = nonBlank(json.description);
+    const image = nonBlank(json.imageUrl);
+    const imageUrl = image && tryParseHttpUrl(image) ? image : null;
+
+    return title || description || imageUrl ? {title, description, imageUrl} : null;
+}
+
+function nonBlank(value: unknown): string | null {
+    return typeof value === "string" && value.trim() ? value : null;
 }
 
 /** Returns `existing` followed by the packets of `incoming` whose ids aren't already present. */
@@ -105,6 +128,11 @@ export function toLiveEvent(type: string, data: string): LiveEvent | null {
         case "packet-created": {
             const packet = parsePacket(parseJson(data));
             return packet ? {kind: "created", packet} : null;
+        }
+
+        case "packet-updated": {
+            const packet = parsePacket(parseJson(data));
+            return packet ? {kind: "updated", packet} : null;
         }
 
         case "packet-deleted": {
