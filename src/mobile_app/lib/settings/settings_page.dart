@@ -11,9 +11,9 @@ import 'theme_mode_setting.dart';
 
 /// The privacy policy and the terms of service on passel.link.
 ///
-/// Roadmap package 1.E3 publishes the pages; until it has,
-/// [legalPagesPublished] keeps the links disabled, so nobody is sent to a
-/// page that is not there yet.
+/// The web app has the pages (roadmap 1.E3), but nothing hosts them yet;
+/// until something does, [legalPagesPublished] keeps the links disabled, so
+/// nobody is sent to a page that is not there yet.
 const String privacyPolicyUrl = 'https://passel.link/privacy';
 const String termsUrl = 'https://passel.link/terms';
 const bool legalPagesPublished = false;

@@ -1,10 +1,10 @@
 # Web App
 
-`src/web` is Passel on the web: a landing page, the privacy and terms pages, and the app itself under `/app/`. It is a member of the npm workspace at `src/` beside the extension (see [The npm workspace](chrome-extension.md#the-npm-workspace)), and its feed, API client and live connection come from `@passel/core`, its colours from `@passel/ui`. This is milestone 1 of the [Web App Plan](../evaluation/web-app.md) (roadmap 1.E2) and the public pages (1.E3).
+`src/web` is Passel on the web: a landing page, the privacy and terms pages, and the app itself under `/app/`. It is a member of the npm workspace at `src/` beside the extension (see [The npm workspace](chrome-extension.md#the-npm-workspace)), and its feed, API client and live connection come from `@passel/core`, its colours from `@passel/ui`. This is milestone 1 of the [Web App Plan](../evaluation/web-app.md) (roadmap 1.E2), apart from its preview deployment (see [Hosting](#hosting)), and the public pages (1.E3).
 
 ## What it does
 
-- **Landing page** (`/`): what Passel is, the three steps, and where to get the extension and the app (both "coming soon" until they are listed).
+- **Landing page** (`/`): what Passel is, the three steps, and where to get the extension and the app (both "coming soon" until they are listed). Its footer, like the privacy and terms pages', links to the privacy policy, the terms and the documentation.
 - **Privacy policy and terms** (`/privacy/`, `/terms/`): drafts, pending legal review; see [The privacy and terms drafts](#the-privacy-and-terms-drafts).
 - **The app** (`/app/`): sign in with Google, or as a development user in a development build; then the feed, newest at the top, read-only for now. Older items load as the end of the list scrolls into view. While the tab is visible the feed stays live: items sent from other devices appear at once, deletions disappear, and a link's preview (its page's title, description and image) arrives with the `packet-updated` event. Each item shows as a link (with its preview), a note (long ones collapsed behind **Show more**) or a file, which can't be opened here yet. The top bar shows **Live**, or when the feed was last synced, a refresh button, the account and **Sign out**.
 
@@ -53,6 +53,7 @@ While the tab is signed in and visible, the controller keeps the API's event str
 | `GOOGLE_CLIENT_ID` | The Google OAuth **web** client id. Its Authorized JavaScript origins must include the app's origin; see [Google OAuth Clients](../getting-started/google-oauth.md). |
 | `DEV_SIGN_IN` | `true` lets a development build sign in as a development user; `GOOGLE_CLIENT_ID` may then be left empty. A minified build never has it. The AppHost sets it. |
 | `PORT` | The dev server's port, default 5245. The AppHost sets it. |
+| `WEB_APP_OUT_DIR` | Where to build, instead of `dist/`; read from the environment only. `build.test.ts` uses it. |
 
 The app's HTML gets a Content-Security-Policy from the build: scripts from its own origin and Google Identity Services only, requests to its own origin, the API's origin and Google, preview images from any `https` site, and no plugins, `<base>` or form targets. The static pages allow no script at all.
 
@@ -62,7 +63,7 @@ Run `npm install` once in `src/`, then, in `src/web`:
 |---|---|
 | `npm run dev` | Unminified build with source maps, rebuilt on every change and served at `http://localhost:<PORT>/`, reloading the page after each rebuild (the AppHost runs it) |
 | `npm run build` | Type-check, then a minified build into `dist/` |
-| `npm run serve` | A minified build, served the same way, to look at what will ship |
+| `npm run serve` | A minified build, served the same way, to look at what will ship. It signs in with Google only, never as a development user; like `npm run dev` it gets the referrer policy Google sign-in needs on `http://localhost` |
 | `npm run typecheck`, `npm test` | The TypeScript check, and the Vitest suite in `test/` |
 | `dotnet atom BuildWebApp` | Release build into `atom-publish/WebApp`, with `api-base-url-production` and `server-client-id`; see [Build Targets](../reference/build-targets.md) |
 
@@ -75,11 +76,15 @@ Run `npm install` once in `src/`, then, in `src/web`:
 | `/` | `index.html` |
 | `/privacy/`, `/terms/` | `privacy/index.html`, `terms/index.html` |
 | `/app/` | `app/index.html`, with `app/app.js` and `app/styles.css` |
+| `/privacy`, `/terms`, `/app` | A redirect to the same path with the trailing slash. The mobile app links to `https://passel.link/privacy` and `https://passel.link/terms` in this form |
 | Anything else | `404.html`, with status 404 |
 
 File names carry no content hash, so the host should have browsers revalidate (`Cache-Control: no-cache`) rather than cache them for long. A host that can set headers should also send `frame-ancestors 'none'` and HSTS, which a `<meta>` policy can't. The API must list the site's origin in `Cors:AllowedOrigins` ([Configuration](../reference/configuration.md#web-api)), and the Google web client must list it as an Authorized JavaScript origin.
 
-No workflow deploys the site yet. Hooking `BuildWebApp` into the deployment (roadmap 0.A2 chooses the Azure services) is a follow-up; until then, the site exists only as the build output.
+No workflow deploys the site yet, so the preview deployment in roadmap 1.E2 is still to do: hooking `BuildWebApp` into the deployment (roadmap 0.A2 chooses the Azure services) is a follow-up, and until then the site exists only as the build output. The production build is still checked on every pull request: `build.test.ts` runs `build.mjs` as part of `npm test`. Before the site goes up:
+
+- `docs.passel.link`, which the static pages' footers link to as **Documentation**, must serve the DocFX site (`PublishDocs` pushes it to GitHub Pages).
+- The mobile app's **Privacy policy** and **Terms of service** tiles stay disabled until the pages are hosted; turn on `legalPagesPublished` in `settings_page.dart` then.
 
 ## Tests
 
@@ -88,7 +93,8 @@ No workflow deploys the site yet. Hooking `BuildWebApp` into the deployment (roa
 - `controller.test.ts` drives `AppController` against a fake API: signing in and out, the reload of a signed-in tab, live events, the first and later resyncs, the tab being hidden briefly and for longer, an expired session, a refused stream, and failed loads, including a first resync that overtakes the first refresh and fails.
 - `session.test.ts` covers accepting and refusing Google credentials, expiry, the One Tap hint and development users, one per tab.
 - `views.test.tsx` renders the views to HTML with `preact-render-to-string`: tiles with and without previews, escaping, links that aren't `http(s)`, the feed's end row, and the sign-in page in each build.
-- `labels.test.ts` covers the wording; `static-pages.test.ts` checks that every link on the static pages resolves, that they carry no script and use the ADR 0002 vocabulary, and that the privacy and terms drafts say they are drafts and quote the limits the API's options actually default to.
+- `build.test.ts` runs the production build into a temporary folder and checks its output: every page and bundle, no source maps, the filled-in security and referrer policies, the compiled-in configuration.
+- `labels.test.ts` covers the wording; `static-pages.test.ts` checks that every link on the static pages resolves, that they carry no script and use the ADR 0002 vocabulary and link to the documentation, and that the privacy and terms drafts say they are drafts, quote the limits the API's options actually default to, and don't promise a single preview request.
 
 ## The privacy and terms drafts
 
