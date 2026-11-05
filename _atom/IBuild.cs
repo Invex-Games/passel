@@ -86,18 +86,8 @@ internal interface IBuild : IWorkflowBuildDefinition,
                             TextExpressions.Github.VarsVar("CHROME_EXTENSION_CLIENT_ID")),
                     ],
                 },
-                new(nameof(BuildWebApp))
-                {
-                    Options =
-                    [
-                        // Both are compiled into the site, so they are repository variables: the build jobs run in no
-                        // environment and could not read the production environment's
-                        BuildOptions.Inject.Param(nameof(ServerClientId),
-                            TextExpressions.Github.VarsVar("GOOGLE_WEB_CLIENT_ID")),
-                        BuildOptions.Inject.Param(nameof(ApiBaseUrlProduction),
-                            TextExpressions.Github.VarsVar("API_BASE_URL")),
-                    ],
-                },
+                // The site holds no environment's values; the web image is configured when its container starts
+                new(nameof(BuildWebApp)),
                 new(nameof(PublishImages))
                 {
                     Options =

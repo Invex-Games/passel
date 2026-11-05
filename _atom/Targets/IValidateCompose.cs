@@ -1,18 +1,24 @@
+using System.Text.Json;
+
 namespace Atom.Targets;
 
 /// <summary>
 ///     Checks the self-hosted deployment's compose files and scripts (<c>deploy/compose</c>) without running them:
 ///     <c>docker compose config</c> over the base file alone and with each override, every profile on, against the
-///     placeholders in <c>ci.env</c>, and shellcheck over the scripts.
+///     placeholders in <c>ci.env</c>, and shellcheck over the scripts, the web image's entrypoint among them.
 /// </summary>
 internal interface IValidateCompose : IBuildAccessor
 {
-    private RootedPath ComposeDirectory => RootedFileSystem.AtomRootDirectory / "deploy" / "compose";
+    private RootedPath DeployDirectory => RootedFileSystem.AtomRootDirectory / "deploy";
+
+    private RootedPath ComposeDirectory => DeployDirectory / "compose";
 
     /// <summary>
-    ///     The scripts that ship in the bundle, relative to <see cref="ComposeDirectory" />.
+    ///     The scripts that ship in the bundle and the web image's entrypoint, relative to
+    ///     <see cref="DeployDirectory" />.
     /// </summary>
-    private static string[] Scripts => ["deploy.sh", "deploy-gate.sh", "backup.sh", "db/roles.sh"];
+    private static string[] Scripts =>
+        ["compose/deploy.sh", "compose/deploy-gate.sh", "compose/backup.sh", "compose/db/roles.sh", "web/entrypoint.sh"];
 
     /// <summary>
     ///     The pinned shellcheck image, for a machine without shellcheck installed. GitHub's Ubuntu runners have it.
@@ -54,12 +60,14 @@ internal interface IValidateCompose : IBuildAccessor
                         cancellationToken);
                 }
 
+                await CheckWebEnvironment(cancellationToken);
+
                 var shellcheck = FindShellcheck();
 
                 if (shellcheck is not null)
                     await ProcessRunner.RunAsync(new(shellcheck, CommandLine.Join(Scripts))
                         {
-                            WorkingDirectory = ComposeDirectory,
+                            WorkingDirectory = DeployDirectory,
                         },
                         cancellationToken);
                 else
@@ -68,7 +76,7 @@ internal interface IValidateCompose : IBuildAccessor
                             "run",
                             "--rm",
                             "--volume",
-                            $"{ComposeDirectory}:/mnt:ro",
+                            $"{DeployDirectory}:/mnt:ro",
                             "--workdir",
                             "/mnt",
                             ShellcheckImage,
@@ -81,6 +89,38 @@ internal interface IValidateCompose : IBuildAccessor
 
                 Logger.LogInformation("The compose files and the {Count} scripts are valid", Scripts.Length);
             });
+
+    /// <summary>
+    ///     The web image is the same in every environment and is configured from the server's .env, so compose must
+    ///     hand it the API's origin, derived from API_HOST, and the web client id: with ci.env's placeholders,
+    ///     https://api.example.test and ci-web.apps.googleusercontent.com.
+    /// </summary>
+    private async Task CheckWebEnvironment(CancellationToken cancellationToken)
+    {
+        var result = await ProcessRunner.RunAsync(new("docker",
+            CommandLine.Join(["compose", "--file", "compose.yaml", "--env-file", "ci.env", "config", "--format", "json"]))
+            {
+                WorkingDirectory = ComposeDirectory,
+                OutputLogLevel = LogLevel.Debug,
+            },
+            cancellationToken);
+
+        using var document = JsonDocument.Parse(result.Output);
+
+        var environment = document.RootElement.GetProperty("services").GetProperty("web").GetProperty("environment");
+
+        string? Value(string name) =>
+            environment.TryGetProperty(name, out var value)
+                ? value.GetString()
+                : null;
+
+        if (Value("API_ORIGIN") is not "https://api.example.test" ||
+            Value("GOOGLE_CLIENT_ID") is not "ci-web.apps.googleusercontent.com")
+            throw new StepFailedException("The web service must get API_ORIGIN=https://<API_HOST> and " +
+                                          "GOOGLE_CLIENT_ID=<GOOGLE_WEB_CLIENT_ID> from .env; with ci.env it got " +
+                                          $"API_ORIGIN='{Value("API_ORIGIN")}', " +
+                                          $"GOOGLE_CLIENT_ID='{Value("GOOGLE_CLIENT_ID")}'");
+    }
 
     /// <summary>
     ///     Looks for shellcheck on the PATH directly: a lookup with which or where logs a warning when it is missing,

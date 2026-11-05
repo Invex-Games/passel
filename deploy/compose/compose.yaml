@@ -164,9 +164,14 @@ services:
     <<: *hardening
     logging: *logging
 
+  # The image is the same in every environment: its entrypoint writes the app's /app/config.json and puts the API's
+  # origin into the app's Content-Security-Policy when the container starts, and refuses to start without valid values
   web:
     image: *web-image
     restart: unless-stopped
+    environment:
+      API_ORIGIN: https://${API_HOST:?set API_HOST in .env}
+      GOOGLE_CLIENT_ID: ${GOOGLE_WEB_CLIENT_ID:?set GOOGLE_WEB_CLIENT_ID in .env}
     healthcheck:
       test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1:8080/"]
       interval: 10s

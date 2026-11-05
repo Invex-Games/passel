@@ -79,7 +79,8 @@ builder
     // The popup of this development build can also sign in as a development user (the API's Dev scheme)
     .WithEnvironment("DEV_SIGN_IN", "true");
 
-// The web app's dev server, which rebuilds src/web/dist on every change and reloads the page. Its port is fixed and not
+// The web app's dev server, which rebuilds src/web/dist on every change, reloads the page and serves the app's
+// configuration (/app/config.json) from these values, as the web image does from its own. Its port is fixed and not
 // proxied, so the origin stays http://localhost:5245: Google only signs in from the Authorized JavaScript origins of
 // the web client, and the API lets the web app's origin through CORS. The web app signs in with the web client id,
 // the API's main audience, and its development build can also sign in as a development user
