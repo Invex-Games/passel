@@ -18,14 +18,17 @@ The app is [Preact](https://preactjs.com/) components bundled by esbuild, like t
 
 | File | Responsibility |
 |---|---|
-| `src/app/main.tsx` | The entry point: makes the session, the API client and Google sign-in, hands them to the controller, follows the page's visibility, and renders the views into `#app` |
+| `src/app/main.tsx` | The entry point: loads the configuration, then makes the session, the API client and Google sign-in, hands them to the controller, follows the page's visibility, and renders the views into `#app`; with no valid configuration it shows `ConfigErrorPage` instead and starts nothing |
+| `src/app/config.ts` | Fetches `/app/config.json` and checks it: the API URL and the Google client id (see [Configuration at startup](#configuration-at-startup)) |
+| `src/app/flags.ts` | The two build flags compiled in by `build.mjs`: `DEV_SIGN_IN` and `LIVE_RELOAD`, both off in a production build |
 | `src/app/controller.ts` | `AppController`: who is signed in, the `FeedStore`, the `LiveConnection`, and the rules between them (see [Live updates](#live-updates)). No DOM, so it is unit-tested |
 | `src/app/session.ts` | `Session`: the token for this tab, checking a Google credential before accepting it, the development user, and the hint that offers One Tap |
 | `src/app/google.ts` | Loads Google Identity Services and wraps its button and One Tap |
 | `src/app/labels.ts` | The wording: what to call an item, the sync label, what the end of the feed says, which notes collapse |
-| `src/app/views/` | The Preact views: `App`, `SignInPage`, `FeedPage` (with the row after the oldest item), `Tile` and the icons |
+| `src/app/views/` | The Preact views: `App`, `SignInPage`, `FeedPage` (with the row after the oldest item), `Tile`, `ConfigErrorPage` and the icons |
 | `src/app/app.css`, `src/site.css` | The app's styles and the static pages' styles; both import the tokens from `@passel/ui` |
 | `static/` | The static pages, the app's HTML shell and the icons, copied into `dist/` |
+| `policy.mjs` | The Content-Security-Policy headers the dev server sends, the same as the web image's `Caddyfile` |
 
 From `@passel/core`: `FeedStore`, `PacketsApi` (the packet endpoints over `fetch`, with the `Authorization` header and the problem messages), `LiveConnection` (the event stream, reconnecting with jittered backoff), the packet and event parsers, and the JWT helpers.
 
@@ -43,19 +46,31 @@ While the tab is signed in and visible, the controller keeps the API's event str
 
 `packet-created`, `packet-deleted` and `packet-updated` go to the `FeedStore`, which applies them with the rules the extension and the mobile app share (`contracts/feed-scenarios.json`): a `packet-updated` event replaces a listed item in place and never adds one.
 
+## Configuration at startup
+
+The built site holds no environment's values, so one build, and one web image, serves every environment. Before anything else the app fetches `/app/config.json` from its own origin, revalidating it every time:
+
+```json
+{"API_URL": "https://api.passel.link/api/packets", "GOOGLE_CLIENT_ID": "<id>.apps.googleusercontent.com"}
+```
+
+`API_URL` is the **packets endpoint**, not the API root; the app appends `/events` to it. It must be an `https` URL, or `http` to `localhost`, `127.0.0.1` or `[::1]` only, with no credentials, query or fragment. `GOOGLE_CLIENT_ID` is the Google OAuth **web** client id and must end in `.apps.googleusercontent.com`; only a development build with `DEV_SIGN_IN` may leave it empty. A missing file, a file that is not JSON, or a value that breaks a rule stops the app before it makes a session, an API client or loads Google's script: the page says Passel can't start and why, rather than half-working against the wrong API.
+
+A JSON file rather than a script keeps the policy strict: it is data, so nothing in it can run, and the app's `connect-src 'self'` already allows the fetch. The web image writes it when its container starts ([The web image](#the-web-image)); the dev server answers it from `.env` ([Build](#build)).
+
 ## Build
 
-`build.mjs` bundles `src/app/main.tsx`, `src/app/app.css` and `src/site.css` into `dist/`, following the workspace packages into the bundle, and copies `static/` alongside them. It needs two values and takes two more; values already in the environment take precedence over a local `.env` (template: `.env.example`):
+`build.mjs` bundles `src/app/main.tsx`, `src/app/app.css` and `src/site.css` into `dist/`, following the workspace packages into the bundle, and copies `static/` alongside them. A production build (`npm run build`) needs no values at all. The dev server (`npm run dev`, `npm run serve`) needs two and takes two more; values already in the environment take precedence over a local `.env` (template: `.env.example`):
 
 | Variable | Value |
 |---|---|
-| `API_URL` | The **packets endpoint** (for example `https://localhost:7030/api/packets`), not the API root. The app appends `/events` to it. |
-| `GOOGLE_CLIENT_ID` | The Google OAuth **web** client id. Its Authorized JavaScript origins must include the app's origin; see [Google OAuth Clients](../getting-started/google-oauth.md). |
-| `DEV_SIGN_IN` | `true` lets a development build sign in as a development user; `GOOGLE_CLIENT_ID` may then be left empty. A minified build never has it. The AppHost sets it. |
+| `API_URL` | The **packets endpoint** (for example `https://localhost:7030/api/packets`), not the API root. The dev server serves it in `/app/config.json` and puts its origin into the app's policy. |
+| `GOOGLE_CLIENT_ID` | The Google OAuth **web** client id, served in `/app/config.json`. Its Authorized JavaScript origins must include the app's origin; see [Google OAuth Clients](../getting-started/google-oauth.md). |
+| `DEV_SIGN_IN` | `true` compiles the development sign-in into a development build (`npm run dev`); `GOOGLE_CLIENT_ID` may then be left empty. A minified build never has it. The AppHost sets it. |
 | `PORT` | The dev server's port, default 5245. The AppHost sets it. |
 | `WEB_APP_OUT_DIR` | Where to build, instead of `dist/`; read from the environment only. `build.test.ts` uses it. |
 
-The app's HTML gets a Content-Security-Policy from the build: scripts from its own origin and Google Identity Services only, requests to its own origin, the API's origin and Google, preview images from any `https` site, and no plugins, `<base>` or form targets. The static pages allow no script at all.
+The security policies are response headers, not `<meta>` tags, since the app's depends on the API's origin and a header can also forbid framing. Everything under `/app/` gets the app's Content-Security-Policy: scripts from its own origin and Google Identity Services only, requests to its own origin, the API's origin and Google, preview images from any `https` site, and no plugins, `<base>`, form targets or framing. Every other page, the 404 page included, gets one that allows no script at all. The web image's `Caddyfile` sends them in production and `policy.mjs` in the dev server, and `static-pages.test.ts` checks that the two agree. The dev server stands in front of esbuild's, which can't set headers, and also sends `Referrer-Policy: no-referrer-when-downgrade`, which Google's sign-in needs on plain `http://localhost`.
 
 Run `npm install` once in `src/`, then, in `src/web`:
 
@@ -63,37 +78,45 @@ Run `npm install` once in `src/`, then, in `src/web`:
 |---|---|
 | `npm run dev` | Unminified build with source maps, rebuilt on every change and served at `http://localhost:<PORT>/`, reloading the page after each rebuild (the AppHost runs it) |
 | `npm run build` | Type-check, then a minified build into `dist/` |
-| `npm run serve` | A minified build, served the same way, to look at what will ship. It signs in with Google only, never as a development user; like `npm run dev` it gets the referrer policy Google sign-in needs on `http://localhost` |
+| `npm run serve` | A minified build, served the same way, to look at what will ship. It signs in with Google only, never as a development user; like `npm run dev` it serves `/app/config.json` and the policies from `.env`, and the referrer policy Google sign-in needs on `http://localhost` |
 | `npm run typecheck`, `npm test` | The TypeScript check, and the Vitest suite in `test/` |
-| `dotnet atom BuildWebApp` | Release build into `atom-publish/WebApp`, with `api-base-url-production` (an `https` origin with no path) and `server-client-id`; see [Build Targets](../reference/build-targets.md). Without a real Google client id it warns and takes `GOOGLE_CLIENT_ID` from `src/web/.env`, except in a headless (CI) run, where it fails |
+| `dotnet atom BuildWebApp` | Release build into `atom-publish/WebApp`, the same for every environment; it takes no parameters. See [Build Targets](../reference/build-targets.md) |
 
 ## Hosting
 
-`dist/` is a static site for any static host:
+`dist/` is a static site, but not for a host that only serves files: the host must also serve the app's configuration and send the security policies as headers. The web image does all of it, and its `deploy/web/Caddyfile` is the reference for any other host:
 
 | Path | Serve |
 |---|---|
 | `/` | `index.html` |
 | `/privacy/`, `/terms/` | `privacy/index.html`, `terms/index.html` |
 | `/app/` | `app/index.html`, with `app/app.js` and `app/styles.css` |
+| `/app/config.json` | The environment's configuration ([Configuration at startup](#configuration-at-startup)), revalidated on every load |
 | `/privacy`, `/terms`, `/app` | A redirect to the same path with the trailing slash. The mobile app links to `https://passel.link/privacy` and `https://passel.link/terms` in this form |
 | Anything else | `404.html`, with status 404 |
 
-File names carry no content hash, so the host should have browsers revalidate (`Cache-Control: no-cache`) rather than cache them for long. A host that can set headers should also send `frame-ancestors 'none'` and HSTS, which a `<meta>` policy can't. The API must list the site's origin in `Cors:AllowedOrigins` ([Configuration](../reference/configuration.md#web-api)), and the Google web client must list it as an Authorized JavaScript origin.
+File names carry no content hash, so the host should have browsers revalidate (`Cache-Control: no-cache`) rather than cache them for long. It sends the two Content-Security-Policy headers ([Build](#build)) and HSTS. The API must list the site's origin in `Cors:AllowedOrigins` ([Configuration](../reference/configuration.md#web-api)), and the Google web client must list it as an Authorized JavaScript origin.
 
 ### The web image
 
-The self-hosted deployment ([ADR 0004](../decisions/0004-hosting-on-docker-compose.md)) serves the site from the `passel-web` image: Caddy, from `deploy/web/Dockerfile` and `deploy/web/Caddyfile`, with the site from `BuildWebApp` in `/srv`. Every build of `main` builds it after the site and pushes it to `ghcr.io/invex-games/passel-web` (`PublishImages`), tagged with the version and `sha-` and the commit; the Build workflow passes the `API_BASE_URL` and `GOOGLE_WEB_CLIENT_ID` repository variables to `BuildWebApp`. Both values are compiled into the site, so an image serves one environment, and another API address means another image.
+The self-hosted deployment ([ADR 0004](../decisions/0004-hosting-on-docker-compose.md)) serves the site from the `passel-web` image: Caddy, from `deploy/web/Dockerfile`, `deploy/web/Caddyfile` and `deploy/web/entrypoint.sh`, with the site from `BuildWebApp` in `/srv`. Every build of `main` builds it after the site and pushes it to `ghcr.io/invex-games/passel-web` (`PublishImages`), tagged with the version and `sha-` and the commit. The image holds no environment's values, so the same image runs in every environment and is promoted unchanged from one to the next. It is configured when its container starts, from two environment variables:
+
+| Variable | Value |
+|---|---|
+| `API_ORIGIN` | The API's origin, such as `https://api.passel.link`: `https`, a host name and an optional port, nothing else (`http` only for `localhost` or `127.0.0.1`). One trailing slash is dropped |
+| `GOOGLE_CLIENT_ID` | The Google OAuth web client id, `<id>.apps.googleusercontent.com` |
+
+Compose sets them from the server's `.env`: `API_ORIGIN` is `https://<API_HOST>` and `GOOGLE_CLIENT_ID` is `GOOGLE_WEB_CLIENT_ID`, the same client id the API accepts ([Configuration](../reference/configuration.md#compose-deployment)). The entrypoint checks both and writes `/run/passel-web/config.json`, which Caddy serves as `/app/config.json`, then starts Caddy with the checked origin, which the `Caddyfile` puts into the app's `connect-src` (`{$API_ORIGIN}`). A value that is missing or breaks a rule stops the container with a message saying which and why (exit code 64), so a misconfigured server never serves a half-working app. The checks admit no quote, backslash, space or control character, which keeps the values from breaking out of the JSON or, since Caddy substitutes an environment value into its configuration as text, out of the header.
 
 The image keeps the rules above:
 
-- It listens on plain HTTP on port 8080, as user 1000, with Caddy's admin endpoint, automatic HTTPS and saved configuration off. TLS ends at the proxy in front of it.
+- It listens on plain HTTP on port 8080, as user 1000, with Caddy's admin endpoint, automatic HTTPS and saved configuration off. TLS ends at the proxy in front of it. The only directory it writes to is `/run/passel-web`, which the image gives to user 1000, so the entrypoint needs no capability; a container with a read-only root filesystem needs a tmpfs there (`--tmpfs /run/passel-web:uid=1000,gid=1000`).
 - `/privacy`, `/terms` and `/app` answer 308 with the trailing slash; anything that is not a file answers 404 with `404.html`.
-- Every response, the redirects and the 404 page included, carries `Cache-Control: no-cache`, `Strict-Transport-Security: max-age=31536000; includeSubDomains`, `Content-Security-Policy: frame-ancestors 'none'`, `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff` and `Referrer-Policy: strict-origin-when-cross-origin`, and no `Server` header. Caddy's `ETag` and `Last-Modified` let browsers revalidate with a 304.
+- Every response, the redirects and the 404 page included, carries `Cache-Control: no-cache`, `Strict-Transport-Security: max-age=31536000; includeSubDomains`, a `Content-Security-Policy` with `frame-ancestors 'none'` (the app's under `/app/`, the no-script one elsewhere, a 404 under `/app/` included), `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff` and `Referrer-Policy: strict-origin-when-cross-origin`, and no `Server` header. Caddy's `ETag` and `Last-Modified` let browsers revalidate with a 304, `/app/config.json` included.
 - Responses are compressed with zstd or gzip, and request bodies are capped at 1 MB.
 - The Caddy binary has its capability to bind low ports removed, so the container runs with every capability dropped.
 
-To build and look at it locally (nothing is pushed off `main`), run `dotnet atom SetupBuildInfo` (with `--skip`, `PublishImages` uses the version that last stored), then `dotnet atom BuildWebApp --server-client-id <id>.apps.googleusercontent.com`, then `dotnet atom PublishImages --skip`, and `docker run --rm -p 127.0.0.1:18081:8080 invex-games/passel-web:<version>`. Locally the images are named without the registry, as `invex-games/passel-webapi` and `invex-games/passel-web`.
+To build and look at it locally (nothing is pushed off `main`), run `dotnet atom SetupBuildInfo` (with `--skip`, `PublishImages` uses the version that last stored), then `dotnet atom BuildWebApp`, then `dotnet atom PublishImages --skip`, and `docker run --rm -p 127.0.0.1:18081:8080 --cap-drop ALL -e API_ORIGIN=https://api.example.test -e GOOGLE_CLIENT_ID=<id>.apps.googleusercontent.com invex-games/passel-web:<version>`. Locally the images are named without the registry, as `invex-games/passel-webapi` and `invex-games/passel-web`.
 
 The compose stack runs the image as `web`, behind the proxy, and the `DeployCompose` workflow deploys it with the API ([Releasing and Deploying](../guides/deploying.md#self-hosted-docker-compose)); the preview deployment in roadmap 1.E2 is still to come. The production build is checked on every pull request: `build.test.ts` runs `build.mjs` as part of `npm test`. Before the site goes up:
 
@@ -106,9 +129,10 @@ The compose stack runs the image as `web`, behind the proxy, and the `DeployComp
 
 - `controller.test.ts` drives `AppController` against a fake API: signing in and out, the reload of a signed-in tab, live events, the first and later resyncs, the tab being hidden briefly and for longer, an expired session, a refused stream, and failed loads, including a first resync that overtakes the first refresh and fails.
 - `session.test.ts` covers accepting and refusing Google credentials, expiry, the One Tap hint and development users, one per tab.
-- `views.test.tsx` renders the views to HTML with `preact-render-to-string`: tiles with and without previews, escaping, links that aren't `http(s)`, the feed's end row, and the sign-in page in each build.
-- `build.test.ts` runs the production build into a temporary folder and checks its output: every page and bundle, no source maps, the filled-in security and referrer policies, the compiled-in configuration.
-- `labels.test.ts` covers the wording; `static-pages.test.ts` checks that every link on the static pages resolves, that they carry no script and use the ADR 0002 vocabulary and link to the documentation, and that the privacy and terms drafts say they are drafts, quote the limits the API's options actually default to, and don't promise a single preview request.
+- `views.test.tsx` renders the views to HTML with `preact-render-to-string`: tiles with and without previews, escaping, links that aren't `http(s)`, the feed's end row, the sign-in page in each build, and the page shown when the configuration is not valid.
+- `config.test.ts` covers loading `/app/config.json` and every rule it is checked against: `https` only, `http` to this machine only, no credentials, query or fragment, a real client id unless the development sign-in is built in, and a missing, unreadable or non-JSON file.
+- `build.test.ts` runs the production build into a temporary folder with no values set and checks its output: every page and bundle, no source maps, no configuration, no policy in the HTML and no API address or client id compiled in. It also starts the dev server on a free port and checks `/app/config.json` and the two policies it sends.
+- `labels.test.ts` covers the wording; `static-pages.test.ts` checks that every link on the static pages resolves, that they carry no script and no policy of their own and use the ADR 0002 vocabulary and link to the documentation, that the web image's `Caddyfile` sends the same two policies as the dev server, and that the privacy and terms drafts say they are drafts, quote the limits the API's options actually default to, and don't promise a single preview request.
 
 ## The privacy and terms drafts
 

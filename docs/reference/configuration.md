@@ -18,7 +18,7 @@ The AppHost reads one setting of its own:
 
 ## Compose deployment
 
-The self-hosted deployment ([Releasing and Deploying](../guides/deploying.md#self-hosted-docker-compose)) reads every value from the server's `/opt/passel/.env`, whose template, with a comment on each key, is `deploy/compose/.env.example`; `release.env`, written by `deploy.sh`, adds `PASSEL_TAG`. `compose.yaml` gives the API and `db-migrate` an explicit environment built from those keys, never the whole file, so nothing else in `.env` reaches them.
+The self-hosted deployment ([Releasing and Deploying](../guides/deploying.md#self-hosted-docker-compose)) reads every value from the server's `/opt/passel/.env`, whose template, with a comment on each key, is `deploy/compose/.env.example`; `release.env`, written by `deploy.sh`, adds `PASSEL_TAG`. `compose.yaml` gives the API, `db-migrate` and the web app an explicit environment built from those keys, never the whole file, so nothing else in `.env` reaches them.
 
 | `.env` key | Required | Becomes |
 |---|---|---|
@@ -29,9 +29,9 @@ The self-hosted deployment ([Releasing and Deploying](../guides/deploying.md#sel
 | `PASSEL_OWNER_DB_PASSWORD` | Yes | The password of `passel_owner`, and `db-migrate`'s `ConnectionStrings__passel-db` (`Username=passel_owner`) |
 | `PASSEL_API_DB_PASSWORD` | Yes | The password of `passel_api`, and the API's `ConnectionStrings__passel-db` (`Username=passel_api`). `db-migrate` gets `Database__ApiRole=passel_api` |
 | `ENCODING_ALPHABET` | Yes | `Encoding__Alphabet`. Never changed once ids are in use |
-| `GOOGLE_WEB_CLIENT_ID` | Yes | `Authentication__Google__ClientId` |
+| `GOOGLE_WEB_CLIENT_ID` | Yes | `Authentication__Google__ClientId`, and the web app's `GOOGLE_CLIENT_ID`, which it signs in with |
 | `CHROME_EXTENSION_CLIENT_ID` | No | `Authentication__Google__AdditionalAudiences__0` |
-| `API_HOST` | Yes | `AllowedHosts`, as `<API_HOST>;localhost` (the healthcheck sends `localhost`); the edge's site for the API; the smoke check's default `https://<API_HOST>/health` |
+| `API_HOST` | Yes | `AllowedHosts`, as `<API_HOST>;localhost` (the healthcheck sends `localhost`); the web app's `API_ORIGIN`, `https://<API_HOST>`, which it calls and allows in its policy; the edge's site for the API; the smoke check's default `https://<API_HOST>/health` |
 | `WEB_HOST` | Yes | The edge's site for the web app. Only the edge uses it, but the compose file requires it in every setup |
 | `WEB_ORIGIN` | Yes | `Cors__AllowedOrigins__0`, written as a browser sends it |
 | `PROXY_TRUSTED_CIDR` | No | `ForwardedHeaders__KnownNetworks__0`, with `ForwardedHeaders__Enabled=true`. Default `172.30.0.2/32`, the bundled edge. `compose.ports.yaml` replaces it with the host's addresses on the two networks, `172.30.0.1/32` and `172.30.1.1/32` |
@@ -159,12 +159,12 @@ When you run the API outside the AppHost, put these in `src/webapi/Invex.Passel.
 
 ## Web app
 
-`src/web/.env` (template: `.env.example`) is only read by standalone builds; the AppHost supplies these values itself. See [Web App](../components/web-app.md#build).
+`src/web/.env` (template: `.env.example`) is only read by the dev server (`npm run dev`, `npm run serve`) outside the AppHost, which supplies these values itself; a production build (`npm run build`, `BuildWebApp`) needs none. See [Web App](../components/web-app.md#build). Deployed, the web image takes `API_ORIGIN` and `GOOGLE_CLIENT_ID` from its container's environment instead ([The web image](../components/web-app.md#the-web-image)).
 
 | Key | Description |
 |---|---|
-| `API_URL` | The packets endpoint, for example `https://localhost:7030/api/packets`. Its origin goes into the app's Content-Security-Policy. |
-| `GOOGLE_CLIENT_ID` | The Google OAuth **web** client id, whose Authorized JavaScript origins must include the app's origin |
+| `API_URL` | The packets endpoint, for example `https://localhost:7030/api/packets`, served in `/app/config.json`. Its origin goes into the app's Content-Security-Policy. |
+| `GOOGLE_CLIENT_ID` | The Google OAuth **web** client id, served in `/app/config.json`, whose Authorized JavaScript origins must include the app's origin |
 | `DEV_SIGN_IN` | `true` lets a development build (`npm run dev`) sign in as a development user through the API's Development-only `Dev` scheme, without Google; `GOOGLE_CLIENT_ID` may then be left empty. A minified build (`npm run build`) never has it. The AppHost sets it. |
 | `PORT` | The dev server's port (`npm run dev`, `npm run serve`). Default 5245. The AppHost sets it. |
 

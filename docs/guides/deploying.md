@@ -122,7 +122,7 @@ Once, as an administrator on the server, then on GitHub.
    | `DEPLOY_KNOWN_HOSTS` | Variable | The server's host key as a known_hosts line, from `ssh-keyscan -t ed25519 <host>`. Compare its fingerprint (`ssh-keygen -lf` on the line) with `ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub` run on the server, so the workflow never trusts a key it has only seen over the network |
    | `DEPLOY_SSH_KEY` | Secret | The private key from step 4 |
 
-   The repository variables `GOOGLE_WEB_CLIENT_ID` and `API_BASE_URL` (`https://<API_HOST>`), which the web image is built with, are listed in [Continuous Integration](ci.md#what-the-repository-needs).
+   The web image needs no repository variables: it is the same image in every environment, and takes the API's origin (`https://<API_HOST>`) and the Google web client id (`GOOGLE_WEB_CLIENT_ID`) from the server's `.env` when it starts. The repository variables `GOOGLE_WEB_CLIENT_ID` and `API_BASE_URL` that earlier builds compiled into it are no longer read ([Continuous Integration](ci.md#what-the-repository-needs)).
 8. **The packages.** After the first build of `main` has pushed them, make `passel-webapi`, `passel-web` and `passel-deploy` private (the package's settings on GitHub). Leave this repository's role under Manage Actions access as the first push set it, Admin, or at least Write, or leave the package inheriting access from the repository: the `Build` workflow pushes every later release to the same packages with its own token, and a Read role makes those pushes fail. The deploy job only reads them, with its own token, and the server signs in with that token for the one deploy only.
 9. **Google.** Add `https://<WEB_HOST>` to the Google web client's Authorized JavaScript origins ([Google OAuth Clients](../getting-started/google-oauth.md)).
 10. **The first deploy.** Run the `DeployCompose` workflow from `main` with the tag left blank. Then `https://<API_HOST>/health` should answer `Healthy`, and signing in at `https://<WEB_HOST>/app/` should show an empty feed.
@@ -231,6 +231,7 @@ Without the owner's server, the stack was run on a development machine as a sepa
 - A deploy whose smoke check failed: it printed the logs, left `release.env` as it was and exited non-zero.
 - The gate refusing `deploy local; id`, a tag with `;`, extra words and a second line, and `deploy.sh` refusing `x;rm`.
 - `backup.sh`, then the restore drill above onto empty volumes, with the data, the table owner, the grants and the files back.
+- The web image configured at start from `.env`: `/app/config.json` naming `https://<API_HOST>/api/packets` and `GOOGLE_WEB_CLIENT_ID`, and the app's policy allowing `https://<API_HOST>`. Run on its own twice with other values, the same image served the other values; it refused to start with either value missing or not valid.
 - In `compose.ports.yaml` mode, the forwarded headers believed from a request through the published port (HSTS sent for `X-Forwarded-Proto: https`) and ignored from another container on the `edge` network.
 - The bundled edge on a spare port, proxying both hosts at its fixed address with `NET_BIND_SERVICE` its only capability (with none, `caddy` cannot even start), across a restart with its certificates already stored; the IPv6 override above, with the edge at its fixed IPv6 address and the API trusting it; and the `telemetry` profile, with the dashboard running without capabilities.
 
@@ -334,7 +335,7 @@ Create the `production` environment (Settings, Environments), with required revi
 | `AZURE_SUBSCRIPTION_ID` | The subscription id |
 | `AZURE_RESOURCE_GROUP` | `<rg>` |
 | `AZURE_LOCATION` | `<region>`, for example `australiaeast` |
-| `GOOGLE_WEB_CLIENT_ID` | The Google web client id, the API's token audience ([Google OAuth Clients](../getting-started/google-oauth.md)) |
+| `GOOGLE_WEB_CLIENT_ID` | The Google web client id, the API's token audience and the client the web app signs in with ([Google OAuth Clients](../getting-started/google-oauth.md)) |
 | `CHROME_EXTENSION_CLIENT_ID` | The extension's client id, already used by the `Build` workflow |
 | `API_DOMAIN`, `API_CERTIFICATE_NAME` | Empty until the [custom domain](#custom-domain) is set up |
 
