@@ -98,7 +98,7 @@ internal interface IValidateCompose : IBuildAccessor
     private async Task CheckWebEnvironment(CancellationToken cancellationToken)
     {
         var result = await ProcessRunner.RunAsync(new("docker",
-            ["compose", "--file", "compose.yaml", "--env-file", "ci.env", "config", "--format", "json"])
+            CommandLine.Join(["compose", "--file", "compose.yaml", "--env-file", "ci.env", "config", "--format", "json"]))
             {
                 WorkingDirectory = ComposeDirectory,
                 OutputLogLevel = LogLevel.Debug,
