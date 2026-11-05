@@ -5,6 +5,6 @@ COPY compose.yaml compose.external-proxy.yaml compose.ports.yaml /bundle/
 COPY deploy.sh deploy-gate.sh backup.sh .env.example /bundle/
 COPY db/ /bundle/db/
 COPY edge/ /bundle/edge/
-LABEL org.opencontainers.image.source="https://github.com/Invex-Games/pushin" \
+LABEL org.opencontainers.image.source="https://github.com/DecSmith42/passel" \
       org.opencontainers.image.title="passel-deploy" \
       org.opencontainers.image.description="The Docker Compose bundle of a Passel release"

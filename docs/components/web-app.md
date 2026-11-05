@@ -83,7 +83,7 @@ File names carry no content hash, so the host should have browsers revalidate (`
 
 ### The web image
 
-The self-hosted deployment ([ADR 0004](../decisions/0004-hosting-on-docker-compose.md)) serves the site from the `passel-web` image: Caddy, from `deploy/web/Dockerfile` and `deploy/web/Caddyfile`, with the site from `BuildWebApp` in `/srv`. Every build of `main` builds it after the site and pushes it to `ghcr.io/invex-games/passel-web` (`PublishImages`), tagged with the version and `sha-` and the commit; the Build workflow passes the `API_BASE_URL` and `GOOGLE_WEB_CLIENT_ID` repository variables to `BuildWebApp`. Both values are compiled into the site, so an image serves one environment, and another API address means another image.
+The self-hosted deployment ([ADR 0004](../decisions/0004-hosting-on-docker-compose.md)) serves the site from the `passel-web` image: Caddy, from `deploy/web/Dockerfile` and `deploy/web/Caddyfile`, with the site from `BuildWebApp` in `/srv`. Every build of `main` builds it after the site and pushes it to `ghcr.io/decsmith42/passel-web` (`PublishImages`), tagged with the version and `sha-` and the commit; the Build workflow passes the `API_BASE_URL` and `GOOGLE_WEB_CLIENT_ID` repository variables to `BuildWebApp`. Both values are compiled into the site, so an image serves one environment, and another API address means another image.
 
 The image keeps the rules above:
 
@@ -93,7 +93,7 @@ The image keeps the rules above:
 - Responses are compressed with zstd or gzip, and request bodies are capped at 1 MB.
 - The Caddy binary has its capability to bind low ports removed, so the container runs with every capability dropped.
 
-To build and look at it locally (nothing is pushed off `main`), run `dotnet atom SetupBuildInfo` (with `--skip`, `PublishImages` uses the version that last stored), then `dotnet atom BuildWebApp --server-client-id <id>.apps.googleusercontent.com`, then `dotnet atom PublishImages --skip`, and `docker run --rm -p 127.0.0.1:18081:8080 invex-games/passel-web:<version>`. Locally the images are named without the registry, as `invex-games/passel-webapi` and `invex-games/passel-web`.
+To build and look at it locally (nothing is pushed off `main`), run `dotnet atom SetupBuildInfo` (with `--skip`, `PublishImages` uses the version that last stored), then `dotnet atom BuildWebApp --server-client-id <id>.apps.googleusercontent.com`, then `dotnet atom PublishImages --skip`, and `docker run --rm -p 127.0.0.1:18081:8080 decsmith42/passel-web:<version>`. Locally the images are named without the registry, as `decsmith42/passel-webapi` and `decsmith42/passel-web`.
 
 The compose stack runs the image as `web`, behind the proxy, and the `DeployCompose` workflow deploys it with the API ([Releasing and Deploying](../guides/deploying.md#self-hosted-docker-compose)); the preview deployment in roadmap 1.E2 is still to come. The production build is checked on every pull request: `build.test.ts` runs `build.mjs` as part of `npm test`. Before the site goes up:
 

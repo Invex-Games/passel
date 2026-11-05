@@ -72,13 +72,13 @@ Geo-redundant backup roughly doubles the backup storage, and high availability d
 
 ## One-off setup by the owner
 
-Commands use the Azure CLI. `<sub>`, `<rg>`, `<region>` and the names are placeholders, and the repository was `Invex-Games/pushin` at the time of writing. [Deploying](../guides/deploying.md) explains each step.
+Commands use the Azure CLI. `<sub>`, `<rg>`, `<region>` and the names are placeholders, and the repository is `DecSmith42/passel`. [Deploying](../guides/deploying.md) explains each step.
 
 - [ ] Choose the subscription and region, confirm the services and cost above, decide on geo-redundant backup, and change this ADR's status to accepted.
 - [ ] Register the resource providers once in the subscription: `Microsoft.App`, `Microsoft.ContainerRegistry`, `Microsoft.DBforPostgreSQL`, `Microsoft.Insights`, `Microsoft.KeyVault`, `Microsoft.ManagedIdentity`, `Microsoft.OperationalInsights` (`az provider register --namespace <name>`).
 - [ ] Create the resource group the API lives in: `az group create --name <rg> --location <region>`. The deployment never creates one.
 - [ ] Create the deployment identity in a separate resource group, so it can't change its own credentials: `az identity create --name passel-github-deploy --resource-group <ops-rg>`.
-- [ ] Give it a federated credential for the environment: `az identity federated-credential create --name github-production --identity-name passel-github-deploy --resource-group <ops-rg> --issuer https://token.actions.githubusercontent.com --subject repo:Invex-Games/pushin:environment:production --audiences api://AzureADTokenExchange`.
+- [ ] Give it a federated credential for the environment: `az identity federated-credential create --name github-production --identity-name passel-github-deploy --resource-group <ops-rg> --issuer https://token.actions.githubusercontent.com --subject repo:DecSmith42/passel:environment:production --audiences api://AzureADTokenExchange`.
 - [ ] Assign it roles on `<rg>` only: **Contributor**, and **Role Based Access Control Administrator** limited to the two roles Aspire assigns (AcrPull and Key Vault Secrets User); the condition is in [Deploying](../guides/deploying.md#role-assignments).
 - [ ] In GitHub, create the `production` environment, with required reviewers and deployments limited to `main`.
 - [ ] Add the variables (to the environment or the repository): `AZURE_CLIENT_ID` (the identity's client id), `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID`, `AZURE_RESOURCE_GROUP`, `AZURE_LOCATION`, `GOOGLE_WEB_CLIENT_ID`, and `CHROME_EXTENSION_CLIENT_ID` if it isn't set already.
