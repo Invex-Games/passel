@@ -47,7 +47,8 @@ internal interface IPublishImages : IBuildWebApp, ITestTargets, ISetupBuildInfo,
 
                 if (pushWeb)
                     foreach (var tag in tags)
-                        await ProcessRunner.RunAsync(new("docker", ["push", $"{webRepository}:{tag}"]),
+                        await ProcessRunner.RunAsync(
+                            new("docker", CommandLine.Join(["push", $"{webRepository}:{tag}"])),
                             cancellationToken);
 
                 var outcome = push
@@ -99,7 +100,7 @@ internal interface IPublishImages : IBuildWebApp, ITestTargets, ISetupBuildInfo,
         if (push)
             arguments = [.. arguments, $"-p:ContainerRegistry={ContainerRegistry}"];
 
-        await ProcessRunner.RunAsync(new("dotnet", arguments)
+        await ProcessRunner.RunAsync(new("dotnet", CommandLine.Join(arguments))
             {
                 // MSBuild reads environment variables as properties without splitting them on ';', which a
                 // command-line property would need quoting for
@@ -144,7 +145,7 @@ internal interface IPublishImages : IBuildWebApp, ITestTargets, ISetupBuildInfo,
         RootedFileSystem.CopyDirectory(site, context / "site");
 
         await ProcessRunner.RunAsync(new("docker",
-            [
+            CommandLine.Join([
                 "build",
                 // A fresh base image on every build brings Caddy's and Alpine's patches in
                 "--pull",
@@ -154,7 +155,7 @@ internal interface IPublishImages : IBuildWebApp, ITestTargets, ISetupBuildInfo,
                 "--label",
                 $"org.opencontainers.image.version={version}",
                 context.ToString(),
-            ])
+            ]))
             {
                 OutputLogLevel = LogLevel.Information,
                 // BuildKit writes its progress to stderr, which is not a warning

@@ -23,6 +23,7 @@ internal interface IFlutterHelper : IProcessHelper
             ? "flutter.bat"
             : "flutter");
 
+    /// <summary>Runs flutter with <paramref name="args" />, one argument per item, after pub get.</summary>
     async Task FlutterBuild(
         string[] args,
         RootedPath? workingDirectory = null,
@@ -51,7 +52,7 @@ internal interface IFlutterHelper : IProcessHelper
 
         await Task.Delay(2000, cancellationToken);
 
-        await ProcessRunner.RunAsync(new(commandPath, args)
+        await ProcessRunner.RunAsync(new(commandPath, CommandLine.Join(args))
             {
                 WorkingDirectory = workingDirectory ?? RootedFileSystem.AtomRootDirectory,
                 OutputLogLevel = LogLevel.Information,

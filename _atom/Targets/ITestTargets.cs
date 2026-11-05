@@ -22,7 +22,8 @@ internal interface ITestTargets : IChromeExtensionHelper, IFlutterHelper, IMobil
                 await RunTests(Projects.Invex_Passel_WebApi_IntegrationTests.Path(RootedFileSystem));
 
                 Task RunTests(string project) =>
-                    ProcessRunner.RunAsync(new("dotnet", ["test", "--project", project]), cancellationToken);
+                    ProcessRunner.RunAsync(new("dotnet", CommandLine.Join(["test", "--project", project])),
+                        cancellationToken);
             });
 
     Target TestChromeExtension =>
