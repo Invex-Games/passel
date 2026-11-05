@@ -1,0 +1,763 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+      <title>Releasing and Deploying | Passel </title>
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <meta name="title" content="Releasing and Deploying | Passel ">
+      
+      
+      <link rel="icon" href="../../resources/icon-48.png">
+      <link rel="stylesheet" href="../../public/docfx.min.css">
+      <link rel="stylesheet" href="../../public/main.css">
+      <meta name="docfx:navrel" content="../../toc.html">
+      <meta name="docfx:tocrel" content="../toc.html">
+      
+      <meta name="docfx:rel" content="../../">
+      
+      
+      <meta name="docfx:docurl" content="https://github.com/Invex-Games/passel/blob/main/docs/guides/deploying.md/#L1">
+      <meta name="loc:inThisArticle" content="In this article">
+      <meta name="loc:searchResultsCount" content="{count} results for &quot;{query}&quot;">
+      <meta name="loc:searchNoResults" content="No results for &quot;{query}&quot;">
+      <meta name="loc:tocFilter" content="Filter by title">
+      <meta name="loc:nextArticle" content="Next">
+      <meta name="loc:prevArticle" content="Previous">
+      <meta name="loc:themeLight" content="Light">
+      <meta name="loc:themeDark" content="Dark">
+      <meta name="loc:themeAuto" content="Auto">
+      <meta name="loc:changeTheme" content="Change theme">
+      <meta name="loc:copy" content="Copy">
+      <meta name="loc:downloadPdf" content="Download PDF">
+
+      <script type="module" src="./../../public/docfx.min.js"></script>
+
+      <script>
+        const theme = localStorage.getItem('theme') || 'auto'
+        document.documentElement.setAttribute('data-bs-theme', theme === 'auto' ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : theme)
+      </script>
+
+  </head>
+
+  <body class="tex2jax_ignore" data-layout="" data-yaml-mime="">
+    <header class="bg-body border-bottom">
+      <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
+        <div class="container-xxl flex-nowrap">
+          <a class="navbar-brand" href="../../index.html">
+            <img id="logo" class="svg" src="../../resources/icon-128.png" alt="Passel">
+            Passel
+          </a>
+          <button class="btn btn-lg d-md-none border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navpanel" aria-controls="navpanel" aria-expanded="false" aria-label="Toggle navigation">
+            <i class="bi bi-three-dots"></i>
+          </button>
+          <div class="collapse navbar-collapse" id="navpanel">
+            <div id="navbar">
+              <form class="search" role="search" id="search">
+                <i class="bi bi-search"></i>
+                <input class="form-control" id="search-query" type="search" disabled placeholder="Search" autocomplete="off" aria-label="Search">
+              </form>
+            </div>
+          </div>
+        </div>
+      </nav>
+    </header>
+
+    <main class="container-xxl">
+      <div class="toc-offcanvas">
+        <div class="offcanvas-md offcanvas-start" tabindex="-1" id="tocOffcanvas" aria-labelledby="tocOffcanvasLabel">
+          <div class="offcanvas-header">
+            <h5 class="offcanvas-title" id="tocOffcanvasLabel">Table of Contents</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="offcanvas" data-bs-target="#tocOffcanvas" aria-label="Close"></button>
+          </div>
+          <div class="offcanvas-body">
+            <nav class="toc" id="toc"></nav>
+          </div>
+        </div>
+      </div>
+
+      <div class="content">
+        <div class="actionbar">
+          <button class="btn btn-lg border-0 d-md-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#tocOffcanvas" aria-controls="tocOffcanvas" aria-expanded="false" aria-label="Show table of contents">
+            <i class="bi bi-list"></i>
+          </button>
+
+          <nav id="breadcrumb"></nav>
+        </div>
+
+        <article data-uid="">
+<h1 id="releasing-and-deploying">Releasing and Deploying</h1>
+
+<p>Passel runs on the owner's Ubuntu server as one Docker Compose project: PostgreSQL, the API and the web app, with an optional Caddy in front for TLS (<a href="../decisions/0004-hosting-on-docker-compose.html">ADR 0004</a>). Every build of <code>main</code> pushes the images to GitHub Container Registry, and a manual workflow deploys a tag over SSH. Nothing deploys on a merge.</p>
+<p>The Azure deployment of <a href="../decisions/0003-hosting-on-azure.html">ADR 0003</a> is still in the code and is described at the end, under <a href="#azure-legacy-adr-0003">Azure (legacy, ADR 0003)</a>. The extension and the mobile app are not deployed from here yet; their release builds are described in <a href="../reference/build-targets.html#release-builds">Build Targets</a>.</p>
+<h2 id="self-hosted-docker-compose">Self-hosted (Docker Compose)</h2>
+<h3 id="versions-and-tags">Versions and tags</h3>
+<p>Versions come from GitVersion and the conventional commit prefixes described in <code>CONTRIBUTING.md</code>; on <code>main</code> every commit has its own, such as <code>0.2.0-rc.12</code>. The <code>Build</code> workflow tests every push to <code>main</code>, then builds three images and pushes them to <code>ghcr.io/invex-games/</code>, each tagged with the version (<code>+</code> and <code>/</code> become <code>-</code>) and with <code>sha-</code> and the first seven characters of the commit:</p>
+<table>
+<thead>
+<tr>
+<th>Image</th>
+<th>What it is</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>passel-webapi</code></td>
+<td>The API, from the .NET SDK's container support. The same image runs <code>db-migrate</code></td>
+</tr>
+<tr>
+<td><code>passel-web</code></td>
+<td>Caddy serving the web app's static site (<a href="../components/web-app.html#hosting">Web App</a>)</td>
+</tr>
+<tr>
+<td><code>passel-deploy</code></td>
+<td>No program at all: the release's compose files and scripts from <code>deploy/compose</code>, which the server copies out of it</td>
+</tr>
+</tbody>
+</table>
+<p>The version tag is the one deployed and rolled back to. It never moves: a build that finds the tag in the registry for another commit fails rather than push over it. There is no <code>latest</code>. Builds of other branches build the images without pushing them.</p>
+<h3 id="what-gets-deployed">What gets deployed</h3>
+<p><code>deploy/compose/compose.yaml</code> describes the stack. Its project is named <code>passel</code>, so its volumes are <code>passel_pgdata</code> and so on.</p>
+<table>
+<thead>
+<tr>
+<th>Service</th>
+<th>Image</th>
+<th>Runs</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>postgres</code></td>
+<td><code>postgres:18</code></td>
+<td>Always</td>
+<td>The database, in the <code>pgdata</code> volume. Only on the internal <code>backend</code> network</td>
+</tr>
+<tr>
+<td><code>db-roles</code></td>
+<td><code>postgres:18</code></td>
+<td>Once per deploy</td>
+<td><code>db/roles.sh</code> as the superuser: creates or updates the <code>passel_owner</code> and <code>passel_api</code> logins with the passwords in <code>.env</code>, and makes <code>passel_owner</code> the database's owner</td>
+</tr>
+<tr>
+<td><code>parcels-init</code></td>
+<td><code>busybox</code></td>
+<td>Once per deploy</td>
+<td>Creates the parcels directory in the <code>parcels</code> volume, owned by the API's user (1654) and readable by it alone</td>
+</tr>
+<tr>
+<td><code>db-migrate</code></td>
+<td><code>passel-webapi</code></td>
+<td>Once per deploy, unless skipped</td>
+<td><code>db-migrate</code> as <code>passel_owner</code>: applies the schema and grants <code>passel_api</code> the API's DML-only privileges (<a href="../components/web-api.html#schema-in-production">Schema in production</a>)</td>
+</tr>
+<tr>
+<td><code>api</code></td>
+<td><code>passel-webapi</code></td>
+<td>Always</td>
+<td>The API as <code>passel_api</code>, keeping uploaded files in the <code>parcels</code> volume (<code>Parcels:Store=FileSystem</code>). Healthy when <code>/health</code>, which checks the database too, answers 200</td>
+</tr>
+<tr>
+<td><code>web</code></td>
+<td><code>passel-web</code></td>
+<td>Always</td>
+<td>The web app</td>
+</tr>
+<tr>
+<td><code>edge</code></td>
+<td><code>caddy:2.10-alpine</code></td>
+<td>With the <code>edge</code> profile</td>
+<td>TLS for both hosts on ports 80 and 443, with certificates from Let's Encrypt</td>
+</tr>
+<tr>
+<td><code>dashboard</code></td>
+<td><code>aspire-dashboard</code></td>
+<td>With the <code>telemetry</code> profile</td>
+<td>A telemetry viewer on the server's loopback</td>
+</tr>
+</tbody>
+</table>
+<p><code>api</code> and <code>web</code> publish no port: a proxy reaches them on the <code>edge</code> network as <code>passel-api:8080</code> and <code>passel-web:8080</code>. Both run with every capability dropped and <code>no-new-privileges</code>, and so does <code>edge</code> but for <code>NET_BIND_SERVICE</code>, which it needs to bind 80 and 443. Every service's logs rotate at 10 MB, five files. The server's <code>.env</code> supplies every setting; <a href="../reference/configuration.html#compose-deployment">Configuration</a> maps each one to the API's.</p>
+<h3 id="server-requirements">Server requirements</h3>
+<ul>
+<li>Ubuntu on x64 (the images are <code>linux/amd64</code>), with ports 80 and 443 free for the bundled edge.</li>
+<li>Docker Engine with the Compose plugin 2.24 or later (<code>docker compose version</code>); <code>deploy.sh</code> refuses an older one.</li>
+<li><code>curl</code>, and <code>openssl</code> for generating passwords. Both come with Ubuntu.</li>
+<li>Disk for the images (about 1 GB a release), the database and the uploaded files, at most 500 MB per user by default.</li>
+</ul>
+<h3 id="server-setup">Server setup</h3>
+<p>Once, as an administrator on the server, then on GitHub.</p>
+<ol>
+<li><p><strong>Updates.</strong> <code>sudo apt install unattended-upgrades</code> and keep it on, so security updates install themselves.</p>
+</li>
+<li><p><strong>The deploy user.</strong> It runs Docker, and a member of the <code>docker</code> group can do anything root can, so it gets no password and no other use:</p>
+<pre><code>sudo adduser --disabled-password --gecos &quot;&quot; deploy
+sudo usermod -aG docker deploy
+</code></pre>
+</li>
+<li><p><strong>The directory.</strong> Everything lives in <code>/opt/passel</code>, owned by the deploy user:</p>
+<pre><code>sudo install -d -o deploy -g deploy -m 750 /opt/passel
+</code></pre>
+<p>Deploys add <code>releases/&lt;tag&gt;/</code> (each release's compose files), <code>current</code> (a link to the running release), <code>release.env</code> and <code>release.env.previous</code> (the running tag and the one before), <code>releases.log</code> (one line per successful deploy, appended to) and, with the default, <code>backups/</code>.</p>
+</li>
+<li><p><strong>The deploy key and the gate.</strong> Install the gate from the repository, owned by root so the deploy user cannot edit it, and make a key for the workflow on your own machine:</p>
+<pre><code>sudo install -o root -g root -m 755 deploy/compose/deploy-gate.sh /opt/passel/deploy-gate.sh
+ssh-keygen -t ed25519 -N &quot;&quot; -C passel-deploy -f passel-deploy
+</code></pre>
+<p>Add the public key to <code>~deploy/.ssh/authorized_keys</code> (mode 600, the directory 700) behind a forced command, on one line:</p>
+<pre><code>command=&quot;/opt/passel/deploy-gate.sh&quot;,restrict ssh-ed25519 AAAA... passel-deploy
+</code></pre>
+<p>Whatever a client asks for, SSH runs the gate, which accepts only <code>deploy &lt;tag&gt;</code> and <code>deploy &lt;tag&gt; --no-migrate</code> and refuses anything else before running a thing; <code>restrict</code> turns off forwarding, terminals and agent use. The private key goes to GitHub in step 7; delete both files from your machine afterwards.</p>
+</li>
+<li><p><strong>The settings.</strong> Copy <code>deploy/compose/.env.example</code> to <code>/opt/passel/.env</code>, readable by the deploy user only (<code>chmod 600</code>), and fill it in. Generate each password with <code>openssl rand -hex 32</code>: hex needs no quoting in a connection string or in the file. <code>ENCODING_ALPHABET</code> is the Sqids alphabet for public ids, single-quoted. Generate it once and never change it; if the Azure deployment ever held data, use its <code>ENCODING_ALPHABET</code> secret instead, or every id a client holds stops working. Keep a copy of the finished <code>.env</code> off the server, in a password manager for instance: the backups don't include it, and without the same alphabet a restored database's ids and shared links no longer decode. <code>POSTGRES_PASSWORD</code> only takes effect when the database is first created (see <a href="#troubleshooting-the-server">Troubleshooting</a>).</p>
+</li>
+<li><p><strong>DNS and the proxy.</strong> Point <code>API_HOST</code> and <code>WEB_HOST</code> at the server, then pick how requests reach the stack, with <code>COMPOSE_FILE</code> and <code>COMPOSE_PROFILES</code> in <code>.env</code>:</p>
+<table>
+<thead>
+<tr>
+<th>Setup</th>
+<th><code>COMPOSE_FILE</code></th>
+<th><code>COMPOSE_PROFILES</code></th>
+<th><code>PROXY_TRUSTED_CIDR</code></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The bundled edge: Caddy on 80 and 443 with Let's Encrypt (the default)</td>
+<td><code>compose.yaml</code></td>
+<td><code>edge</code></td>
+<td><code>172.30.0.2/32</code>, the edge's fixed address</td>
+</tr>
+<tr>
+<td>A proxy already running in a Docker network of its own</td>
+<td><code>compose.yaml:compose.external-proxy.yaml</code>, and <code>PROXY_NETWORK</code> naming the network</td>
+<td>empty</td>
+<td>The proxy container's address as a <code>/32</code>, or the network's CIDR</td>
+</tr>
+<tr>
+<td>A proxy running on the host, such as nginx</td>
+<td><code>compose.yaml:compose.ports.yaml</code> (the API on <code>127.0.0.1:18080</code>, the web app on <code>127.0.0.1:18081</code>)</td>
+<td>empty</td>
+<td>Not used: Docker's port forwarding connects from the host's address on one of the API's two networks, which one depending on the Docker version, so the override trusts both, <code>172.30.0.1</code> and <code>172.30.1.1</code></td>
+</tr>
+</tbody>
+</table>
+<p>The API believes <code>X-Forwarded-For</code> and <code>X-Forwarded-Proto</code> from <code>PROXY_TRUSTED_CIDR</code> only. The stack's two networks have fixed subnets, <code>172.30.0.0/24</code> (<code>edge</code>) and <code>172.30.1.0/24</code> (<code>backend</code>), so no other Docker network on the server may use them. For the bundled edge, open 80/tcp, 443/tcp and 443/udp. Another proxy must pass the client address and scheme in those two headers, stream the event stream at <code>/api/packets/events</code> without buffering, keep it open for up to an hour and accept 25 MB uploads; It must also pass the client's original <code>Host</code> header (<code>API_HOST</code> for the API), since the API answers <code>400 Invalid Hostname</code> to any other. For nginx that is <code>proxy_set_header Host $host</code>, which nginx doesn't do by default (it sends the <code>proxy_pass</code> address, such as <code>127.0.0.1:18080</code>), then <code>proxy_buffering off</code>, <code>proxy_read_timeout 1h</code> and <code>client_max_body_size 32m</code>, besides the usual <code>proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for</code> and <code>X-Forwarded-Proto $scheme</code>. Caddy does all of it by default.</p>
+<p><strong>IPv6 and the bundled edge.</strong> The <code>edge</code> network is IPv4 only. On a server with an IPv6 address, Docker still publishes 80 and 443 on IPv6 too, and its userland proxy (<code>docker-proxy</code>) carries each IPv6 connection to the edge over IPv4, from the network's gateway, <code>172.30.0.1</code>. Caddy then sees every IPv6 client as that one address and passes it on in <code>X-Forwarded-For</code>, so the API logs it for all of them and counts all their unauthenticated requests against one rate limit. IPv6 is not turned on by default, since it needs settings that depend on the server. Pick one of these, in a file of your own such as <code>/opt/passel/compose.edge.yaml</code>, added to <code>COMPOSE_FILE</code> by its full path (<code>compose.yaml:/opt/passel/compose.edge.yaml</code>), since the release's files are replaced on every deploy. Both use <code>!override</code>, which needs Compose 2.24.4 or later:</p>
+<ul>
+<li><strong>IPv4 only.</strong> Publish the edge's ports on IPv4 alone, and give <code>API_HOST</code> and <code>WEB_HOST</code> no AAAA record, so no client tries IPv6:
+<pre><code class="lang-yaml">services:
+  edge:
+    ports: !override
+      - &quot;0.0.0.0:80:80&quot;
+      - &quot;0.0.0.0:443:443&quot;
+      - &quot;0.0.0.0:443:443/udp&quot;
+</code></pre>
+</li>
+<li><strong>IPv6 on the edge network.</strong> Give the network an IPv6 subnet of its own, a unique local (ULA) one such as <code>fdc4:9a3e:7b10::/64</code> or another <code>fd</code> prefix no other network on the server uses, and Docker forwards IPv6 clients to the edge with their own addresses. The edge needs a fixed IPv6 address like its IPv4 one, with dynamic addresses kept in the upper half, and the API must trust that address as well, since Caddy may reach <code>passel-api</code> over either:
+<pre><code class="lang-yaml">networks:
+  edge:
+    enable_ipv6: true
+    ipam:
+      config: !override
+        - subnet: 172.30.0.0/24
+          gateway: 172.30.0.1
+          ip_range: 172.30.0.128/25
+        - subnet: fdc4:9a3e:7b10::/64
+          gateway: fdc4:9a3e:7b10::1
+          ip_range: fdc4:9a3e:7b10:0:8000::/65
+services:
+  edge:
+    networks:
+      edge:
+        ipv4_address: 172.30.0.2
+        ipv6_address: fdc4:9a3e:7b10::2
+  api:
+    environment:
+      ForwardedHeaders__KnownNetworks__1: fdc4:9a3e:7b10::2/128
+</code></pre>
+This is for the bundled edge only: <code>compose.ports.yaml</code> sets <code>ForwardedHeaders__KnownNetworks__1</code> itself. It needs Docker Engine 27 or later, where IPv6 port forwarding (<code>ip6tables</code>) is on by default; an older Engine needs <code>&quot;ip6tables&quot;: true</code> in <code>/etc/docker/daemon.json</code>. The server's firewall must let IPv6 through to 80 and 443 as well. Changing the network's settings means recreating it, so <code>dc down</code> (the volumes stay) before the next deploy (<a href="#troubleshooting-the-server">Troubleshooting</a>).</li>
+</ul>
+</li>
+<li><p><strong>The <code>production</code> environment on GitHub</strong> (Settings, Environments): required reviewers, and deployment branches limited to <code>main</code>. Add these to it:</p>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Kind</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>DEPLOY_HOST</code></td>
+<td>Variable</td>
+<td>The server's host name or address</td>
+</tr>
+<tr>
+<td><code>DEPLOY_USER</code></td>
+<td>Variable</td>
+<td><code>deploy</code></td>
+</tr>
+<tr>
+<td><code>DEPLOY_KNOWN_HOSTS</code></td>
+<td>Variable</td>
+<td>The server's host key as a known_hosts line, from <code>ssh-keyscan -t ed25519 &lt;host&gt;</code>. Compare its fingerprint (<code>ssh-keygen -lf</code> on the line) with <code>ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub</code> run on the server, so the workflow never trusts a key it has only seen over the network</td>
+</tr>
+<tr>
+<td><code>DEPLOY_SSH_KEY</code></td>
+<td>Secret</td>
+<td>The private key from step 4</td>
+</tr>
+</tbody>
+</table>
+<p>The web image needs no repository variables: it is the same image in every environment, and takes the API's origin (<code>https://&lt;API_HOST&gt;</code>) and the Google web client id (<code>GOOGLE_WEB_CLIENT_ID</code>) from the server's <code>.env</code> when it starts. The repository variables <code>GOOGLE_WEB_CLIENT_ID</code> and <code>API_BASE_URL</code> that earlier builds compiled into it are no longer read (<a href="ci.html#what-the-repository-needs">Continuous Integration</a>).</p>
+</li>
+<li><p><strong>The packages.</strong> After the first build of <code>main</code> has pushed them, make <code>passel-webapi</code>, <code>passel-web</code> and <code>passel-deploy</code> private (the package's settings on GitHub). Leave this repository's role under Manage Actions access as the first push set it, Admin, or at least Write, or leave the package inheriting access from the repository: the <code>Build</code> workflow pushes every later release to the same packages with its own token, and a Read role makes those pushes fail. The deploy job only reads them, with its own token, and the server signs in with that token for the one deploy only.</p>
+</li>
+<li><p><strong>Google.</strong> Add <code>https://&lt;WEB_HOST&gt;</code> to the Google web client's Authorized JavaScript origins (<a href="../getting-started/google-oauth.html">Google OAuth Clients</a>).</p>
+</li>
+<li><p><strong>The first deploy.</strong> Run the <code>DeployCompose</code> workflow from <code>main</code> with the tag left blank. Then <code>https://&lt;API_HOST&gt;/health</code> should answer <code>Healthy</code>, and signing in at <code>https://&lt;WEB_HOST&gt;/app/</code> should show an empty feed.</p>
+</li>
+</ol>
+<h3 id="the-deploycompose-workflow">The DeployCompose workflow</h3>
+<p><code>DeployCompose</code> runs on manual dispatch only (Actions, DeployCompose, Run workflow), in the <code>production</code> environment, so its protection rules apply first. One run deploys at a time; a second waits rather than cancelling the first. It has two inputs: <code>image-tag</code>, blank for the version of the commit the run is on, and <code>migrate</code>, on by default.</p>
+<p>The <code>DeployCompose</code> target checks the tag, checks that the registry has all three images at that tag, and connects to the server as <code>DEPLOY_USER</code>, checking its host key against <code>DEPLOY_KNOWN_HOSTS</code>. It sends <code>deploy &lt;tag&gt;</code> (with <code>--no-migrate</code> when <code>migrate</code> is off) and the job's token on standard input. The gate on the server signs in to the registry with the token in a temporary Docker configuration, which it deletes when it exits, so no credential stays on the server; a Compose plugin installed for the deploy user alone (<code>~/.docker/cli-plugins</code>) is linked into it, so it is still found. It takes the server's deploy lock (<code>/opt/passel/.deploy.lock</code>), so a second deploy, from the workflow or by hand, stops with <code>another deploy is running</code> before it touches anything, and holds it until <code>deploy.sh</code> ends. It pulls <code>passel-deploy:&lt;tag&gt;</code>, copies its files to <code>/opt/passel/releases/&lt;tag&gt;/</code>, and runs that release's <code>deploy.sh</code>, which:</p>
+<ol>
+<li>Pulls the images. Passel's own are pulled only when the server lacks them, since a version tag never moves. PostgreSQL's, busybox's, Caddy's and the dashboard's are pulled on every deploy, which brings their patches in, except with <code>--no-migrate</code>, when the server's own copies are used too. When Docker Hub or MCR can't be reached, the deploy goes on with the images the server has; only one it has never pulled fails it.</li>
+<li>Starts PostgreSQL and waits for it to be healthy.</li>
+<li>Runs <code>db-roles</code>, <code>parcels-init</code> and, unless <code>--no-migrate</code>, <code>db-migrate</code>, each to completion.</li>
+<li>Starts <code>api</code>, <code>web</code> and the profiles' services, and waits for them to be healthy.</li>
+<li>Fetches <code>SMOKE_URL</code> (<code>https://&lt;API_HOST&gt;/health</code> by default), retrying for about half a minute.</li>
+</ol>
+<p>Only when every step has succeeded does it record the release: <code>release.env</code> becomes <code>release.env.previous</code>, the new <code>release.env</code> names the tag, <code>releases.log</code> gets a line, <code>current</code> points at the release, and dangling images are pruned (tagged ones stay for a rollback). If a step fails, it prints the last 200 lines of the API's and the web app's logs, leaves <code>release.env</code> as it was and fails the run. Whatever had already started keeps running: a failed migration leaves the previous API serving, but an API that started and then failed the smoke check is the new one, so roll back as below.</p>
+<p>Each release deploys with its own compose files, because they come from the deploy image of the same tag.</p>
+<h3 id="rolling-back-to-an-earlier-release">Rolling back to an earlier release</h3>
+<p>Run <code>DeployCompose</code> with <code>image-tag</code> set to the release to go back to and <code>migrate</code> off. <code>releases.log</code> on the server names the earlier tags (<code>release.env.previous</code> holds only the last one, which is the same tag after a repeat deploy or a restore); any tag the registry still has works. That release's images start with that release's compose files, on the database as the newer migration left it.</p>
+<p>That only works because of one rule for every change to the schema: a release may add tables and columns, but a new column must be nullable or have a default, so that the release before it, which doesn't know the column, can still insert rows. <code>db-migrate</code> never drops a column, an index or a foreign key, and the API's startup check accepts what a newer migration added. With <code>migrate</code> off, the older migration doesn't run either; run it (<code>migrate</code> on) only if the older release needs Marten functions put back, which its startup check would say.</p>
+<h3 id="deploying-by-hand">Deploying by hand</h3>
+<p>On the server, as the deploy user, the gate does the same as the workflow. A tag the server has deployed before, with <code>--no-migrate</code>, needs no registry, neither GHCR nor Docker Hub nor MCR:</p>
+<pre><code>SSH_ORIGINAL_COMMAND=&quot;deploy 0.2.0-rc.11 --no-migrate&quot; /opt/passel/deploy-gate.sh &lt;/dev/null
+</code></pre>
+<p>For a tag it has never pulled, give the gate a GitHub token that can read the packages (a fine-grained or classic token with <code>read:packages</code>) on standard input; it is used for this deploy only and not stored:</p>
+<pre><code>read -rs TOKEN &amp;&amp; printf '%s\n' &quot;$TOKEN&quot; | SSH_ORIGINAL_COMMAND=&quot;deploy 0.2.0-rc.12&quot; /opt/passel/deploy-gate.sh
+</code></pre>
+<p>To run compose yourself, work from the running release and give it both settings files:</p>
+<pre><code>cd /opt/passel/current
+docker compose --env-file ../../.env --env-file ../../release.env ps
+</code></pre>
+<h3 id="logs-and-telemetry-on-the-server">Logs and telemetry on the server</h3>
+<p><code>docker compose --env-file ../../.env --env-file ../../release.env logs -f api</code> (from <code>/opt/passel/current</code>) follows the API's log; <code>docker compose ... logs db-migrate</code> has nothing, because the one-off services run with <code>--rm</code> and their output went to the deploy's log, which is the workflow run's. Docker keeps 50 MB of each service's log. The API logs a warning at startup that its data protection keys are not persisted: nothing in Production uses them, since the API takes bearer tokens only.</p>
+<p>The API exports logs, traces and metrics over OTLP when <code>OTEL_EXPORTER_OTLP_ENDPOINT</code> is set, to any OTLP backend (<code>OTEL_EXPORTER_OTLP_PROTOCOL</code> and <code>OTEL_EXPORTER_OTLP_HEADERS</code> as the backend needs). For a look without one, add <code>telemetry</code> to <code>COMPOSE_PROFILES</code>, set the endpoint to <code>http://dashboard:18889</code> and deploy: the Aspire dashboard listens on the server's <code>127.0.0.1:18888</code>, reached with <code>ssh -L 18888:127.0.0.1:18888 &lt;you&gt;@&lt;server&gt;</code> from your own account (the deploy key can't forward), and its log has the login link. It keeps telemetry in memory only. The privacy rules in <a href="#logs-and-telemetry">Logs and telemetry</a> apply to whatever backend receives it.</p>
+<h3 id="backups-and-the-restore-drill">Backups and the restore drill</h3>
+<p><code>backup.sh</code> writes three files with the same UTC timestamp: <code>db-&lt;time&gt;.dump</code> (<code>pg_dump</code> in the custom format), <code>roles-&lt;time&gt;.sql</code> (<code>pg_dumpall --roles-only</code>, for reference: <code>db-roles</code> recreates the logins) and <code>parcels-&lt;time&gt;.tgz</code> (the parcels volume). It writes them under temporary names and renames them only once all three are complete, so a failed run leaves no dump without its archive. The API keeps running throughout. The database is dumped first and the files archived second: a file uploaded in between is in the archive without a record, and the orphan scan removes it after a restore; a parcel deleted in between is in the dump without its file, and after a restore its download answers 404 (the API logs <code>Parcel &lt;id&gt; has no blob</code>). Uploads in flight (<code>.uploading</code>) are left out of the archive, and a file the API moves or deletes while the archive is written is skipped and named in the log; any other error from <code>tar</code> fails the run. Run it from the deploy user's crontab:</p>
+<pre><code>15 3 * * * /opt/passel/current/backup.sh /var/backups/passel &gt;&gt;/var/log/passel/backup.log 2&gt;&amp;1
+</code></pre>
+<p>The directory and the log's directory must exist and belong to the deploy user. Shipping the files off the server and pruning old ones is for an offsite tool such as restic or rclone, run after it. The database and the parcels are consistent only as a pair from the same run. The backups leave out <code>/opt/passel/.env</code>, which holds the passwords and <code>ENCODING_ALPHABET</code>: keep a copy of it off the server, apart from the backup files (step 5 of <a href="#server-setup">Server setup</a>). The passwords can be set anew, but every packet, parcel and device id a client holds, and every shared link, depends on the alphabet, and a restore with another one brings the data back with none of them decoding.</p>
+<p>To restore, or to rehearse a restore on a spare server, from <code>/opt/passel/current</code> with <code>dc</code> standing for <code>docker compose --env-file ../../.env --env-file ../../release.env</code> and <code>$backups</code> for the directory the backup files are in (<code>/var/backups/passel</code> with the cron line above, <code>/opt/passel/backups</code> by default):</p>
+<ol start="0">
+<li>On a new server, set it up as in <a href="#server-setup">Server setup</a>, but put the kept copy of <code>.env</code> at <code>/opt/passel/.env</code> instead of a new one, with the same <code>ENCODING_ALPHABET</code>, and deploy the release the backup came from once, so that <code>current</code> and <code>release.env</code> exist.</li>
+<li><code>dc down</code>, and for a full restore remove the old volumes too (<code>dc down -v</code>).</li>
+<li><code>dc up -d --wait postgres</code>, which creates an empty database.</li>
+<li><code>dc run --rm --no-deps -T db-roles</code> for the two logins.</li>
+<li><code>dc exec -T postgres sh -c 'pg_restore --username=&quot;$POSTGRES_USER&quot; --dbname=&quot;$POSTGRES_DB&quot; --no-owner --no-privileges --role=passel_owner' &lt; &quot;$backups&quot;/db-&lt;time&gt;.dump</code>. The tables then belong to <code>passel_owner</code>; the dump's grants are left out because <code>passel_app</code> doesn't exist yet.</li>
+<li><code>dc run --rm --no-deps -T db-migrate</code>, which creates <code>passel_app</code> and puts back the grants and default privileges.</li>
+<li><code>dc run --rm --no-deps -T parcels-init</code>, then <code>dc run --rm --no-deps -T parcels-init sh -c 'cd /v &amp;&amp; tar -xzf -' &lt; &quot;$backups&quot;/parcels-&lt;time&gt;.tgz</code>.</li>
+<li>Deploy the release again (<code>deploy &lt;tag&gt; --no-migrate</code>), which starts the rest and checks it. This redeploy makes <code>release.env.previous</code> name the same tag, so after a restore look in <code>releases.log</code> for the releases before it.</li>
+</ol>
+<h3 id="disk-space">Disk space</h3>
+<p><code>df -h /var/lib/docker</code> shows what is left for the images and the volumes, and <code>docker system df -v</code> what each volume takes. A full disk shows first as 503 on the file endpoints (the filesystem store's writes fail), then as a database that stops accepting writes. Each release keeps its images until removed: <code>docker image ls 'ghcr.io/invex-games/*'</code> lists them, and <code>docker image rm</code> removes those of releases you won't roll back to. Their directories under <code>releases/</code> are small and can go too, except the current and previous ones.</p>
+<h3 id="troubleshooting-the-server">Troubleshooting the server</h3>
+<table>
+<thead>
+<tr>
+<th>Symptom</th>
+<th>Likely cause</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>deploy-gate: refused</code></td>
+<td>The request was not exactly <code>deploy &lt;tag&gt;</code> or <code>deploy &lt;tag&gt; --no-migrate</code>, or the tag has a character outside letters, digits, <code>.</code>, <code>_</code> and <code>-</code></td>
+</tr>
+<tr>
+<td>The workflow fails before connecting, saying an image is not in the registry</td>
+<td>The tag was never pushed: only builds of <code>main</code> push, and the build may still be running</td>
+</tr>
+<tr>
+<td><code>Host key verification failed</code></td>
+<td><code>DEPLOY_KNOWN_HOSTS</code> doesn't hold the server's current host key</td>
+</tr>
+<tr>
+<td><code>db-roles</code> fails to sign in</td>
+<td><code>POSTGRES_PASSWORD</code> was changed in <code>.env</code> after the database was created; the image only uses it the first time. Put the old one back, or first run <code>ALTER ROLE postgres PASSWORD '&lt;new&gt;'</code> with <code>dc exec postgres psql -U postgres</code></td>
+</tr>
+<tr>
+<td><code>db-migrate</code> fails with permission denied</td>
+<td>It ran as another login than <code>passel_owner</code>, or the tables belong to another role (a restore without <code>--no-owner</code>)</td>
+</tr>
+<tr>
+<td>The API never becomes healthy and its log names the schema</td>
+<td>The schema lacks a table, column or function the API needs: <code>db-migrate</code> didn't run, or the deploy used <code>--no-migrate</code> for a release whose migration never ran</td>
+</tr>
+<tr>
+<td>The API stops at startup over <code>Cors:AllowedOrigins</code></td>
+<td><code>WEB_ORIGIN</code> isn't written as a browser sends it: scheme and host, a port only when it isn't the default, no path and no trailing slash</td>
+</tr>
+<tr>
+<td>Every request gets <code>400 Invalid Hostname</code></td>
+<td>The proxy sends a <code>Host</code> other than <code>API_HOST</code></td>
+</tr>
+<tr>
+<td>Every request gets <code>401</code></td>
+<td><code>GOOGLE_WEB_CLIENT_ID</code> or <code>CHROME_EXTENSION_CLIENT_ID</code> doesn't match the client the token was issued to</td>
+</tr>
+<tr>
+<td>File requests get <code>503</code>, while packets work</td>
+<td>The parcels directory can't be written: the volume is full, or the directory belongs to root (it was created without <code>parcels-init</code>; deploying again fixes it)</td>
+</tr>
+<tr>
+<td>Rate limits hit everyone at once, or the API logs the proxy's address for every client</td>
+<td><code>PROXY_TRUSTED_CIDR</code> doesn't match the proxy, so the forwarded headers are ignored</td>
+</tr>
+<tr>
+<td>With the bundled edge, the API logs <code>172.30.0.1</code> for every IPv6 client, and they share one rate limit</td>
+<td>The <code>edge</code> network has no IPv6, so Docker carries IPv6 clients to it from the gateway; see <a href="#server-setup">IPv6 and the bundled edge</a></td>
+</tr>
+<tr>
+<td>Clients can set their own address</td>
+<td>The forwarded headers are applied twice: <code>ASPNETCORE_FORWARDEDHEADERS_ENABLED</code> must stay unset, or the API is reachable other than through the proxy</td>
+</tr>
+<tr>
+<td><code>edge</code> fails with &quot;address already in use&quot;</td>
+<td>Something else holds port 80 or 443 on the host</td>
+</tr>
+<tr>
+<td>A network fails to be created, saying its pool overlaps</td>
+<td>Another Docker network on the server uses <code>172.30.0.0/24</code> or <code>172.30.1.0/24</code></td>
+</tr>
+<tr>
+<td>A deploy fails because a network &quot;has active endpoints&quot;</td>
+<td>The release changed a network's settings, which Docker can only apply to a new network. <code>dc down</code> (the volumes stay), then deploy the release again</td>
+</tr>
+</tbody>
+</table>
+<h3 id="verified-locally">Verified locally</h3>
+<p>Without the owner's server, the stack was run on a development machine as a separate project (<code>passel-verify</code>, on the loopback ports of <code>compose.ports.yaml</code>) from locally built images, through the gate as the workflow would:</p>
+<ul>
+<li>A first deploy, a second release and a rollback to the first with <code>--no-migrate</code>, each recorded in <code>releases.log</code> with <code>release.env.previous</code> naming the one before. <code>db-roles</code> and <code>db-migrate</code> ran every time; <code>db-migrate</code> as <code>passel_owner</code>, not a superuser, applied the schema to an empty database and again to an existing one.</li>
+<li>The API healthy through its own healthcheck, <code>/health</code> answering 200 with <code>Host: localhost</code> and 400 with any other, an unauthenticated request getting 401, the parcels directory owned by 1654 and writable, and <code>ASPNETCORE_FORWARDEDHEADERS_ENABLED</code> absent.</li>
+<li>A deploy whose smoke check failed: it printed the logs, left <code>release.env</code> as it was and exited non-zero.</li>
+<li>The gate refusing <code>deploy local; id</code>, a tag with <code>;</code>, extra words and a second line, and <code>deploy.sh</code> refusing <code>x;rm</code>.</li>
+<li><code>backup.sh</code>, then the restore drill above onto empty volumes, with the data, the table owner, the grants and the files back.</li>
+<li>The web image configured at start from <code>.env</code>: <code>/app/config.json</code> naming <code>https://&lt;API_HOST&gt;/api/packets</code> and <code>GOOGLE_WEB_CLIENT_ID</code>, and the app's policy allowing <code>https://&lt;API_HOST&gt;</code>. Run on its own twice with other values, the same image served the other values; it refused to start with either value missing or not valid.</li>
+<li>In <code>compose.ports.yaml</code> mode, the forwarded headers believed from a request through the published port (HSTS sent for <code>X-Forwarded-Proto: https</code>) and ignored from another container on the <code>edge</code> network.</li>
+<li>The bundled edge on a spare port, proxying both hosts at its fixed address with <code>NET_BIND_SERVICE</code> its only capability (with none, <code>caddy</code> cannot even start), across a restart with its certificates already stored; the IPv6 override above, with the edge at its fixed IPv6 address and the API trusting it; and the <code>telemetry</code> profile, with the dashboard running without capabilities.</li>
+</ul>
+<p>What only the server can show: the first pull from GHCR with the job's token, Let's Encrypt certificates for the real hosts, the deploy over SSH with the forced command, and the external-proxy setups.</p>
+<h2 id="azure-legacy-adr-0003">Azure (legacy, ADR 0003)</h2>
+<p>This deployment is no longer where Passel runs, but its code stays in place: the AppHost's Azure model (<code>src/webapi/Invex.Passel.AppHost/AzureHosting.cs</code>), the Azure blob parcel store and the manual <code>Deploy</code> workflow, with its concurrency group <code>deploy-webapi</code>. The API runs on Azure Container Apps with an Azure Database for PostgreSQL flexible server, deployed with <code>aspire deploy</code>.</p>
+<h3 id="versions">Versions</h3>
+<p>Versions come from GitVersion and the conventional commit prefixes described in <code>CONTRIBUTING.md</code>. Every push to <code>main</code> runs the <code>Build</code> workflow, which tests everything and attaches the release builds to the run. The Deploy workflow deploys the commit it was started on, and tags the API's image with that commit's version, so the image in the registry, the revision in Azure and the commit always match.</p>
+<h3 id="what-gets-deployed-1">What gets deployed</h3>
+<table>
+<thead>
+<tr>
+<th>Resource</th>
+<th>Name in the AppHost</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Container Apps environment, with a container registry</td>
+<td><code>passel-env</code></td>
+<td>Runs the API and the migration job; the registry holds their images</td>
+</tr>
+<tr>
+<td>Container app</td>
+<td><code>invex-passel-webapi</code></td>
+<td>The API: one replica, 0.5 vCPU, 1 GiB, HTTPS ingress, readiness on <code>/health</code> and liveness on <code>/alive</code></td>
+</tr>
+<tr>
+<td>Container Apps job</td>
+<td><code>passel-migrate</code></td>
+<td>The API's image started as <code>db-migrate</code>: applies the schema and grants the API's role its privileges</td>
+</tr>
+<tr>
+<td>PostgreSQL flexible server and database</td>
+<td><code>passel-pg</code>, <code>passel-db</code></td>
+<td>PostgreSQL 18, Burstable B1ms, 32 GB with auto-grow, 14 days of point-in-time restore, Entra authentication only</td>
+</tr>
+<tr>
+<td>Storage account, with the <code>parcels</code> blob container</td>
+<td><code>passel-storage</code>, <code>passel-blobs</code>, <code>passel-parcels</code></td>
+<td>Uploaded files. Standard LRS, no anonymous access, TLS 1.2, no shared keys (the API signs in as its identity, with Storage Blob Data Contributor and no other role on the account). Blob soft delete and versioning are off, so a deleted file is erased; deleted containers are kept for 7 days.</td>
+</tr>
+<tr>
+<td>Key Vault</td>
+<td><code>passel-kv</code></td>
+<td>The Sqids alphabet</td>
+</tr>
+<tr>
+<td>Log Analytics workspace and Application Insights</td>
+<td><code>passel-logs</code>, <code>passel-insights</code></td>
+<td>Container logs, and the API's logs, traces and metrics</td>
+</tr>
+<tr>
+<td>Managed identities</td>
+<td><code>passel-api-identity</code> and one per job and environment</td>
+<td>What each resource signs in as; no passwords</td>
+</tr>
+</tbody>
+</table>
+<p>Azure names are derived from these and made unique per resource group, so the server, the vault, the storage account and the environment get a suffix (<code>passelpg-…</code>, <code>passelkv-…</code>, <code>passelstorage…</code>, <code>passelenv…</code>). The container app and the job keep their names.</p>
+<div class="WARNING">
+<h5>Warning</h5>
+<p>Leave blob soft delete and versioning off on the storage account. Deleting a file must erase it (<a href="../decisions/0001-packets-as-documents.html">ADR 0001</a>); with either on, Azure keeps every deleted file for the retention period, out of reach of the API's sweep. Container soft delete is on, and keeps no deleted files: it only lets a container deleted by mistake be restored within 7 days.</p>
+</div>
+<h3 id="the-deploy-workflow">The Deploy workflow</h3>
+<p><code>Deploy</code> runs on manual dispatch only (Actions, Deploy, Run workflow), in the <code>production</code> environment, so its protection rules apply before anything runs. One run deploys at a time; a second one waits rather than cancelling the first. The workflow signs in to Azure with <code>azure/login</code> and the deployment identity's federated credential, then runs <code>DeployWebApi</code>, which:</p>
+<ol>
+<li>Checks that the Google client ids are real client ids and that the Sqids alphabet is set.</li>
+<li>Writes the Bicep with <code>aspire publish</code> and attaches it to the run as <code>AzureInfrastructure</code>, a record of what was provisioned.</li>
+<li>Runs <code>aspire deploy --environment Production</code>. Aspire provisions or updates every resource in the resource group, builds the two images with <code>dotnet publish</code> (the .NET SDK's container support) and pushes them with the version tag, updates the migration job and runs it, and only once the migration has succeeded updates the API's container app. Container Apps then starts the new revision and moves traffic to it when its readiness probe passes.</li>
+</ol>
+<p>If the migration fails, the deployment stops before the API is touched, and the running revision keeps serving. If a new revision never becomes ready (a missing setting, for example), or the deployment fails after the migration, the previous revision keeps serving too, and can still restart: the API's startup check accepts a schema a newer migration has added to, and only refuses one that lacks something it needs.</p>
+<p>To see the Bicep without deploying, run <code>dotnet atom PublishAzureInfrastructure</code>; it writes the files to <code>atom-publish/AzureInfrastructure</code> without signing in to anything. Every pull request runs it too, so a change that breaks the Azure model fails in review.</p>
+<h3 id="one-off-setup">One-off setup</h3>
+<p>These are the steps of the checklist in <a href="../decisions/0003-hosting-on-azure.html#one-off-setup-by-the-owner">ADR 0003</a>, in order. They need someone who can create resource groups and role assignments in the subscription; the deployment identity itself only ever gets rights in the API's resource group.</p>
+<h4 id="azure">Azure</h4>
+<p>Register the resource providers the deployment uses, once per subscription:</p>
+<pre><code>az provider register --namespace Microsoft.App
+az provider register --namespace Microsoft.ContainerRegistry
+az provider register --namespace Microsoft.DBforPostgreSQL
+az provider register --namespace Microsoft.Insights
+az provider register --namespace Microsoft.KeyVault
+az provider register --namespace Microsoft.ManagedIdentity
+az provider register --namespace Microsoft.OperationalInsights
+az provider register --namespace Microsoft.Storage
+</code></pre>
+<p>Create the API's resource group, and a separate one for the deployment identity. The identity lives apart so that its rights in the API's group don't include changing its own credentials:</p>
+<pre><code>az group create --name &lt;rg&gt; --location &lt;region&gt;
+az group create --name &lt;ops-rg&gt; --location &lt;region&gt;
+az identity create --name passel-github-deploy --resource-group &lt;ops-rg&gt;
+</code></pre>
+<p>Give the identity a federated credential that only a workflow job in the <code>production</code> environment of this repository can use:</p>
+<pre><code>az identity federated-credential create --name github-production --identity-name passel-github-deploy --resource-group &lt;ops-rg&gt; --issuer https://token.actions.githubusercontent.com --subject repo:Invex-Games/passel:environment:production --audiences api://AzureADTokenExchange
+</code></pre>
+<p>Note the identity's <code>clientId</code> and <code>principalId</code> (<code>az identity show --name passel-github-deploy --resource-group &lt;ops-rg&gt;</code>), and the tenant id (<code>az account show --query tenantId</code>).</p>
+<h4 id="role-assignments">Role assignments</h4>
+<p>The deployment identity needs <strong>Contributor</strong> on the API's resource group to create and update the resources, and <strong>Role Based Access Control Administrator</strong> there for the three role assignments Aspire makes: AcrPull for the environment's identity on the registry, Key Vault Secrets User for the API's identity on the vault, and Storage Blob Data Contributor for the API's identity on the storage account. The condition limits it to those three roles:</p>
+<pre><code>az role assignment create --assignee-object-id &lt;principalId&gt; --assignee-principal-type ServicePrincipal --role Contributor --scope /subscriptions/&lt;sub&gt;/resourceGroups/&lt;rg&gt;
+
+az role assignment create --assignee-object-id &lt;principalId&gt; --assignee-principal-type ServicePrincipal --role &quot;Role Based Access Control Administrator&quot; --scope /subscriptions/&lt;sub&gt;/resourceGroups/&lt;rg&gt; --condition-version 2.0 --condition &quot;((!(ActionMatches{'Microsoft.Authorization/roleAssignments/write'})) OR (@Request[Microsoft.Authorization/roleAssignments:RoleDefinitionId] ForAnyOfAnyValues:GuidEquals {7f951dda-4ed3-4680-a7ca-43fe172d538d, 4633458b-17de-408a-b874-0445c86b69e6, ba92f5b4-2d11-453d-a403-e96b0029c9fe})) AND ((!(ActionMatches{'Microsoft.Authorization/roleAssignments/delete'})) OR (@Resource[Microsoft.Authorization/roleAssignments:RoleDefinitionId] ForAnyOfAnyValues:GuidEquals {7f951dda-4ed3-4680-a7ca-43fe172d538d, 4633458b-17de-408a-b874-0445c86b69e6, ba92f5b4-2d11-453d-a403-e96b0029c9fe}))&quot;
+</code></pre>
+<p>If the identity was given the role with the two-role condition before files were added, replace its assignment with this one (<code>az role assignment delete</code> with the same assignee, role and scope, then the command above); otherwise the first deployment with the storage account fails with <code>AuthorizationFailed</code> on the storage role assignment.</p>
+<p>The deployment identity gets no access to the database: the migration runs inside Azure as the job's own identity.</p>
+<h4 id="github">GitHub</h4>
+<p>Create the <code>production</code> environment (Settings, Environments), with required reviewers and deployment branches limited to <code>main</code>. Then add these variables to the environment, or to the repository if other workflows need them too:</p>
+<table>
+<thead>
+<tr>
+<th>Variable</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>AZURE_CLIENT_ID</code></td>
+<td>The deployment identity's client id</td>
+</tr>
+<tr>
+<td><code>AZURE_TENANT_ID</code></td>
+<td>The tenant id</td>
+</tr>
+<tr>
+<td><code>AZURE_SUBSCRIPTION_ID</code></td>
+<td>The subscription id</td>
+</tr>
+<tr>
+<td><code>AZURE_RESOURCE_GROUP</code></td>
+<td><code>&lt;rg&gt;</code></td>
+</tr>
+<tr>
+<td><code>AZURE_LOCATION</code></td>
+<td><code>&lt;region&gt;</code>, for example <code>australiaeast</code></td>
+</tr>
+<tr>
+<td><code>GOOGLE_WEB_CLIENT_ID</code></td>
+<td>The Google web client id, the API's token audience and the client the web app signs in with (<a href="../getting-started/google-oauth.html">Google OAuth Clients</a>)</td>
+</tr>
+<tr>
+<td><code>CHROME_EXTENSION_CLIENT_ID</code></td>
+<td>The extension's client id, already used by the <code>Build</code> workflow</td>
+</tr>
+<tr>
+<td><code>API_DOMAIN</code>, <code>API_CERTIFICATE_NAME</code></td>
+<td>Empty until the <a href="#custom-domain">custom domain</a> is set up</td>
+</tr>
+</tbody>
+</table>
+<p>And one environment secret, <code>ENCODING_ALPHABET</code>: the Sqids alphabet for public ids, a shuffle of the 62 letters and digits. Generate it once and keep it: changing it later makes every id a client holds invalid.</p>
+<pre><code>pwsh -c &quot;-join ([char[]]'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789' | Get-Random -Shuffle)&quot;
+</code></pre>
+<h4 id="first-deployment">First deployment</h4>
+<p>Run the Deploy workflow from <code>main</code>. The first run creates everything and takes several minutes, most of it the database server. The run's log ends with the API's URL (<code>https://invex-passel-webapi.&lt;environment domain&gt;</code>); <code>/health</code> there should answer <code>Healthy</code>.</p>
+<h4 id="custom-domain">Custom domain</h4>
+<p>The clients' production builds call <code>https://api.passel.link</code>, so the API needs that domain bound with a certificate. Container Apps validates the domain before it accepts it, and issues a managed certificate only once the domain is bound, so it takes two deployments:</p>
+<ol>
+<li>Look up the app's host name and the environment's verification id:
+<pre><code>az containerapp show --name invex-passel-webapi --resource-group &lt;rg&gt; --query properties.configuration.ingress.fqdn --output tsv
+az containerapp env list --resource-group &lt;rg&gt; --query &quot;[0].properties.customDomainConfiguration.customDomainVerificationId&quot; --output tsv
+</code></pre>
+</li>
+<li>Add a CNAME record <code>api</code> pointing at the host name, and a TXT record <code>asuid.api</code> holding the verification id.</li>
+<li>Set <code>API_DOMAIN</code> to <code>api.passel.link</code> and deploy. The domain is added without a certificate, and the API's <code>AllowedHosts</code> now includes it.</li>
+<li>Create the managed certificate, then set <code>API_CERTIFICATE_NAME</code> to its name and deploy again:
+<pre><code>az containerapp env certificate create --resource-group &lt;rg&gt; --name &lt;environment name&gt; --certificate-name api-passel-link --hostname api.passel.link --validation-method CNAME
+</code></pre>
+</li>
+</ol>
+<p>Every later deployment keeps the binding, because both values come from the variables each time.</p>
+<h3 id="the-database">The database</h3>
+<p>Three kinds of role exist on the server:</p>
+<table>
+<thead>
+<tr>
+<th>Role</th>
+<th>Who</th>
+<th>Can</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Microsoft Entra administrator</td>
+<td>The migration job's identity, made one by the deployment</td>
+<td>Change the schema; create roles. Owns the tables</td>
+</tr>
+<tr>
+<td><code>passel_app</code></td>
+<td>Nobody logs in as it</td>
+<td>Select, insert, update and delete rows, use the sequences and run the functions in the store's schema</td>
+</tr>
+<tr>
+<td>The API's role, named after <code>passel-api-identity</code></td>
+<td>The API, with an Entra token</td>
+<td>What <code>passel_app</code> can, nothing more</td>
+</tr>
+</tbody>
+</table>
+<p><code>db-migrate</code> (<a href="../components/web-api.html#schema-in-production">Web API</a>) creates the last two the first time and is a no-op for them afterwards. The API checks at startup that the database has every table, column and function it needs and refuses to start otherwise, so a revision deployed without its migration never takes traffic. Anything more, such as a column or an index a newer release added, it accepts.</p>
+<p>A schema change reaches production at the next deployment, applied by the migration job while the previous revision is still serving. So a change must work with the code before it as well as after it: add a column or a table in one release, and stop using the old one in a later one. <code>db-migrate</code> never drops a table, or a column, index or foreign key the configuration no longer declares; it logs each one it leaves in place. To remove one for good, once no release that could be rolled back to uses it, write the statement with <code>db-patch</code>, which lists the drops <code>db-migrate</code> leaves out, and run it yourself as described below.</p>
+<p>To see what a migration would change without applying it, run <code>db-patch</code> against the database: it writes the statements to a file instead of running them. Locally it uses the connection string from <code>ConnectionStrings__passel-db</code> or the API's <code>appsettings.Development.json</code> (<a href="../reference/configuration.html#web-api">Configuration</a>):</p>
+<pre><code>dotnet run --project src/webapi/Invex.Passel.WebApi -- db-patch patch.sql
+</code></pre>
+<p>To look at the database yourself, add your own account as a Microsoft Entra administrator of the server (portal, the server, Security, Authentication), then connect with a token as the password:</p>
+<pre><code>az account get-access-token --resource-type oss-rdbms --query accessToken --output tsv
+psql &quot;host=&lt;server&gt;.postgres.database.azure.com dbname=passel-db user=&lt;you@example.com&gt; sslmode=require&quot;
+</code></pre>
+<h4 id="backups-and-restore">Backups and restore</h4>
+<p>The server keeps automatic backups for 14 days, and can be restored to any point in that window. A restore creates a new server rather than rewinding the existing one:</p>
+<pre><code>az postgres flexible-server restore --resource-group &lt;rg&gt; --name &lt;new-server&gt; --source-server &lt;server&gt; --restore-time 2026-11-04T09:00:00Z
+</code></pre>
+<p>The deployment keeps pointing at the original server, so copy what you need back from the restored one (<code>pg_dump</code> and <code>pg_restore</code>), then delete it.</p>
+<h3 id="rolling-back">Rolling back</h3>
+<p>The Deploy workflow deploys only from <code>main</code>: the <code>production</code> environment refuses any other branch, and the run dialog offers branches and tags, never a commit. So a rollback is a change on <code>main</code>:</p>
+<ol>
+<li>Revert the commits to undo (<code>git revert</code>) in a pull request, and merge it once <code>Validate</code> passes.</li>
+<li>Run the Deploy workflow from <code>main</code>. It deploys the reverted code under a new version, and its migration puts back the older release's Marten functions. Tables, columns, indexes and foreign keys the newer release added stay where they are, data included, and the older code ignores them.</li>
+</ol>
+<p>While that goes through review, the API alone can go back to an earlier image straight away, without a deployment. The older code starts on the newer schema, because the startup check accepts what a newer migration added. List the revisions with their images, then point the container app at the one to go back to:</p>
+<pre><code>az containerapp revision list --name invex-passel-webapi --resource-group &lt;rg&gt; --query &quot;[].{name:name, created:properties.createdTime, image:properties.template.containers[0].image}&quot; --output table
+az containerapp update --name invex-passel-webapi --resource-group &lt;rg&gt; --image &lt;image&gt;
+</code></pre>
+<p>The next Deploy run replaces that image with whatever <code>main</code> holds, so follow it with the revert.</p>
+<h3 id="logs-and-telemetry">Logs and telemetry</h3>
+<p>The API's requests, dependencies, exceptions and logs are in Application Insights (<code>passel-insights</code>). Container output, including the migration job's, is in the Log Analytics workspace (<code>passel-logs</code>), table <code>ContainerAppConsoleLogs_CL</code>; each job run's status is also on the job's Execution history page in the portal. Both keep data for the workspace's default of 30 days.</p>
+<p>None of it holds what users send: requests are recorded by path (packet ids, never content) with the query redacted, SQL without parameter values, and logs name packet ids. The page fetches for link previews go to the hosts users link, so they are left out of the dependencies, the outgoing HTTP and DNS metrics carry no host name, and the reason a link got no preview is logged at Debug, which Production doesn't keep. A new outgoing request to a URL a user supplied must call <code>ExcludeFromTelemetry</code> on its <code>HttpRequestMessage</code> in the same way.</p>
+<p>Uploaded files stay out of it in the same way. The storage requests are recorded as dependencies by blob URI, and a blob is named after its parcel's Guid alone, never a user or a file name; requests to the API are recorded by path, which carries the public parcel id. File names are never logged, and the file sweep logs counts at Information and parcel ids at Warning. The Azure SDK's own event log, which logs every storage request at Information, is kept to warnings (<code>Azure.Core</code> in <code>appsettings.json</code>).</p>
+<h3 id="troubleshooting">Troubleshooting</h3>
+<table>
+<thead>
+<tr>
+<th>Symptom</th>
+<th>Likely cause</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The workflow fails at Azure login</td>
+<td>The federated credential's subject doesn't match: the job must run in the <code>production</code> environment of this repository</td>
+</tr>
+<tr>
+<td><code>AuthorizationFailed</code> while provisioning</td>
+<td>A missing role on the resource group, or an unregistered resource provider</td>
+</tr>
+<tr>
+<td>The deployment fails at <code>run-database-migration</code></td>
+<td>The migration job failed; its output is in the workspace. The API was not changed</td>
+</tr>
+<tr>
+<td>The new revision never becomes ready</td>
+<td>The API refused to start: usually a missing setting, or a schema that lacks a table, column or function it needs (the migration didn't run). The revision's console log says which</td>
+</tr>
+<tr>
+<td>Every request gets <code>400 Invalid Hostname</code></td>
+<td>The host isn't in <code>AllowedHosts</code>: set <code>API_DOMAIN</code> for a custom domain</td>
+</tr>
+<tr>
+<td>Every request gets <code>401</code></td>
+<td><code>GOOGLE_WEB_CLIENT_ID</code> or <code>CHROME_EXTENSION_CLIENT_ID</code> doesn't match the client the token was issued to</td>
+</tr>
+<tr>
+<td><code>AuthorizationFailed</code> on the <code>invex-passel-webapi-roles-passel-storage</code> assignment</td>
+<td>The deployment identity's Role Based Access Control Administrator condition doesn't include Storage Blob Data Contributor; see <a href="#role-assignments">Role assignments</a></td>
+</tr>
+<tr>
+<td>File requests get <code>503</code> &quot;File storage unavailable&quot;, while packets work</td>
+<td>Storage can't be reached or refuses the API. A <code>403</code> (<code>AuthorizationPermissionMismatch</code>) in the API's dependencies means the API identity lacks Storage Blob Data Contributor on the account; a missing <code>ConnectionStrings__passel-blobs</code> is logged as a warning when the API starts. <code>/health</code> stays healthy either way, by design</td>
+</tr>
+<tr>
+<td>The first revision with files never becomes ready</td>
+<td>Its schema check found no <code>mt_doc_parcel</code> table: the migration job didn't run, or failed. Its log says which</td>
+</tr>
+</tbody>
+</table>
+<h3 id="what-was-verified-locally">What was verified locally</h3>
+<p>Nothing has been deployed yet: the setup above needs the owner's subscription. Without it, these were checked offline:</p>
+<ul>
+<li><code>aspire publish</code> writes the Bicep, <code>aspire do diagnostics</code> shows the migration ordered between the job and the API, and the Azure modelling leaves the run-mode model of the AppHost as it was.</li>
+<li>With the storage account added, the Bicep has one role assignment on the account, Storage Blob Data Contributor for <code>passel-api-identity</code>; blob soft delete and versioning off and container delete retention at 7 days; the <code>parcels</code> container; <code>ConnectionStrings__passel-blobs</code> on the API set to the blob endpoint; and nothing of storage on <code>passel-migrate</code>. The migration still runs between the job and the API.</li>
+<li>The image built with <code>dotnet publish -t:PublishContainer</code> runs <code>db-migrate</code> against PostgreSQL 18 and then serves <code>/health</code> as a role that only has DML, refusing other hosts with 400.</li>
+<li>The API in Production refuses to start on a database that hasn't been migrated, and starts with an Application Insights connection string set.</li>
+<li>The integration tests run the migration twice and the API on the DML-only role, and check that the role can't create or alter tables. They also run a newer release's migration, then this build's API on it, then this build's migration as a rollback, and check that the API serves throughout and the newer column survives.</li>
+</ul>
+<p>What can only be checked in Azure: the first <code>aspire deploy</code>, the Entra mapping of the API's role (a security label set by <code>db-migrate</code>), the probes' <code>Host</code> header, the custom-domain steps, the API's managed-identity sign-in to storage, and how much ephemeral disk the container has for uploads buffered while they are checked (at most four 25 MB files at once).</p>
+
+</article>
+
+        <div class="contribution d-print-none">
+          <a href="https://github.com/Invex-Games/passel/blob/main/docs/guides/deploying.md/#L1" class="edit-link">Edit this page</a>
+        </div>
+
+        <div class="next-article d-print-none border-top" id="nextArticle"></div>
+
+      </div>
+
+      <div class="affix">
+        <nav id="affix"></nav>
+      </div>
+    </main>
+
+    <div class="container-xxl search-results" id="search-results"></div>
+
+    <footer class="border-top text-secondary">
+      <div class="container-xxl">
+        <div class="flex-fill">
+          Passel · Invex Games
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>

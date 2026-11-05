@@ -1,0 +1,748 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+      <title>Configuration | Passel </title>
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <meta name="title" content="Configuration | Passel ">
+      
+      
+      <link rel="icon" href="../../resources/icon-48.png">
+      <link rel="stylesheet" href="../../public/docfx.min.css">
+      <link rel="stylesheet" href="../../public/main.css">
+      <meta name="docfx:navrel" content="../../toc.html">
+      <meta name="docfx:tocrel" content="../toc.html">
+      
+      <meta name="docfx:rel" content="../../">
+      
+      
+      <meta name="docfx:docurl" content="https://github.com/Invex-Games/passel/blob/main/docs/reference/configuration.md/#L1">
+      <meta name="loc:inThisArticle" content="In this article">
+      <meta name="loc:searchResultsCount" content="{count} results for &quot;{query}&quot;">
+      <meta name="loc:searchNoResults" content="No results for &quot;{query}&quot;">
+      <meta name="loc:tocFilter" content="Filter by title">
+      <meta name="loc:nextArticle" content="Next">
+      <meta name="loc:prevArticle" content="Previous">
+      <meta name="loc:themeLight" content="Light">
+      <meta name="loc:themeDark" content="Dark">
+      <meta name="loc:themeAuto" content="Auto">
+      <meta name="loc:changeTheme" content="Change theme">
+      <meta name="loc:copy" content="Copy">
+      <meta name="loc:downloadPdf" content="Download PDF">
+
+      <script type="module" src="./../../public/docfx.min.js"></script>
+
+      <script>
+        const theme = localStorage.getItem('theme') || 'auto'
+        document.documentElement.setAttribute('data-bs-theme', theme === 'auto' ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : theme)
+      </script>
+
+  </head>
+
+  <body class="tex2jax_ignore" data-layout="" data-yaml-mime="">
+    <header class="bg-body border-bottom">
+      <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
+        <div class="container-xxl flex-nowrap">
+          <a class="navbar-brand" href="../../index.html">
+            <img id="logo" class="svg" src="../../resources/icon-128.png" alt="Passel">
+            Passel
+          </a>
+          <button class="btn btn-lg d-md-none border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navpanel" aria-controls="navpanel" aria-expanded="false" aria-label="Toggle navigation">
+            <i class="bi bi-three-dots"></i>
+          </button>
+          <div class="collapse navbar-collapse" id="navpanel">
+            <div id="navbar">
+              <form class="search" role="search" id="search">
+                <i class="bi bi-search"></i>
+                <input class="form-control" id="search-query" type="search" disabled placeholder="Search" autocomplete="off" aria-label="Search">
+              </form>
+            </div>
+          </div>
+        </div>
+      </nav>
+    </header>
+
+    <main class="container-xxl">
+      <div class="toc-offcanvas">
+        <div class="offcanvas-md offcanvas-start" tabindex="-1" id="tocOffcanvas" aria-labelledby="tocOffcanvasLabel">
+          <div class="offcanvas-header">
+            <h5 class="offcanvas-title" id="tocOffcanvasLabel">Table of Contents</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="offcanvas" data-bs-target="#tocOffcanvas" aria-label="Close"></button>
+          </div>
+          <div class="offcanvas-body">
+            <nav class="toc" id="toc"></nav>
+          </div>
+        </div>
+      </div>
+
+      <div class="content">
+        <div class="actionbar">
+          <button class="btn btn-lg border-0 d-md-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#tocOffcanvas" aria-controls="tocOffcanvas" aria-expanded="false" aria-label="Show table of contents">
+            <i class="bi bi-list"></i>
+          </button>
+
+          <nav id="breadcrumb"></nav>
+        </div>
+
+        <article data-uid="">
+<h1 id="configuration">Configuration</h1>
+
+<h2 id="apphost">AppHost</h2>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Secret</th>
+<th>Passed to</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>google-client-id</code></td>
+<td>No</td>
+<td>The API's <code>Authentication:Google:ClientId</code>, and the web app's <code>GOOGLE_CLIENT_ID</code></td>
+</tr>
+<tr>
+<td><code>google-client-secret</code></td>
+<td>Yes</td>
+<td>The API's <code>Authentication:Google:ClientSecret</code></td>
+</tr>
+<tr>
+<td><code>google-extension-client-id</code></td>
+<td>No</td>
+<td>The API's <code>Authentication:Google:AdditionalAudiences:0</code>, and the extension's <code>GOOGLE_CLIENT_ID</code></td>
+</tr>
+</tbody>
+</table>
+<p>The values are stored in the AppHost's user secrets as <code>Parameters:&lt;name&gt;</code>. In Development all three are optional and default to empty, so the dashboard doesn't prompt for them; the API then works through the Dev scheme described in <a href="../getting-started/running-locally.html#run-without-google">Run without Google</a>. Outside Development they're required. <code>google-client-secret</code> is only used locally: a published or deployed AppHost never asks for it, and the API in Azure never has it. The AppHost also gives the extension and the web app <code>API_URL</code> (<code>&lt;API https endpoint&gt;/api/packets</code>), runs the web app on <code>PORT</code> 5245, and gives the API its <code>passel-db</code> connection string, the <code>passel-blobs</code> connection string of the <code>passel-storage</code> resource (Azurite, in a persistent container with a data volume, so stored files survive AppHost restarts as the database does) and the web app's origin, <code>http://localhost:5245</code>, as <code>Cors:AllowedOrigins:0</code>. The API waits for the <code>parcels</code> container to exist before it starts.</p>
+<p>The AppHost reads one setting of its own:</p>
+<table>
+<thead>
+<tr>
+<th>Key</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>DevTunnel:AllowAnonymous</code></td>
+<td><code>true</code></td>
+<td>Whether the <code>passel-api-tunnel</code> resource lets anyone with the URL through. Set it to <code>false</code> (in user secrets, the git-ignored <code>appsettings.Development.json</code>, or the <code>DevTunnel__AllowAnonymous</code> environment variable) and the tunnel requires a Dev Tunnels access token, which the mobile app sends from <code>TUNNEL_ACCESS_TOKEN</code>; see <a href="../getting-started/running-locally.html#requiring-a-token">Requiring a token</a>. The tunnel only runs when started from the dashboard either way.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="compose-deployment">Compose deployment</h2>
+<p>The self-hosted deployment (<a href="../guides/deploying.html#self-hosted-docker-compose">Releasing and Deploying</a>) reads every value from the server's <code>/opt/passel/.env</code>, whose template, with a comment on each key, is <code>deploy/compose/.env.example</code>; <code>release.env</code>, written by <code>deploy.sh</code>, adds <code>PASSEL_TAG</code>. <code>compose.yaml</code> gives the API, <code>db-migrate</code> and the web app an explicit environment built from those keys, never the whole file, so nothing else in <code>.env</code> reaches them.</p>
+<table>
+<thead>
+<tr>
+<th><code>.env</code> key</th>
+<th>Required</th>
+<th>Becomes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>PASSEL_TAG</code></td>
+<td>Set by <code>deploy.sh</code></td>
+<td>The tag of the <code>passel-webapi</code> and <code>passel-web</code> images, and <code>service.version</code> in <code>OTEL_RESOURCE_ATTRIBUTES</code></td>
+</tr>
+<tr>
+<td><code>COMPOSE_FILE</code>, <code>COMPOSE_PROFILES</code></td>
+<td>Yes</td>
+<td>Which files and profiles every compose command uses: the proxy setup, and <code>telemetry</code> for the dashboard</td>
+</tr>
+<tr>
+<td><code>POSTGRES_USER</code>, <code>POSTGRES_DB</code></td>
+<td>No</td>
+<td>The superuser and the database PostgreSQL creates on first start (<code>postgres</code>, <code>passel</code>); <code>POSTGRES_DB</code> is also the database in both connection strings</td>
+</tr>
+<tr>
+<td><code>POSTGRES_PASSWORD</code></td>
+<td>Yes</td>
+<td>The superuser's password, which <code>db-roles</code> signs in with. PostgreSQL only sets it when the database is first created</td>
+</tr>
+<tr>
+<td><code>PASSEL_OWNER_DB_PASSWORD</code></td>
+<td>Yes</td>
+<td>The password of <code>passel_owner</code>, and <code>db-migrate</code>'s <code>ConnectionStrings__passel-db</code> (<code>Username=passel_owner</code>)</td>
+</tr>
+<tr>
+<td><code>PASSEL_API_DB_PASSWORD</code></td>
+<td>Yes</td>
+<td>The password of <code>passel_api</code>, and the API's <code>ConnectionStrings__passel-db</code> (<code>Username=passel_api</code>). <code>db-migrate</code> gets <code>Database__ApiRole=passel_api</code></td>
+</tr>
+<tr>
+<td><code>ENCODING_ALPHABET</code></td>
+<td>Yes</td>
+<td><code>Encoding__Alphabet</code>. Never changed once ids are in use</td>
+</tr>
+<tr>
+<td><code>GOOGLE_WEB_CLIENT_ID</code></td>
+<td>Yes</td>
+<td><code>Authentication__Google__ClientId</code>, and the web app's <code>GOOGLE_CLIENT_ID</code>, which it signs in with</td>
+</tr>
+<tr>
+<td><code>CHROME_EXTENSION_CLIENT_ID</code></td>
+<td>No</td>
+<td><code>Authentication__Google__AdditionalAudiences__0</code></td>
+</tr>
+<tr>
+<td><code>API_HOST</code></td>
+<td>Yes</td>
+<td><code>AllowedHosts</code>, as <code>&lt;API_HOST&gt;;localhost</code> (the healthcheck sends <code>localhost</code>); the web app's <code>API_ORIGIN</code>, <code>https://&lt;API_HOST&gt;</code>, which it calls and allows in its policy; the edge's site for the API; the smoke check's default <code>https://&lt;API_HOST&gt;/health</code></td>
+</tr>
+<tr>
+<td><code>WEB_HOST</code></td>
+<td>Yes</td>
+<td>The edge's site for the web app. Only the edge uses it, but the compose file requires it in every setup</td>
+</tr>
+<tr>
+<td><code>WEB_ORIGIN</code></td>
+<td>Yes</td>
+<td><code>Cors__AllowedOrigins__0</code>, written as a browser sends it</td>
+</tr>
+<tr>
+<td><code>PROXY_TRUSTED_CIDR</code></td>
+<td>No</td>
+<td><code>ForwardedHeaders__KnownNetworks__0</code>, with <code>ForwardedHeaders__Enabled=true</code>. Default <code>172.30.0.2/32</code>, the bundled edge. <code>compose.ports.yaml</code> replaces it with the host's addresses on the two networks, <code>172.30.0.1/32</code> and <code>172.30.1.1/32</code></td>
+</tr>
+<tr>
+<td><code>PROXY_NETWORK</code></td>
+<td>With <code>compose.external-proxy.yaml</code></td>
+<td>The existing Docker network the <code>edge</code> network becomes</td>
+</tr>
+<tr>
+<td><code>API_PORT</code>, <code>WEB_PORT</code></td>
+<td>No</td>
+<td>The loopback ports of <code>compose.ports.yaml</code> (18080, 18081)</td>
+</tr>
+<tr>
+<td><code>SMOKE_URL</code></td>
+<td>No</td>
+<td>What <code>deploy.sh</code> fetches after starting a release</td>
+</tr>
+<tr>
+<td><code>OTEL_EXPORTER_OTLP_ENDPOINT</code>, <code>OTEL_EXPORTER_OTLP_PROTOCOL</code>, <code>OTEL_EXPORTER_OTLP_HEADERS</code></td>
+<td>No</td>
+<td>Passed to the API and <code>db-migrate</code> as they are; no endpoint, no export. <code>OTEL_SERVICE_NAME</code> is <code>passel-webapi</code> and <code>passel-migrate</code></td>
+</tr>
+</tbody>
+</table>
+<p>The compose file also sets, on the API and <code>db-migrate</code>, <code>ASPNETCORE_ENVIRONMENT</code> and <code>DOTNET_ENVIRONMENT</code> to <code>Production</code>, and on the API <code>Parcels__Store=FileSystem</code> with <code>Parcels__FileSystemRoot=/var/lib/passel/parcels</code>, in the <code>parcels</code> volume. To tune one of the Web API settings below on the server, add it to the API's <code>environment</code> in a compose override kept outside the releases, such as <code>/opt/passel/compose.local.yaml</code>, and add that file to <code>COMPOSE_FILE</code> by its absolute path (<code>COMPOSE_FILE=compose.yaml:/opt/passel/compose.local.yaml</code>); the release directories are replaced on every deploy.</p>
+<p>These stay unset in the compose deployment, since each belongs to Azure or to Development and would change how the API signs in, exports or trusts headers: <code>APPLICATIONINSIGHTS_CONNECTION_STRING</code>, every <code>AZURE_*</code> variable, <code>Database__ApiRoleObjectId</code>, <code>Authentication__Google__ClientSecret</code> and <code>ASPNETCORE_FORWARDEDHEADERS_ENABLED</code>.</p>
+<h2 id="azure-deployment">Azure deployment</h2>
+<p>Legacy (<a href="../decisions/0003-hosting-on-azure.html">ADR 0003</a>): this is the Azure deployment, which stays in the code but is no longer where Passel runs. <code>aspire publish</code> and <code>aspire deploy</code> add the Azure resources to the AppHost (<a href="../guides/deploying.html">Releasing and Deploying</a>). <code>DeployWebApi</code> supplies everything below from the Deploy workflow's variables and secret; nothing needs typing in.</p>
+<table>
+<thead>
+<tr>
+<th>Setting</th>
+<th>Secret</th>
+<th>Source in the workflow</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Azure:SubscriptionId</code>, <code>Azure:ResourceGroup</code>, <code>Azure:Location</code></td>
+<td>No</td>
+<td><code>AZURE_SUBSCRIPTION_ID</code>, <code>AZURE_RESOURCE_GROUP</code>, <code>AZURE_LOCATION</code></td>
+<td>Where Aspire deploys. The resource group must exist (<code>Azure:AllowResourceGroupCreation</code> is <code>false</code>), and the migration step needs the first two to find the job.</td>
+</tr>
+<tr>
+<td><code>Azure:CredentialSource</code></td>
+<td>No</td>
+<td>Always <code>AzureCli</code></td>
+<td>The Azure CLI session that <code>azure/login</code> leaves behind</td>
+</tr>
+<tr>
+<td><code>Parameters:google-client-id</code></td>
+<td>No</td>
+<td><code>GOOGLE_WEB_CLIENT_ID</code></td>
+<td>The API's <code>Authentication:Google:ClientId</code></td>
+</tr>
+<tr>
+<td><code>Parameters:google-extension-client-id</code></td>
+<td>No</td>
+<td><code>CHROME_EXTENSION_CLIENT_ID</code></td>
+<td>The API's <code>Authentication:Google:AdditionalAudiences:0</code></td>
+</tr>
+<tr>
+<td><code>Parameters:encoding-alphabet</code></td>
+<td>Yes</td>
+<td><code>ENCODING_ALPHABET</code> (environment secret)</td>
+<td>Stored in Key Vault as <code>encoding-alphabet</code>; the container app reads it as the API's <code>Encoding:Alphabet</code>. Must never change once ids are in use.</td>
+</tr>
+<tr>
+<td><code>Deployment:ImageTag</code></td>
+<td>No</td>
+<td>GitVersion's version for the commit</td>
+<td>Azure only: the tag both images are pushed to the Azure registry with. Without it they are pushed as <code>latest</code>. The compose deployment's images are tagged by <code>PublishImages</code> instead.</td>
+</tr>
+<tr>
+<td><code>Deployment:ApiDomain</code></td>
+<td>No</td>
+<td><code>API_DOMAIN</code></td>
+<td>The API's custom domain. Empty for none; when set, the container app binds it and <code>AllowedHosts</code> includes it.</td>
+</tr>
+<tr>
+<td><code>Parameters:api-certificate-name</code></td>
+<td>No</td>
+<td><code>API_CERTIFICATE_NAME</code></td>
+<td>The managed certificate for the domain; empty for the first deployment with it. Only asked for when <code>Deployment:ApiDomain</code> is set.</td>
+</tr>
+</tbody>
+</table>
+<p>In Azure (legacy) the API's container gets:</p>
+<table>
+<thead>
+<tr>
+<th>Variable</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>ConnectionStrings__passel-db</code></td>
+<td><code>Host=&lt;server&gt;;Database=passel-db;Username=&lt;the API identity's role&gt;;Ssl Mode=Require</code>, with no password</td>
+</tr>
+<tr>
+<td><code>ConnectionStrings__passel-blobs</code></td>
+<td>The storage account's blob endpoint (<code>https://&lt;account&gt;.blob.core.windows.net/</code>), with no key: the API signs in as its identity, which has Storage Blob Data Contributor on the account and no other storage role. Aspire also sets the same URI as <code>ConnectionStrings__passel_blobs</code> and <code>PASSEL_BLOBS_URI</code>, which the API doesn't read.</td>
+</tr>
+<tr>
+<td><code>Encoding__Alphabet</code></td>
+<td>The Key Vault secret, through the API identity</td>
+</tr>
+<tr>
+<td><code>AllowedHosts</code></td>
+<td>The container app's default host name, <code>localhost</code> (the health probes send it) and the custom domain when there is one</td>
+</tr>
+<tr>
+<td><code>Authentication__Google__ClientId</code>, <code>Authentication__Google__AdditionalAudiences__0</code></td>
+<td>From the parameters above</td>
+</tr>
+<tr>
+<td><code>APPLICATIONINSIGHTS_CONNECTION_STRING</code></td>
+<td>From the Application Insights resource</td>
+</tr>
+<tr>
+<td><code>AZURE_CLIENT_ID</code>, <code>AZURE_TOKEN_CREDENTIALS</code></td>
+<td>Set by Aspire, so the Entra tokens are for the API's managed identity</td>
+</tr>
+<tr>
+<td><code>ASPNETCORE_FORWARDEDHEADERS_ENABLED</code>, <code>HTTP_PORTS</code></td>
+<td>Set by Aspire for Container Apps ingress</td>
+</tr>
+</tbody>
+</table>
+<p>The migration job gets the database's connection string (as its own identity, an Entra administrator) and <code>Database__ApiRole</code> and <code>Database__ApiRoleObjectId</code>, the API identity's role name and object id. It gets no storage connection string and no role on the storage account: it never touches files.</p>
+<h2 id="web-api">Web API</h2>
+<table>
+<thead>
+<tr>
+<th>Key</th>
+<th>Required</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>ConnectionStrings:passel-db</code></td>
+<td>Yes</td>
+<td>PostgreSQL connection string. The AppHost provides it. Without a password (as in Azure) the API signs in with a Microsoft Entra token for its managed identity, and the user name, if missing, is taken from the token.</td>
+</tr>
+<tr>
+<td><code>ConnectionStrings:passel-blobs</code></td>
+<td>For files in Azure</td>
+<td>Azure Blob Storage, where uploaded files are kept when <code>Parcels:Store</code> is <code>Auto</code> (the default) or <code>AzureBlob</code>; the filesystem store ignores it. The AppHost provides it (Azurite locally). A connection string with an account key, or Azurite's <code>UseDevelopmentStorage=true</code>, is used as it is; a plain blob endpoint URI (as in Azure) signs in with the managed identity. Without it, and with <code>Parcels:Store</code> left at <code>Auto</code>, the API still starts, every file endpoint answers 503, and outside Development it logs a warning at startup.</td>
+</tr>
+<tr>
+<td><code>Authentication:Google:ClientId</code></td>
+<td>Outside Development</td>
+<td>The web client id: the main accepted token audience, and the client for development login. Without it every Google token is rejected; in Development the Dev scheme still works.</td>
+</tr>
+<tr>
+<td><code>Authentication:Google:ClientSecret</code></td>
+<td>No</td>
+<td>The web client secret. With it and the client id both set, Development offers the Scalar <strong>Login with Google</strong> banner.</td>
+</tr>
+<tr>
+<td><code>Authentication:Google:AdditionalAudiences</code></td>
+<td>No</td>
+<td>Other accepted audiences, for example the extension's client id</td>
+</tr>
+<tr>
+<td><code>Encoding:Alphabet</code></td>
+<td>No</td>
+<td>The Sqids alphabet for public ids. Changing it invalidates existing ids.</td>
+</tr>
+<tr>
+<td><code>OTEL_EXPORTER_OTLP_ENDPOINT</code></td>
+<td>No</td>
+<td>Turns on OTLP export of logs, traces and metrics. The AppHost points it at the dashboard. Ignored when <code>APPLICATIONINSIGHTS_CONNECTION_STRING</code> is set.</td>
+</tr>
+<tr>
+<td><code>APPLICATIONINSIGHTS_CONNECTION_STRING</code></td>
+<td>No</td>
+<td>Sends logs, traces and metrics to Application Insights instead, with the Azure Monitor OpenTelemetry distro. The Azure deployment sets it.</td>
+</tr>
+<tr>
+<td><code>RateLimits:CreatesPerMinute</code></td>
+<td>No</td>
+<td>Packets a user may create per minute. Default 30.</td>
+</tr>
+<tr>
+<td><code>RateLimits:ReadsPerMinute</code></td>
+<td>No</td>
+<td>Packet list and delete requests, and device lists, a user may make per minute. Default 120.</td>
+</tr>
+<tr>
+<td><code>RateLimits:StreamsPerMinute</code></td>
+<td>No</td>
+<td>Event streams a user may open per minute. Default 10.</td>
+</tr>
+<tr>
+<td><code>RateLimits:DeviceWritesPerMinute</code></td>
+<td>No</td>
+<td>Device registrations, renames, removals and push token changes a user may make per minute. Default 20.</td>
+</tr>
+<tr>
+<td><code>RateLimits:ParcelUploadsPerMinute</code></td>
+<td>No</td>
+<td>File uploads and discards a user may make per minute (<code>parcel-uploads</code>). Default 10.</td>
+</tr>
+<tr>
+<td><code>RateLimits:ParcelReadsPerMinute</code></td>
+<td>No</td>
+<td>File downloads and thumbnails a user may fetch per minute (<code>parcel-reads</code>). Default 600, since a feed page can show fifty thumbnails.</td>
+</tr>
+<tr>
+<td><code>Quotas:MaxPacketsPerUser</code></td>
+<td>No</td>
+<td>The most packets a user may have at once. Default 5000.</td>
+</tr>
+<tr>
+<td><code>Quotas:MaxBytesPerUser</code></td>
+<td>No</td>
+<td>The most bytes a user may have stored across their packet documents. Default 52428800 (50 MB). Uploaded files don't count here; see <code>Quotas:MaxParcelBytesPerUser</code>.</td>
+</tr>
+<tr>
+<td><code>Quotas:MaxParcelBytesPerUser</code></td>
+<td>No</td>
+<td>The most bytes of uploaded files a user may have at once: every file not deleted, sent or not, with an upload in progress counted at the size it declared. Default 524288000 (500 MB).</td>
+</tr>
+<tr>
+<td><code>Quotas:MaxPendingParcelsPerUser</code></td>
+<td>No</td>
+<td>The most files a user may have uploaded but not sent, from 1 to 1000; they expire after <code>Parcels:UnattachedLifetime</code>, so this bounds what an abandoned client leaves behind. Default 20.</td>
+</tr>
+<tr>
+<td><code>Quotas:MaxDevicesPerUser</code></td>
+<td>No</td>
+<td>The most devices a user may have registered at once, from 1 to 1000; the device list is not paged, so this also bounds its length. Default 20.</td>
+</tr>
+<tr>
+<td><code>Parcels:Store</code></td>
+<td>No</td>
+<td>Which store keeps the bytes of uploaded files: <code>Auto</code> (the default) uses Azure when <code>ConnectionStrings:passel-blobs</code> is set and has no store otherwise, so every file endpoint answers 503; <code>AzureBlob</code> uses Azure and stops the API at startup without the connection string; <code>FileSystem</code> keeps the files in <code>Parcels:FileSystemRoot</code>.</td>
+</tr>
+<tr>
+<td><code>Parcels:FileSystemRoot</code></td>
+<td>With <code>FileSystem</code></td>
+<td>The directory the filesystem store keeps the files in: an absolute path on a local disk, never a network share, which the API's user can write. It holds a file per original and per thumbnail, named by the parcel id, and a <code>.uploading</code> directory for uploads in progress. It is created on the first upload if it is missing; make it a directory of its own rather than the root of a mount, whose <code>lost+found</code> the orphan scan would report on every run.</td>
+</tr>
+<tr>
+<td><code>Parcels:ContainerName</code></td>
+<td>No</td>
+<td>Azure only: the blob container files are kept in. The API creates it if it's missing. Default <code>parcels</code>.</td>
+</tr>
+<tr>
+<td><code>Parcels:MaxParcelBytes</code></td>
+<td>No</td>
+<td>The largest file one upload may carry, at most 1 GiB. Default 26214400 (25 MB). Above about 30 MB (Kestrel's default body limit), raise <code>Kestrel:Limits:MaxRequestBodySize</code> with it.</td>
+</tr>
+<tr>
+<td><code>Parcels:UnattachedLifetime</code></td>
+<td>No</td>
+<td>How long an uploaded file waits to be sent before it is deleted, from a second to seven days. Default <code>01:00:00</code>.</td>
+</tr>
+<tr>
+<td><code>Parcels:UploadingGrace</code></td>
+<td>No</td>
+<td>How long an upload may stay unfinished (its instance stopped part way) before it is taken to have failed and deleted, from a second to a day, and shorter than <code>Parcels:UnattachedLifetime</code>. Default <code>00:15:00</code>.</td>
+</tr>
+<tr>
+<td><code>Parcels:SweepEnabled</code></td>
+<td>No</td>
+<td>Whether the sweep runs. Off, deleted and expired files keep their bytes until it is on again. Default <code>true</code>.</td>
+</tr>
+<tr>
+<td><code>Parcels:SweepInterval</code></td>
+<td>No</td>
+<td>How often the sweep runs when nothing wakes it sooner (a delete wakes it at once), from a second to an hour. Default <code>00:05:00</code>.</td>
+</tr>
+<tr>
+<td><code>Parcels:OrphanScanInterval</code></td>
+<td>No</td>
+<td>How often the sweep also looks for stored bytes with no file and files whose packet is gone, from a minute to seven days. Default <code>1.00:00:00</code>.</td>
+</tr>
+<tr>
+<td><code>Parcels:OrphanBlobMinimumAge</code></td>
+<td>No</td>
+<td>How old stored bytes with no file must be before the orphan scan deletes them, up to seven days. Default <code>02:00:00</code>.</td>
+</tr>
+<tr>
+<td><code>Parcels:SweepBatchSize</code></td>
+<td>No</td>
+<td>How many files the sweep expires or erases per batch, from 1 to 1000. Default 100.</td>
+</tr>
+<tr>
+<td><code>Parcels:ThumbnailSize</code></td>
+<td>No</td>
+<td>The longest side of a thumbnail in pixels, from 64 to 2048. Default 512.</td>
+</tr>
+<tr>
+<td><code>Parcels:MaxImagePixels</code></td>
+<td>No</td>
+<td>The most pixels an image may have to be decoded for a thumbnail; larger ones are kept as plain files. A PNG or GIF decodes at full size, four bytes a pixel, so this bounds the memory a decode takes. Default 40000000.</td>
+</tr>
+<tr>
+<td><code>Parcels:MaxImageDimension</code></td>
+<td>No</td>
+<td>The longest side an image may have to be decoded for a thumbnail. Default 16384.</td>
+</tr>
+<tr>
+<td><code>Parcels:DecodeSlotTimeout</code></td>
+<td>No</td>
+<td>How long an upload waits for the one image decode an instance runs at a time, up to a minute; an image still waiting then is stored as a plain file without a thumbnail, keeping its sniffed type. Default <code>00:00:05</code>.</td>
+</tr>
+<tr>
+<td><code>Parcels:MaxConcurrentUploads</code></td>
+<td>No</td>
+<td>How many uploads one instance takes at once, from 1 to 64; the next waits five seconds and then gets 503. Default 4.</td>
+</tr>
+<tr>
+<td><code>EventStreams:MaxStreamsPerUser</code></td>
+<td>No</td>
+<td>Event streams one user may hold open on one instance; opening another closes their oldest. Default 5.</td>
+</tr>
+<tr>
+<td><code>EventStreams:MaxStreamsPerInstance</code></td>
+<td>No</td>
+<td>Event streams one instance holds open in total; beyond it the endpoint answers 503. Default 4000.</td>
+</tr>
+<tr>
+<td><code>AllowedHosts</code></td>
+<td>No</td>
+<td>The hosts the API answers to, separated by <code>;</code>. <code>appsettings.json</code> sets the production host, <code>api.passel.link</code>; a deployment on another host overrides it, and must include the host its health probes use. Ignored in Development, which answers to any host.</td>
+</tr>
+<tr>
+<td><code>ForwardedHeaders:Enabled</code></td>
+<td>No</td>
+<td>Behind a reverse proxy, take the client address and scheme from <code>X-Forwarded-For</code> and <code>X-Forwarded-Proto</code>. Default <code>false</code>. Leave it off in Azure Container Apps: the deployment sets ASP.NET Core's own <code>ASPNETCORE_FORWARDEDHEADERS_ENABLED</code> there, and turning both on would apply the headers twice, letting a client choose the address the rate limits see.</td>
+</tr>
+<tr>
+<td><code>ForwardedHeaders:KnownProxies</code></td>
+<td>No</td>
+<td>The proxy addresses to accept those headers from, as a list.</td>
+</tr>
+<tr>
+<td><code>ForwardedHeaders:KnownNetworks</code></td>
+<td>No</td>
+<td>The proxy networks to accept those headers from, in CIDR notation, as a list. With neither list set, the headers are accepted from whatever connects directly, which is only safe when the proxy is the one way to reach the API.</td>
+</tr>
+<tr>
+<td><code>Cors:AllowedOrigins</code></td>
+<td>No</td>
+<td>The browser origins allowed to call the API across origins, as a list: the web app's, such as <code>https://passel.link</code>. Each is written as the browser sends it in the <code>Origin</code> header (scheme, host, and a port only when it isn't the default; no path, no trailing slash, no wildcard), and the API refuses to start with one that isn't. Empty by default, which allows no origin. The AppHost sets the web app's local origin.</td>
+</tr>
+<tr>
+<td><code>Cors:PreflightMaxAge</code></td>
+<td>No</td>
+<td>How long a browser may cache the answer to a preflight request. Default <code>00:10:00</code>, at most two hours.</td>
+</tr>
+<tr>
+<td><code>Kestrel:Limits:MaxConcurrentConnections</code></td>
+<td>No</td>
+<td>The most open connections, event streams included. Default 5000. The rest of the <code>Kestrel</code> section binds too.</td>
+</tr>
+<tr>
+<td><code>LinkPreviews:Enabled</code></td>
+<td>No</td>
+<td>Whether the page of a new link is fetched for a preview. Default <code>true</code>.</td>
+</tr>
+<tr>
+<td><code>LinkPreviews:Timeout</code></td>
+<td>No</td>
+<td>How long one fetch attempt may take in all, redirects and body included. Default <code>00:00:05</code>.</td>
+</tr>
+<tr>
+<td><code>LinkPreviews:MaxBodyBytes</code></td>
+<td>No</td>
+<td>The most bytes read from a page. Default 524288 (512 KB).</td>
+</tr>
+<tr>
+<td><code>LinkPreviews:MaxRedirects</code></td>
+<td>No</td>
+<td>How many redirects a fetch follows, each checked like the first URL. Default 3.</td>
+</tr>
+<tr>
+<td><code>LinkPreviews:MaxAttempts</code></td>
+<td>No</td>
+<td>How often a fetch is attempted before the link is left without a preview; only timeouts, connection failures and 429 or 5xx answers are retried. Default 3.</td>
+</tr>
+<tr>
+<td><code>LinkPreviews:RetryDelay</code></td>
+<td>No</td>
+<td>The wait before the second attempt; each later attempt waits that much longer again. Default <code>00:00:05</code>.</td>
+</tr>
+<tr>
+<td><code>LinkPreviews:MaxConcurrentFetches</code></td>
+<td>No</td>
+<td>How many pages one instance fetches at the same time. Default 4.</td>
+</tr>
+<tr>
+<td><code>LinkPreviews:QueueCapacity</code></td>
+<td>No</td>
+<td>How many links may wait for a fetch on one instance; beyond it, new links go without a preview. Default 1000.</td>
+</tr>
+<tr>
+<td><code>Database:ApiRole</code></td>
+<td>No</td>
+<td>Only read by <code>db-migrate</code>: the role the API logs in as, which it grants the API's DML-only privileges. See <a href="../components/web-api.html#schema-in-production">Schema in production</a>.</td>
+</tr>
+<tr>
+<td><code>Database:ApiRoleObjectId</code></td>
+<td>No</td>
+<td>Only read by <code>db-migrate</code>: the Microsoft Entra object id of the API's managed identity, so the role is created as its Entra principal.</td>
+</tr>
+</tbody>
+</table>
+<p>Outside Development, <code>appsettings.Production.json</code> keeps Npgsql's log of every command it runs to warnings, so production logs don't carry each SQL statement.</p>
+<p>Link previews are fetched after a link is created, behind guards that no setting loosens: <code>http</code> and <code>https</code> only, public addresses only, checked on every redirect. See <a href="../components/web-api.html#link-previews">Link previews</a>.</p>
+<p>CORS is for the web app alone: the extension's host permissions bypass CORS, and the mobile app isn't a browser. An origin in <code>Cors:AllowedOrigins</code> may call the API with <code>GET</code>, <code>POST</code> and <code>DELETE</code>, sending <code>Authorization</code>, <code>Content-Type</code> and <code>Accept</code>, and <code>Range</code> and <code>If-None-Match</code> to resume or revalidate a file download, and may read <code>Retry-After</code>, <code>Location</code>, <code>ETag</code>, <code>Content-Disposition</code>, <code>Content-Range</code>, <code>Accept-Ranges</code> and <code>Content-Length</code>; credentials (cookies) are never allowed, since the clients send a bearer token. Preflight requests are answered ahead of authentication and rate limiting. Any other origin gets no CORS headers, so the browser keeps the answer from its page. Outside Development the API also sends HSTS.</p>
+<p>Rate limits are sliding one-minute windows counted per signed-in user (the <code>sub</code> claim), or per remote address for requests that aren't authenticated. A request over the limit gets a 429 problem with a <code>Retry-After</code> header.</p>
+<p>Quotas are checked before every create with one indexed aggregate over the user's packets. The byte quota counts the stored size of the packet documents, which PostgreSQL compresses when they're large, so it's a storage cap rather than an exact character count. A user at the packet limit gets a 429 problem; a packet that would pass the byte limit gets a 413 problem. Both say to delete packets. The device cap is checked only when an installation registers for the first time, so a device that is registered already is never refused; a user at the cap gets a 429 problem saying to remove a device. New installations registering at the same moment are all checked against the same count, so a burst can pass the cap by up to <code>RateLimits:DeviceWritesPerMinute</code> less one; raising that limit loosens the cap too. Lowering the cap removes nobody's devices.</p>
+<p>Uploads are checked against their own quotas, before the body is read and again once the file is stored: a file over <code>Parcels:MaxParcelBytes</code> or one that would pass <code>Quotas:MaxParcelBytesPerUser</code> gets a 413 problem, and an upload beyond <code>Quotas:MaxPendingParcelsPerUser</code> unsent files a 429 problem. Lowering a limit deletes no files. The upload endpoint sets the request body limit of its own requests to <code>Parcels:MaxParcelBytes</code> plus 64 KB for the multipart framing, and counts the file itself as it reads it. When the file limit is set above Kestrel's default of about 30 MB, raise <code>Kestrel:Limits:MaxRequestBodySize</code> with it; only the endpoint's own count is covered by the tests, because the test server enforces no body limit.</p>
+<p>When you run the API outside the AppHost, put these in <code>src/webapi/Invex.Passel.WebApi/appsettings.Development.json</code>. The file is git-ignored by the <code>*.Development.json</code> rule. Settings supplied by the AppHost take precedence over the file.</p>
+<h2 id="chrome-extension">Chrome extension</h2>
+<p><code>src/chrome-extension/.env</code> (template: <code>.env.example</code>) is only read by standalone builds; the AppHost supplies these values itself.</p>
+<table>
+<thead>
+<tr>
+<th>Key</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>API_URL</code></td>
+<td>The packets endpoint, for example <code>https://localhost:7030/api/packets</code></td>
+</tr>
+<tr>
+<td><code>GOOGLE_CLIENT_ID</code></td>
+<td>The extension's OAuth client id</td>
+</tr>
+<tr>
+<td><code>DEV_SIGN_IN</code></td>
+<td><code>true</code> lets a development build (<code>npm run dev</code>, <code>npm run dev:watch</code>) sign in as a development user through the API's Development-only <code>Dev</code> scheme, without Google; <code>GOOGLE_CLIENT_ID</code> may then be left empty. A minified build (<code>npm run build</code>) never has it. The AppHost sets it.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="web-app">Web app</h2>
+<p><code>src/web/.env</code> (template: <code>.env.example</code>) is only read by the dev server (<code>npm run dev</code>, <code>npm run serve</code>) outside the AppHost, which supplies these values itself; a production build (<code>npm run build</code>, <code>BuildWebApp</code>) needs none. See <a href="../components/web-app.html#build">Web App</a>. Deployed, the web image takes <code>API_ORIGIN</code> and <code>GOOGLE_CLIENT_ID</code> from its container's environment instead (<a href="../components/web-app.html#the-web-image">The web image</a>).</p>
+<table>
+<thead>
+<tr>
+<th>Key</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>API_URL</code></td>
+<td>The packets endpoint, for example <code>https://localhost:7030/api/packets</code>, served in <code>/app/config.json</code>. Its origin goes into the app's Content-Security-Policy.</td>
+</tr>
+<tr>
+<td><code>GOOGLE_CLIENT_ID</code></td>
+<td>The Google OAuth <strong>web</strong> client id, served in <code>/app/config.json</code>, whose Authorized JavaScript origins must include the app's origin</td>
+</tr>
+<tr>
+<td><code>DEV_SIGN_IN</code></td>
+<td><code>true</code> lets a development build (<code>npm run dev</code>) sign in as a development user through the API's Development-only <code>Dev</code> scheme, without Google; <code>GOOGLE_CLIENT_ID</code> may then be left empty. A minified build (<code>npm run build</code>) never has it. The AppHost sets it.</td>
+</tr>
+<tr>
+<td><code>PORT</code></td>
+<td>The dev server's port (<code>npm run dev</code>, <code>npm run serve</code>). Default 5245. The AppHost sets it.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="mobile-app">Mobile app</h2>
+<p><code>src/mobile_app/.env</code> (template: <code>.env.example</code>) is compiled in with <code>--dart-define-from-file</code>.</p>
+<table>
+<thead>
+<tr>
+<th>Key</th>
+<th>Required</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>API_BASE_URL</code></td>
+<td>Yes</td>
+<td>The API root as the device can reach it: <code>http://localhost:5218</code> for a phone on USB (with <code>adb reverse tcp:5218 tcp:5218</code>), <code>http://10.0.2.2:5218</code> for an emulator, or the dev tunnel URL. The production flavor requires <code>https://</code>; the development flavor allows <code>http://</code> only to <code>localhost</code>, <code>127.0.0.1</code> and <code>10.0.2.2</code>.</td>
+</tr>
+<tr>
+<td><code>SERVER_CLIENT_ID</code></td>
+<td>Unless <code>DEV_USER</code> is set</td>
+<td>The Google web client id</td>
+</tr>
+<tr>
+<td><code>APP_CLIENT_ID</code></td>
+<td>No</td>
+<td>The Android client id</td>
+</tr>
+<tr>
+<td><code>TUNNEL_ACCESS_TOKEN</code></td>
+<td>No</td>
+<td>A Dev Tunnels access token (<code>devtunnel token &lt;tunnel-id&gt; --scopes connect</code>), sent as <code>X-Tunnel-Authorization: tunnel &lt;token&gt;</code> with every request, for a tunnel that doesn't allow anonymous access. Development flavor only: the production flavor refuses to start with one.</td>
+</tr>
+<tr>
+<td><code>DEV_USER</code></td>
+<td>No</td>
+<td>Signs the development flavor in as this user through the API's Development-only <code>Dev</code> scheme (<code>Authorization: Dev &lt;user&gt;</code>) instead of Google, so no Google client is needed. The login page can sign in as any other user, and each user is a separate account. Development flavor only: the production flavor refuses to start with one.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="build">Build</h2>
+<p><code>_atom/appsettings.json</code> holds build parameter defaults; see <a href="build-targets.html">Build Targets</a>. The deployment's parameters are listed with <a href="build-targets.html#deployment"><code>DeployWebApi</code></a>.</p>
+
+</article>
+
+        <div class="contribution d-print-none">
+          <a href="https://github.com/Invex-Games/passel/blob/main/docs/reference/configuration.md/#L1" class="edit-link">Edit this page</a>
+        </div>
+
+        <div class="next-article d-print-none border-top" id="nextArticle"></div>
+
+      </div>
+
+      <div class="affix">
+        <nav id="affix"></nav>
+      </div>
+    </main>
+
+    <div class="container-xxl search-results" id="search-results"></div>
+
+    <footer class="border-top text-secondary">
+      <div class="container-xxl">
+        <div class="flex-fill">
+          Passel · Invex Games
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>

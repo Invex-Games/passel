@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+      <title>Continuous Integration | Passel </title>
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <meta name="title" content="Continuous Integration | Passel ">
+      
+      
+      <link rel="icon" href="../../resources/icon-48.png">
+      <link rel="stylesheet" href="../../public/docfx.min.css">
+      <link rel="stylesheet" href="../../public/main.css">
+      <meta name="docfx:navrel" content="../../toc.html">
+      <meta name="docfx:tocrel" content="../toc.html">
+      
+      <meta name="docfx:rel" content="../../">
+      
+      
+      <meta name="docfx:docurl" content="https://github.com/Invex-Games/passel/blob/main/docs/guides/ci.md/#L1">
+      <meta name="loc:inThisArticle" content="In this article">
+      <meta name="loc:searchResultsCount" content="{count} results for &quot;{query}&quot;">
+      <meta name="loc:searchNoResults" content="No results for &quot;{query}&quot;">
+      <meta name="loc:tocFilter" content="Filter by title">
+      <meta name="loc:nextArticle" content="Next">
+      <meta name="loc:prevArticle" content="Previous">
+      <meta name="loc:themeLight" content="Light">
+      <meta name="loc:themeDark" content="Dark">
+      <meta name="loc:themeAuto" content="Auto">
+      <meta name="loc:changeTheme" content="Change theme">
+      <meta name="loc:copy" content="Copy">
+      <meta name="loc:downloadPdf" content="Download PDF">
+
+      <script type="module" src="./../../public/docfx.min.js"></script>
+
+      <script>
+        const theme = localStorage.getItem('theme') || 'auto'
+        document.documentElement.setAttribute('data-bs-theme', theme === 'auto' ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : theme)
+      </script>
+
+  </head>
+
+  <body class="tex2jax_ignore" data-layout="" data-yaml-mime="">
+    <header class="bg-body border-bottom">
+      <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
+        <div class="container-xxl flex-nowrap">
+          <a class="navbar-brand" href="../../index.html">
+            <img id="logo" class="svg" src="../../resources/icon-128.png" alt="Passel">
+            Passel
+          </a>
+          <button class="btn btn-lg d-md-none border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navpanel" aria-controls="navpanel" aria-expanded="false" aria-label="Toggle navigation">
+            <i class="bi bi-three-dots"></i>
+          </button>
+          <div class="collapse navbar-collapse" id="navpanel">
+            <div id="navbar">
+              <form class="search" role="search" id="search">
+                <i class="bi bi-search"></i>
+                <input class="form-control" id="search-query" type="search" disabled placeholder="Search" autocomplete="off" aria-label="Search">
+              </form>
+            </div>
+          </div>
+        </div>
+      </nav>
+    </header>
+
+    <main class="container-xxl">
+      <div class="toc-offcanvas">
+        <div class="offcanvas-md offcanvas-start" tabindex="-1" id="tocOffcanvas" aria-labelledby="tocOffcanvasLabel">
+          <div class="offcanvas-header">
+            <h5 class="offcanvas-title" id="tocOffcanvasLabel">Table of Contents</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="offcanvas" data-bs-target="#tocOffcanvas" aria-label="Close"></button>
+          </div>
+          <div class="offcanvas-body">
+            <nav class="toc" id="toc"></nav>
+          </div>
+        </div>
+      </div>
+
+      <div class="content">
+        <div class="actionbar">
+          <button class="btn btn-lg border-0 d-md-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#tocOffcanvas" aria-controls="tocOffcanvas" aria-expanded="false" aria-label="Show table of contents">
+            <i class="bi bi-list"></i>
+          </button>
+
+          <nav id="breadcrumb"></nav>
+        </div>
+
+        <article data-uid="">
+<h1 id="continuous-integration">Continuous Integration</h1>
+
+<p>The workflows under <code>.github/workflows/</code> and the Dependabot configuration in <code>.github/dependabot.yml</code> are generated from <code>_atom/IBuild.cs</code> by the <a href="https://github.com/Invex-Games/atom">Atom GitHub workflows module</a>. Don't edit the YAML by hand: change the definitions and run <code>dotnet atom Gen</code>. Running any target locally in interactive mode regenerates the files too, and a headless run (CI) fails early if the committed files are out of date.</p>
+<p>On Windows the generator writes CRLF line endings, so after an interactive run git lists the files under <code>.github/</code> as modified although only the line endings differ. <code>git checkout -- .github</code> puts them back, and a headless run never rewrites them.</p>
+<h2 id="workflows">Workflows</h2>
+<table>
+<thead>
+<tr>
+<th>Workflow</th>
+<th>Runs on</th>
+<th>Jobs</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Validate</code></td>
+<td>Pull requests into <code>main</code>, manual dispatch</td>
+<td><code>TestWebApi</code>, <code>TestChromeExtension</code> and <code>TestMobileApp</code> (their coverage reports attached to the run as <code>ChromeExtensionCoverage</code> and <code>MobileAppCoverage</code>), <code>PublishAzureInfrastructure</code> (the Azure deployment's Bicep attached as <code>AzureInfrastructure</code>, nothing signed in to), <code>ValidateCompose</code> (the compose files and deploy scripts checked, nothing run) and <code>BuildDocs</code>, in parallel; nothing is published</td>
+</tr>
+<tr>
+<td><code>Build</code></td>
+<td>Pushes to <code>main</code>, manual dispatch</td>
+<td><code>SetupBuildInfo</code> (the GitVersion version), the three test suites (the extension's and the mobile app's coverage reports attached to the run), <code>BuildWebApi</code>, <code>BuildChromeExtension</code> and <code>BuildWebApp</code> (artifacts attached to the run), <code>PublishImages</code> and <code>PublishDeployBundle</code> (the API, web and deploy bundle images, pushed to GHCR from <code>main</code> only once <code>TestWebApi</code> has passed), <code>BuildDocs</code> and <code>PublishDocs</code> (the site force-pushed to the <code>gh-pages</code> branch)</td>
+</tr>
+<tr>
+<td><code>DeployCompose</code></td>
+<td>Manual dispatch only, with the inputs <code>image-tag</code> (blank for the run's own commit) and <code>migrate</code></td>
+<td><code>SetupBuildInfo</code>, then <code>DeployCompose</code> in the <code>production</code> environment: deploys a tag to the self-hosted server over SSH, or rolls back to an older one; see <a href="deploying.html#the-deploycompose-workflow">Releasing and Deploying</a>. One run at a time (<code>deploy-compose</code>); a second waits instead of cancelling the first</td>
+</tr>
+<tr>
+<td><code>Deploy</code></td>
+<td>Manual dispatch only</td>
+<td><code>SetupBuildInfo</code>, then <code>DeployWebApi</code> in the <code>production</code> environment: signs in to Azure with OIDC and deploys the API; see <a href="deploying.html">Releasing and Deploying</a>. One run at a time; a second waits instead of cancelling the first</td>
+</tr>
+<tr>
+<td>Dependabot</td>
+<td>Weekly, Monday 06:00 Brisbane time</td>
+<td>One grouped pull request each for NuGet, npm, pub and GitHub Actions, with <code>build(...)</code> commit prefixes so versions don't bump</td>
+</tr>
+</tbody>
+</table>
+<p>A newer run of <code>Validate</code> or <code>Build</code> on the same branch cancels the one still in progress; <code>DeployCompose</code> and <code>Deploy</code> runs queue instead. Every job checks the repository out and sets up the .NET 10 SDK; Node and Docker come with the runner (<code>TestWebApi</code> starts PostgreSQL and Azurite in containers for the integration tests), and <code>TestMobileApp</code> installs the Flutter version pinned in <code>_atom/appsettings.json</code> into <code>.flutter/</code> because runners don't have one.</p>
+<p>The mobile app's release build (<code>BuildMobileAppAndroid</code>) is not in a workflow yet: it needs the Android keystore and client ids from Azure Key Vault, so the repository first needs an Azure identity with access to the vault.</p>
+<h2 id="what-the-repository-needs">What the repository needs</h2>
+<table>
+<thead>
+<tr>
+<th>Setting</th>
+<th>Where</th>
+<th>Used by</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>CHROME_EXTENSION_CLIENT_ID</code></td>
+<td>Settings, Secrets and variables, Actions, Variables</td>
+<td><code>BuildChromeExtension</code>, which otherwise has no Google client id outside a developer's <code>.env</code>, and <code>DeployWebApi</code>, which gives it to the API as an accepted audience</td>
+</tr>
+<tr>
+<td><code>GITHUB_TOKEN</code></td>
+<td>Provided by GitHub Actions</td>
+<td><code>PublishDocs</code>, which needs <code>contents: write</code> on the job; <code>PublishImages</code> and <code>PublishDeployBundle</code>, which need <code>packages: write</code> to push to GHCR; <code>DeployCompose</code>, which needs <code>packages: read</code> and hands the token to the server for the one deploy. All are declared on the jobs</td>
+</tr>
+<tr>
+<td><code>AZURE_VAULT_ADDRESS</code>, <code>AZURE_VAULT_TENANT_ID</code>, <code>AZURE_VAULT_APP_ID</code> (variables) and <code>AZURE_VAULT_APP_SECRET</code> (secret)</td>
+<td>Same pages</td>
+<td>Only targets that read Key Vault secrets; the current workflows don't, so these can stay unset until the mobile release build is added</td>
+</tr>
+<tr>
+<td><code>production</code> environment, with <code>DEPLOY_HOST</code>, <code>DEPLOY_USER</code> and <code>DEPLOY_KNOWN_HOSTS</code> (variables) and <code>DEPLOY_SSH_KEY</code> (secret)</td>
+<td>Settings, Environments</td>
+<td><code>DeployCompose</code>; see <a href="deploying.html#server-setup">Server setup</a></td>
+</tr>
+<tr>
+<td>GHCR packages <code>passel-webapi</code>, <code>passel-web</code> and <code>passel-deploy</code></td>
+<td>Each package's settings, once the first build of <code>main</code> has pushed it</td>
+<td>Private. Under Manage Actions access, this repository keeps the Admin role the first push gave it (or at least Write), or the package inherits access from the repository: <code>PublishImages</code> and <code>PublishDeployBundle</code> push to the packages, so a Read role breaks them, while <code>DeployCompose</code> only reads</td>
+</tr>
+<tr>
+<td><code>production</code> environment, with <code>AZURE_CLIENT_ID</code>, <code>AZURE_TENANT_ID</code>, <code>AZURE_SUBSCRIPTION_ID</code>, <code>AZURE_RESOURCE_GROUP</code>, <code>AZURE_LOCATION</code>, <code>GOOGLE_WEB_CLIENT_ID</code>, <code>API_DOMAIN</code> and <code>API_CERTIFICATE_NAME</code> (variables) and <code>ENCODING_ALPHABET</code> (secret)</td>
+<td>Settings, Environments</td>
+<td><code>DeployWebApi</code> (legacy). The Azure side (the identity and its federated credential) is set up once as <a href="deploying.html#one-off-setup">Releasing and Deploying</a> describes; until then the workflow has nothing to deploy to</td>
+</tr>
+<tr>
+<td>GitHub Pages source</td>
+<td>Settings, Pages: deploy from the <code>gh-pages</code> branch</td>
+<td>Serving the published docs site</td>
+</tr>
+<tr>
+<td>Branch protection on <code>main</code></td>
+<td>Settings, Branches</td>
+<td>Require the <code>Validate</code> jobs to pass and at least one review before merging</td>
+</tr>
+</tbody>
+</table>
+<p>The <code>Build</code> workflow no longer reads the repository variables <code>GOOGLE_WEB_CLIENT_ID</code> and <code>API_BASE_URL</code>: the web app is built without them, and the web image takes the API's origin and the client id from the server's <code>.env</code> when it starts (<a href="../components/web-app.html#the-web-image">The web image</a>). Once nothing else of yours uses them they can be deleted. The <code>production</code> environment's own <code>GOOGLE_WEB_CLIENT_ID</code> is a different variable, which the legacy <code>DeployWebApi</code> still reads.</p>
+<h2 id="running-a-workflows-target-locally">Running a workflow's target locally</h2>
+<p>Each job runs one target in headless mode, for example:</p>
+<pre><code>dotnet atom TestWebApi --headless
+</code></pre>
+<p><code>--headless</code> makes the build fail instead of prompting for anything, which is also a quick way to find a target that would hang in CI.</p>
+
+</article>
+
+        <div class="contribution d-print-none">
+          <a href="https://github.com/Invex-Games/passel/blob/main/docs/guides/ci.md/#L1" class="edit-link">Edit this page</a>
+        </div>
+
+        <div class="next-article d-print-none border-top" id="nextArticle"></div>
+
+      </div>
+
+      <div class="affix">
+        <nav id="affix"></nav>
+      </div>
+    </main>
+
+    <div class="container-xxl search-results" id="search-results"></div>
+
+    <footer class="border-top text-secondary">
+      <div class="container-xxl">
+        <div class="flex-fill">
+          Passel · Invex Games
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>
