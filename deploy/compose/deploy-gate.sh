@@ -123,6 +123,9 @@ docker rm "$container" >/dev/null
 # The shell's COMPOSE_PROJECT_NAME, if any, wins over the .env's, as it does for compose
 project=$(sed -n -E 's/^[[:space:]]*COMPOSE_PROJECT_NAME[[:space:]]*=[[:space:]]*//p' "$root/.env" | tail -n 1 | tr -d "\r\"' ")
 project=${COMPOSE_PROJECT_NAME:-${project:-passel}}
+# The project names the volumes, so a second stack that forgot to name its own would deploy over production's
+[ "$project" != "passel" ] || [ "$root" = /opt/passel ] ||
+    refuse "$root/.env must set COMPOSE_PROJECT_NAME: the project passel belongs to the stack in /opt/passel"
 if [ "$project" != "passel" ]; then
     for setting in PASSEL_API_ALIAS PASSEL_BACKEND_SUBNET; do
         grep -qs -- "$setting" "$staging/compose.yaml" ||
