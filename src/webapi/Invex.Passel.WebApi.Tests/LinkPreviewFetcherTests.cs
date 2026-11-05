@@ -24,6 +24,20 @@ public sealed class LinkPreviewFetcherTests
     /// <summary>
     ///     Answers each request from <paramref name="respond" /> and records what was asked for.
     /// </summary>
+    // Answers each request after a delay that the request's token can cut short
+    private sealed class DelayingHandler(TimeSpan delay, Func<HttpRequestMessage, HttpResponseMessage> respond)
+        : HttpMessageHandler
+    {
+        protected override async Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request,
+            CancellationToken cancellationToken)
+        {
+            await Task.Delay(delay, cancellationToken);
+
+            return respond(request);
+        }
+    }
+
     private sealed class FakeHandler(Func<HttpRequestMessage, HttpResponseMessage> respond) : HttpMessageHandler
     {
         public List<HttpRequestMessage> Requests { get; } = [];
@@ -498,15 +512,12 @@ public sealed class LinkPreviewFetcherTests
     [Fact]
     public async Task The_time_budget_covers_the_whole_fetch_redirects_included()
     {
-        // Each hop takes a good share of the budget; together they are over it
-        var handler = new FakeHandler(request =>
-        {
-            Thread.Sleep(120);
-
-            return request.RequestUri!.AbsolutePath == "/final"
+        // Each hop takes a good share of the budget; together they are over it. The hops wait on the token rather
+        // than block a thread, so the budget cuts the second one off however late its timer runs
+        var handler = new DelayingHandler(TimeSpan.FromMilliseconds(120),
+            request => request.RequestUri!.AbsolutePath == "/final"
                 ? Page(Html)
-                : Redirect(HttpStatusCode.Found, "/final");
-        });
+                : Redirect(HttpStatusCode.Found, "/final"));
 
         using var fetcher = CreateFetcher(handler, options => options.Timeout = TimeSpan.FromMilliseconds(200));
 
