@@ -15,9 +15,9 @@ x-logging: &logging
     max-size: 10m
     max-file: "5"
 
-x-api-image: &api-image ghcr.io/decsmith42/passel-webapi:${PASSEL_TAG:?PASSEL_TAG is set by deploy.sh}
+x-api-image: &api-image ghcr.io/invex-games/passel-webapi:${PASSEL_TAG:?PASSEL_TAG is set by deploy.sh}
 
-x-web-image: &web-image ghcr.io/decsmith42/passel-web:${PASSEL_TAG:?PASSEL_TAG is set by deploy.sh}
+x-web-image: &web-image ghcr.io/invex-games/passel-web:${PASSEL_TAG:?PASSEL_TAG is set by deploy.sh}
 
 # Containers that need no privileges get none: no capabilities and no way to gain any
 x-hardening: &hardening

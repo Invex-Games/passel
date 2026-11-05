@@ -17,8 +17,8 @@ internal interface IContainerRegistryHelper : IImageTagHelper
     [ParamDefinition("container-registry", "The registry the images are pushed to, such as ghcr.io")]
     string ContainerRegistry => GetParam(() => ContainerRegistry, "ghcr.io");
 
-    [ParamDefinition("container-namespace", "The namespace of the images in the registry, such as decsmith42")]
-    string ContainerNamespace => GetParam(() => ContainerNamespace, "decsmith42");
+    [ParamDefinition("container-namespace", "The namespace of the images in the registry, such as invex-games")]
+    string ContainerNamespace => GetParam(() => ContainerNamespace, "invex-games");
 
     [ParamDefinition("push-images",
         "Whether to push the images to the registry; only a build of refs/heads/main ever pushes")]

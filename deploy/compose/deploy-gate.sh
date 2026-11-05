@@ -18,7 +18,7 @@ umask 077
 
 root=${PASSEL_ROOT:-/opt/passel}
 registry=${PASSEL_REGISTRY:-ghcr.io}
-image_namespace=${PASSEL_IMAGE_NAMESPACE:-decsmith42}
+image_namespace=${PASSEL_IMAGE_NAMESPACE:-invex-games}
 registry_user=${PASSEL_REGISTRY_USER:-passel-deploy}
 
 refuse() {

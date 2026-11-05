@@ -8,7 +8,7 @@ The Azure deployment of [ADR 0003](../decisions/0003-hosting-on-azure.md) is sti
 
 ### Versions and tags
 
-Versions come from GitVersion and the conventional commit prefixes described in `CONTRIBUTING.md`; on `main` every commit has its own, such as `0.2.0-rc.12`. The `Build` workflow tests every push to `main`, then builds three images and pushes them to `ghcr.io/decsmith42/`, each tagged with the version (`+` and `/` become `-`) and with `sha-` and the first seven characters of the commit:
+Versions come from GitVersion and the conventional commit prefixes described in `CONTRIBUTING.md`; on `main` every commit has its own, such as `0.2.0-rc.12`. The `Build` workflow tests every push to `main`, then builds three images and pushes them to `ghcr.io/invex-games/`, each tagged with the version (`+` and `/` become `-`) and with `sha-` and the first seven characters of the commit:
 
 | Image | What it is |
 |---|---|
@@ -199,7 +199,7 @@ To restore, or to rehearse a restore on a spare server, from `/opt/passel/curren
 
 ### Disk space
 
-`df -h /var/lib/docker` shows what is left for the images and the volumes, and `docker system df -v` what each volume takes. A full disk shows first as 503 on the file endpoints (the filesystem store's writes fail), then as a database that stops accepting writes. Each release keeps its images until removed: `docker image ls 'ghcr.io/decsmith42/*'` lists them, and `docker image rm` removes those of releases you won't roll back to. Their directories under `releases/` are small and can go too, except the current and previous ones.
+`df -h /var/lib/docker` shows what is left for the images and the volumes, and `docker system df -v` what each volume takes. A full disk shows first as 503 on the file endpoints (the filesystem store's writes fail), then as a database that stops accepting writes. Each release keeps its images until removed: `docker image ls 'ghcr.io/invex-games/*'` lists them, and `docker image rm` removes those of releases you won't roll back to. Their directories under `releases/` are small and can go too, except the current and previous ones.
 
 ### Troubleshooting the server
 
@@ -304,7 +304,7 @@ az identity create --name passel-github-deploy --resource-group <ops-rg>
 Give the identity a federated credential that only a workflow job in the `production` environment of this repository can use:
 
 ```
-az identity federated-credential create --name github-production --identity-name passel-github-deploy --resource-group <ops-rg> --issuer https://token.actions.githubusercontent.com --subject repo:DecSmith42/passel:environment:production --audiences api://AzureADTokenExchange
+az identity federated-credential create --name github-production --identity-name passel-github-deploy --resource-group <ops-rg> --issuer https://token.actions.githubusercontent.com --subject repo:Invex-Games/passel:environment:production --audiences api://AzureADTokenExchange
 ```
 
 Note the identity's `clientId` and `principalId` (`az identity show --name passel-github-deploy --resource-group <ops-rg>`), and the tenant id (`az account show --query tenantId`).

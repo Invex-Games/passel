@@ -14,9 +14,9 @@ USER 1000:1000
 
 EXPOSE 8080
 
-LABEL org.opencontainers.image.source="https://github.com/DecSmith42/passel" \
-      org.opencontainers.image.url="https://github.com/DecSmith42/passel" \
-      org.opencontainers.image.documentation="https://github.com/DecSmith42/passel/blob/main/docs/components/web-app.md" \
+LABEL org.opencontainers.image.source="https://github.com/Invex-Games/passel" \
+      org.opencontainers.image.url="https://github.com/Invex-Games/passel" \
+      org.opencontainers.image.documentation="https://github.com/Invex-Games/passel/blob/main/docs/components/web-app.md" \
       org.opencontainers.image.vendor="Invex Games" \
       org.opencontainers.image.licenses="MIT AND Apache-2.0" \
       org.opencontainers.image.title="passel-web" \
