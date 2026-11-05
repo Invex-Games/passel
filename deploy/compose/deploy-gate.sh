@@ -16,7 +16,12 @@
 #
 # with a registry token on stdin. It signs in to the registry in a temporary Docker configuration that is removed
 # when it exits, so no credential stays on the server, pulls passel-deploy:<tag>, extracts its bundle into
-# releases/<tag>/ and runs that release's deploy.sh. An older tag therefore deploys with its own compose files.
+# releases/<tag>/ and runs that release's deploy.sh. An older tag therefore deploys with its own compose files, and a
+# stack other than production refuses one older than the per-stack settings.
+#
+# The bundle's deploy.sh runs as the deploy user, who has the Docker daemon and so the whole server: the gate limits
+# what a key can ask for, not what a release does once it runs. Whoever can deploy a tag to any stack on a server can
+# reach every stack on it.
 set -euo pipefail
 
 umask 077
@@ -111,6 +116,19 @@ if ! docker cp "$container:/bundle/." "$staging/"; then
     refuse "$bundle_image has no /bundle"
 fi
 docker rm "$container" >/dev/null
+
+# A release from before stacks could share a server fixes production's aliases, subnets and edge address in its
+# compose files, so a second stack deploying it would answer to production's names on a shared proxy network or
+# clash with its networks. A stack other than passel only takes a release whose compose.yaml reads those settings.
+# The shell's COMPOSE_PROJECT_NAME, if any, wins over the .env's, as it does for compose
+project=$(sed -n -E 's/^[[:space:]]*COMPOSE_PROJECT_NAME[[:space:]]*=[[:space:]]*//p' "$root/.env" | tail -n 1 | tr -d "\r\"' ")
+project=${COMPOSE_PROJECT_NAME:-${project:-passel}}
+if [ "$project" != "passel" ]; then
+    for setting in PASSEL_API_ALIAS PASSEL_BACKEND_SUBNET; do
+        grep -qs -- "$setting" "$staging/compose.yaml" ||
+            refuse "$tag predates stacks beside production: its compose.yaml ignores $setting, so stack $project can't deploy it"
+    done
+fi
 
 chmod 755 "$staging"
 release_dir="$root/releases/$tag"
