@@ -37,7 +37,7 @@ internal interface IPublishDeployBundle : ITestTargets, ISetupBuildInfo, IContai
                     : $"{ContainerNamespace}/{DeployImageName}";
 
                 await ProcessRunner.RunAsync(new("docker",
-                    [
+                    CommandLine.Join([
                         "build",
                         "--file",
                         (ComposeDirectory / "Dockerfile.bundle").ToString(),
@@ -47,7 +47,7 @@ internal interface IPublishDeployBundle : ITestTargets, ISetupBuildInfo, IContai
                         "--label",
                         $"org.opencontainers.image.version={version}",
                         ComposeDirectory.ToString(),
-                    ])
+                    ]))
                     {
                         OutputLogLevel = LogLevel.Information,
                         // BuildKit writes its progress to stderr, which is not a warning
@@ -59,7 +59,8 @@ internal interface IPublishDeployBundle : ITestTargets, ISetupBuildInfo, IContai
 
                 if (pushed)
                     foreach (var tag in tags)
-                        await ProcessRunner.RunAsync(new("docker", ["push", $"{repository}:{tag}"]), cancellationToken);
+                        await ProcessRunner.RunAsync(new("docker", CommandLine.Join(["push", $"{repository}:{tag}"])),
+                            cancellationToken);
 
                 var outcome = push switch
                 {

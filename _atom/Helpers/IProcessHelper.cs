@@ -9,7 +9,8 @@ internal interface IProcessHelper : IBuildAccessor
 
     async Task<RootedPath> FindEnvironmentPath(string name, CancellationToken cancellationToken = default)
     {
-        var pathResult = await ProcessRunner.RunAsync(new(PathLookupCommand, [name]), cancellationToken);
+        var pathResult =
+            await ProcessRunner.RunAsync(new(PathLookupCommand, CommandLine.Join([name])), cancellationToken);
 
         var paths = pathResult
             .Output
@@ -36,7 +37,7 @@ internal interface IProcessHelper : IBuildAccessor
         try
         {
             // A missing command is an expected outcome here, so it isn't logged as a failure
-            var pathResult = await ProcessRunner.RunAsync(new(PathLookupCommand, [name])
+            var pathResult = await ProcessRunner.RunAsync(new(PathLookupCommand, CommandLine.Join([name]))
                 {
                     AllowFailedResult = true,
                     InvocationLogLevel = LogLevel.Debug,

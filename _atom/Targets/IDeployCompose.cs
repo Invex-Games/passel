@@ -94,7 +94,7 @@ internal interface IDeployCompose : ISetupBuildInfo, IContainerRegistryHelper, I
                     // The token goes to the gate on stdin, from the environment, so it is never on a command line;
                     // the arguments stay a list, passed to ssh as "$@"
                     await ProcessRunner.RunAsync(new("bash",
-                        [
+                        CommandLine.Join([
                             "-c",
                             $"printf '%s\\n' \"${PullTokenVariable}\" | ssh \"$@\"",
                             "ssh",
@@ -115,7 +115,7 @@ internal interface IDeployCompose : ISetupBuildInfo, IContainerRegistryHelper, I
                             "-T",
                             $"{DeployUser}@{DeployHost}",
                             .. request,
-                        ])
+                        ]))
                         {
                             OutputLogLevel = LogLevel.Information,
                             // Compose writes its progress to stderr, which is not a warning
@@ -150,7 +150,7 @@ internal interface IDeployCompose : ISetupBuildInfo, IContainerRegistryHelper, I
     /// </summary>
     private async Task RequireRegistryImage(string image, CancellationToken cancellationToken)
     {
-        var result = await ProcessRunner.RunAsync(new("docker", ["manifest", "inspect", image])
+        var result = await ProcessRunner.RunAsync(new("docker", CommandLine.Join(["manifest", "inspect", image]))
             {
                 AllowFailedResult = true,
                 OutputLogLevel = LogLevel.Debug,

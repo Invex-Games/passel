@@ -108,13 +108,13 @@ internal interface IDeployWebApi : IBuildChromeExtension, ISetupBuildInfo, IImag
         await ProcessRunner.RunAsync(new("dotnet", "tool restore"), cancellationToken);
 
         await ProcessRunner.RunAsync(new("dotnet",
-            [
+            CommandLine.Join([
                 "aspire",
                 .. command,
                 "--apphost",
                 AppHostProject.ToString(),
                 "--non-interactive",
-            ])
+            ]))
             {
                 EnvironmentVariables = environmentVariables,
                 OutputLogLevel = LogLevel.Information,

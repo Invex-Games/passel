@@ -92,7 +92,7 @@ internal interface IContainerRegistryHelper : IImageTagHelper
     private async Task<string?> GetRegistryRevision(string image, CancellationToken cancellationToken)
     {
         var result = await ProcessRunner.RunAsync(new("docker",
-                ["buildx", "imagetools", "inspect", image, "--format", "{{json .Image}}"])
+                CommandLine.Join(["buildx", "imagetools", "inspect", image, "--format", "{{json .Image}}"]))
             {
                 AllowFailedResult = true,
                 OutputLogLevel = LogLevel.Debug,

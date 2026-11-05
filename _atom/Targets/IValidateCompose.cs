@@ -36,7 +36,7 @@ internal interface IValidateCompose : IBuildAccessor
                     Logger.LogInformation("Checking {Files}", string.Join(" + ", files));
 
                     await ProcessRunner.RunAsync(new("docker",
-                        [
+                        CommandLine.Join([
                             "compose",
                             .. files.SelectMany(file => new[] { "--file", file }),
                             "--env-file",
@@ -47,7 +47,7 @@ internal interface IValidateCompose : IBuildAccessor
                             "telemetry",
                             "config",
                             "--quiet",
-                        ])
+                        ]))
                         {
                             WorkingDirectory = ComposeDirectory,
                         },
@@ -57,14 +57,14 @@ internal interface IValidateCompose : IBuildAccessor
                 var shellcheck = FindShellcheck();
 
                 if (shellcheck is not null)
-                    await ProcessRunner.RunAsync(new(shellcheck, Scripts)
+                    await ProcessRunner.RunAsync(new(shellcheck, CommandLine.Join(Scripts))
                         {
                             WorkingDirectory = ComposeDirectory,
                         },
                         cancellationToken);
                 else
                     await ProcessRunner.RunAsync(new("docker",
-                        [
+                        CommandLine.Join([
                             "run",
                             "--rm",
                             "--volume",
@@ -73,7 +73,7 @@ internal interface IValidateCompose : IBuildAccessor
                             "/mnt",
                             ShellcheckImage,
                             .. Scripts,
-                        ])
+                        ]))
                         {
                             ErrorLogLevel = LogLevel.Information,
                         },

@@ -86,21 +86,27 @@ internal interface IBuildMobileAppAndroid : IFlutterHelper,
                         buildVariables["SIGNING_RELEASE_STORE_PASSWORD"] = AndroidKeystorePassword;
                     }
 
+                    // One argument per item: FlutterBuild quotes each one, so none may hold several
                     await FlutterBuild([
-                            MobileAppFlavor is MobileAppFlavor.Development
-                                ? "build apk"
-                                : $"build appbundle  --obfuscate --split-debug-info={debugSymbolsPath}",
-                            $"--flavor {flavorName}",
-                            "--target lib/main.dart",
+                            "build",
+                            .. MobileAppFlavor is MobileAppFlavor.Development
+                                ? (string[])["apk"]
+                                : ["appbundle", "--obfuscate", $"--split-debug-info={debugSymbolsPath}"],
+                            "--flavor",
+                            flavorName,
+                            "--target",
+                            "lib/main.dart",
                             .. GetDartDefines(),
-                            $"--build-name {BuildVersion.Major}.{BuildVersion.Minor}.{BuildVersion.Patch}",
-                            $"--build-number {mobileBuildId}",
-                            MobileAppFlavor is MobileAppFlavor.Development
-                                ? " --debug"
-                                : string.Empty,
-                            LogOptions.IsVerboseEnabled
-                                ? " --verbose"
-                                : string.Empty,
+                            "--build-name",
+                            $"{BuildVersion.Major}.{BuildVersion.Minor}.{BuildVersion.Patch}",
+                            "--build-number",
+                            $"{mobileBuildId}",
+                            .. MobileAppFlavor is MobileAppFlavor.Development
+                                ? (string[])["--debug"]
+                                : [],
+                            .. LogOptions.IsVerboseEnabled
+                                ? (string[])["--verbose"]
+                                : [],
                         ],
                         MobileAppDirectory,
                         buildVariables,

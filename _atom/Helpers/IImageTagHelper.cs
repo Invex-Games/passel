@@ -45,7 +45,7 @@ internal interface IImageTagHelper : IBuildInfo
 
             if (string.IsNullOrWhiteSpace(revision))
                 revision = ProcessRunner
-                    .Run(new("git", ["rev-parse", "HEAD"])
+                    .Run(new("git", CommandLine.Join(["rev-parse", "HEAD"]))
                     {
                         WorkingDirectory = RootedFileSystem.AtomRootDirectory,
                         InvocationLogLevel = LogLevel.Debug,
