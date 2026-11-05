@@ -29,9 +29,9 @@ The mobile app's release build (`BuildMobileAppAndroid`) is not in a workflow ye
 | GHCR packages `passel-webapi`, `passel-web` and `passel-deploy` | Each package's settings, once the first build of `main` has pushed it | Private. Under Manage Actions access, this repository keeps the Admin role the first push gave it (or at least Write), or the package inherits access from the repository: `PublishImages` and `PublishDeployBundle` push to the packages, so a Read role breaks them, while `DeployCompose` only reads |
 | `production` environment, with `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID`, `AZURE_RESOURCE_GROUP`, `AZURE_LOCATION`, `GOOGLE_WEB_CLIENT_ID`, `API_DOMAIN` and `API_CERTIFICATE_NAME` (variables) and `ENCODING_ALPHABET` (secret) | Settings, Environments | `DeployWebApi` (legacy). The Azure side (the identity and its federated credential) is set up once as [Releasing and Deploying](deploying.md#one-off-setup) describes; until then the workflow has nothing to deploy to |
 | GitHub Pages source | Settings, Pages: deploy from the `gh-pages` branch | Serving the published docs site |
+| Branch protection on `main` | Settings, Branches | Require the `Validate` jobs to pass and at least one review before merging |
 
 The `Build` workflow no longer reads the repository variables `GOOGLE_WEB_CLIENT_ID` and `API_BASE_URL`: the web app is built without them, and the web image takes the API's origin and the client id from the server's `.env` when it starts ([The web image](../components/web-app.md#the-web-image)). Once nothing else of yours uses them they can be deleted. The `production` environment's own `GOOGLE_WEB_CLIENT_ID` is a different variable, which the legacy `DeployWebApi` still reads.
-| Branch protection on `main` | Settings, Branches | Require the `Validate` jobs to pass and at least one review before merging |
 
 ## Running a workflow's target locally
 
