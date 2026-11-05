@@ -65,8 +65,9 @@ if ! [[ $compose_major =~ ^[0-9]+$ && $compose_minor =~ ^[0-9]+$ ]] ||
     die "Docker Compose $compose_version is too old; 2.24 or later is needed"
 fi
 
-# One deploy at a time on this server. deploy-gate.sh takes the lock before it replaces releases/<tag> and hands it
-# down on descriptor 9, which locks again without waiting; run by hand, the script opens the lock itself
+# One deploy at a time of this stack; another stack on the server has its own root and so its own lock.
+# deploy-gate.sh takes the lock before it replaces releases/<tag> and hands it down on descriptor 9, which locks again
+# without waiting; run by hand, the script opens the lock itself
 if command -v flock >/dev/null; then
     if ! { true >&9; } 2>/dev/null; then
         exec 9>"$root/.deploy.lock"

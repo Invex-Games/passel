@@ -1,6 +1,9 @@
 # Behind a reverse proxy that already runs on the server in its own Docker network (COMPOSE_FILE adds this file).
 # The edge network becomes that existing network, named by PROXY_NETWORK, and the API and the web app join it as
-# passel-api and passel-web. Set PROXY_TRUSTED_CIDR to the proxy's address as a /32, or to the network's CIDR.
+# PASSEL_API_ALIAS and PASSEL_WEB_ALIAS (passel-api and passel-web by default). A second stack on the same proxy
+# network needs aliases of its own, such as passel-preprod-api and passel-preprod-web, and the proxy points at those;
+# never at the service names api and web, which every stack on the network answers to. Set PROXY_TRUSTED_CIDR to the
+# proxy's address as a /32, or to the network's CIDR. The PASSEL_EDGE_* subnet settings are not used.
 # Needs Docker Compose 2.24 or later for !reset.
 
 networks:

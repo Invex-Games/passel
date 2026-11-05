@@ -4,6 +4,9 @@
 #
 #   15 3 * * * /opt/passel/current/backup.sh /var/backups/passel >>/var/log/passel/backup.log 2>&1
 #
+# It backs up the stack whose release it is, with that stack's .env and so its COMPOSE_PROJECT_NAME and volumes: a
+# pre-prod stack beside production has its own line, such as /opt/passel-preprod/current/backup.sh.
+#
 # It writes three files with the same UTC timestamp into the directory given (<root>/backups by default):
 #
 #   db-<time>.dump      pg_dump of the database in the custom format, for pg_restore
