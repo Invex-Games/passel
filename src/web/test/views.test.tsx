@@ -2,6 +2,7 @@ import type {FeedState, Packet} from "@passel/core";
 import {render} from "preact-render-to-string";
 import {describe, expect, it} from "vitest";
 import type {AppState} from "../src/app/controller.js";
+import {ConfigErrorPage} from "../src/app/views/ConfigErrorPage.js";
 import {FeedEndRow, FeedPage, type FeedPageActions} from "../src/app/views/FeedPage.js";
 import {SignInPage} from "../src/app/views/SignInPage.js";
 import {Tile} from "../src/app/views/Tile.js";
@@ -148,5 +149,16 @@ describe("SignInPage", () => {
 
         expect(html).toContain('href="/terms/"');
         expect(html).toContain('href="/privacy/"');
+    });
+});
+
+describe("ConfigErrorPage", () => {
+    it("says the app can't start and why, escaped, with no sign-in", () => {
+        const html = render(<ConfigErrorPage detail={"API_URL must be an https URL (<b>http://x</b>)"}/>);
+
+        expect(html).toContain("Passel can't start");
+        expect(html).toContain('role="alert"');
+        expect(html).toContain("API_URL must be an https URL (&lt;b>http://x&lt;/b>)");
+        expect(html).not.toContain("Sign in");
     });
 });

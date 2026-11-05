@@ -1,4 +1,7 @@
 # The web app on plain HTTP; the hosting rules are in docs/components/web-app.md.
+#
+# {$API_ORIGIN} is the API's origin, which entrypoint.sh checks before it starts Caddy: Caddy puts an environment
+# value into this file as text, before parsing it, so only a value that can't break out of the quotes may reach it.
 {
 	# No admin API, no certificates and no saved config: the container only serves files
 	admin off
@@ -6,19 +9,23 @@
 	persist_config off
 }
 
-# Sent with every response, the 404 page included
+# Sent with every response, the 404 page included. The policies agree with src/web/policy.mjs, which the dev server
+# sends; static-pages.test.ts checks that they do
 (security_headers) {
 	header {
-		# File names carry no content hash, so browsers revalidate every file (ETag and Last-Modified give a 304)
+		# File names carry no content hash, so browsers revalidate every file (ETag and Last-Modified give a 304),
+		# /app/config.json included, which changes whenever the container starts with other values
 		Cache-Control "no-cache"
 		Strict-Transport-Security "max-age=31536000; includeSubDomains"
-		# The pages carry their own policies in a meta tag, which cannot set frame-ancestors
-		Content-Security-Policy "frame-ancestors 'none'"
+		# The landing, privacy, terms and not-found pages run no script at all; the app overrides this below
+		Content-Security-Policy "default-src 'self'; script-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
 		X-Frame-Options "DENY"
 		X-Content-Type-Options "nosniff"
 		Referrer-Policy "strict-origin-when-cross-origin"
-		-Server
 	}
+	# On its own: deleting a field defers the whole block to when the response is written, which would overwrite the
+	# app's policy below with the pages' one
+	header -Server
 }
 
 :8080 {
@@ -36,9 +43,27 @@
 	@no_slash path /privacy /terms /app
 	redir @no_slash {path}/ 308
 
-	file_server
+	handle /app/* {
+		# The app's scripts come from this origin and Google Identity Services only; it talks to this origin, the
+		# API and Google, and shows preview images from any https site
+		header Content-Security-Policy "default-src 'self'; script-src 'self' https://accounts.google.com/gsi/client; style-src 'self' https://accounts.google.com/gsi/style; frame-src https://accounts.google.com/gsi/; connect-src 'self' {$API_ORIGIN} https://accounts.google.com/gsi/; img-src 'self' data: https:; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
+
+		# Written by entrypoint.sh when the container starts, outside the read-only site
+		handle /app/config.json {
+			root * /run/passel-web
+			rewrite * /config.json
+			file_server
+		}
+
+		file_server
+	}
+
+	handle {
+		file_server
+	}
 
 	handle_errors 404 {
+		root * /srv
 		import security_headers
 		rewrite * /404.html
 		file_server

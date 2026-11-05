@@ -114,7 +114,8 @@ internal interface IPublishImages : IBuildWebApp, ITestTargets, ISetupBuildInfo,
 
     /// <summary>
     ///     Builds the web image from <c>deploy/web</c> and the site that BuildWebApp built, staged together as the
-    ///     build context so that nothing else in the repository can reach the image.
+    ///     build context so that nothing else in the repository can reach the image. The image holds no environment's
+    ///     values, so the same image is promoted from one environment to the next.
     /// </summary>
     private async Task BuildWebImage(
         string repository,
@@ -139,6 +140,7 @@ internal interface IPublishImages : IBuildWebApp, ITestTargets, ISetupBuildInfo,
 
         RootedFileSystem.File.Copy(WebImageDirectory / "Dockerfile", context / "Dockerfile", true);
         RootedFileSystem.File.Copy(WebImageDirectory / "Caddyfile", context / "Caddyfile", true);
+        RootedFileSystem.File.Copy(WebImageDirectory / "entrypoint.sh", context / "entrypoint.sh", true);
         RootedFileSystem.CopyDirectory(site, context / "site");
 
         await ProcessRunner.RunAsync(new("docker",

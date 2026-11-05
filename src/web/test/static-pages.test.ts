@@ -2,6 +2,7 @@ import {existsSync, readdirSync, readFileSync, statSync} from "node:fs";
 import {dirname, join, relative} from "node:path";
 import {fileURLToPath} from "node:url";
 import {describe, expect, it} from "vitest";
+import {appCsp, PAGE_CSP} from "../policy.mjs";
 
 // The static pages as they are shipped: they link to things that exist, carry no script, keep to the vocabulary of
 // ADR 0002, and the legal drafts say they are drafts and quote the limits the API really enforces.
@@ -67,22 +68,52 @@ describe("static pages", () => {
         expect(page(name)).toContain('href="https://docs.passel.link/"');
     });
 
-    it.each(staticPages.map(p => p.name))("%s runs no script, under a policy that allows none", name => {
+    it.each(staticPages.map(p => p.name))("%s runs no script and leaves its policy to the server", name => {
         const html = page(name);
 
         expect(html).not.toMatch(/<script/i);
-        expect(html).toMatch(/<meta http-equiv="Content-Security-Policy" content="[^"]*script-src 'none'/);
+        expect(html).not.toContain("Content-Security-Policy");
     });
 
     it.each(staticPages.map(p => p.name))("%s speaks of links, notes and files, never packets or parcels", name => {
         expect(visibleText(page(name))).not.toMatch(/\b(packet|parcel)s?\b/i);
     });
 
-    it("the app shell gets its security policy and referrer policy from the build", () => {
+    it("the app shell holds no environment's values and leaves its policies to the server", () => {
         const html = page("app/index.html");
 
-        expect(html).toContain('content="%CSP%"');
-        expect(html).toContain('content="%REFERRER%"');
+        expect(html).not.toMatch(/%[A-Z]+%/);
+        expect(html).not.toContain("Content-Security-Policy");
+        expect(html).not.toContain('name="referrer"');
+    });
+});
+
+describe("the web image's security policies", () => {
+    // deploy/web/Caddyfile sends them in production, policy.mjs in the dev server; they must be the same policies
+    const caddyfile = readFileSync(join(webDir, "..", "..", "deploy", "web", "Caddyfile"), "utf8");
+    const policies = [...caddyfile.matchAll(/Content-Security-Policy "([^"]+)"/g)].map(match => match[1]);
+
+    it("are one for the pages and one for the app", () => {
+        expect(policies).toHaveLength(2);
+    });
+
+    it("allow the pages no script, as the dev server does", () => {
+        expect(policies[0]).toBe(PAGE_CSP);
+        expect(PAGE_CSP).toContain("script-src 'none'");
+        expect(PAGE_CSP).toContain("frame-ancestors 'none'");
+    });
+
+    it("give the app its policy with the API's origin from the environment, as the dev server does", () => {
+        expect(policies[1]).toBe(appCsp("{$API_ORIGIN}"));
+        // Inside the /app/ block, and nowhere else
+        const app = caddyfile.indexOf("handle /app/* {");
+        expect(app).toBeGreaterThan(0);
+        expect(caddyfile.indexOf(policies[1])).toBeGreaterThan(app);
+        expect(caddyfile.indexOf(policies[1])).toBeLessThan(caddyfile.indexOf("handle /app/config.json"));
+    });
+
+    it("are the only policies: the HTML carries none", () => {
+        for (const p of pages) expect(p.html, p.name).not.toMatch(/http-equiv/i);
     });
 });
 
