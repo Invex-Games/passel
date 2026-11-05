@@ -129,7 +129,7 @@ Once, as an administrator on the server, then on GitHub. These steps set up prod
 
 ### Pre-prod and production on one server
 
-Pre-prod is a second, complete stack: its own directory, settings, database, files, Google origins and deploy key, so nothing deployed to it can reach production's data. It can run on its own server, set up exactly as above, or beside production on the same one, which needs the differences below. The same images serve both; only the server's `.env` tells them apart.
+Pre-prod is a second, complete stack: its own directory, settings, database, files, Google origins and deploy key. It can run on its own server, set up exactly as above, or beside production on the same one, which needs the differences below. Only a separate server keeps what is deployed to pre-prod away from production's data: a deploy runs the release's `deploy.sh` as the deploy user, with the whole Docker daemon and so root on the server, and on a shared server that reaches production's volumes, containers and `.env` as well. So on one server a pre-prod deploy needs the same review as a production one (**GitHub**, below), and a pre-prod meant for unreviewed builds needs a server of its own. The same images serve both; only the server's `.env` tells them apart.
 
 **Layout.** Production stays in `/opt/passel`, and an `.env` from before pre-prod existed needs no change. Pre-prod lives in `/opt/passel-preprod`, created like step 3, with its own copy of the gate:
 
@@ -147,7 +147,7 @@ command="/opt/passel/deploy-gate.sh",restrict ssh-ed25519 AAAA... passel-deploy
 command="/opt/passel-preprod/deploy-gate.sh",restrict ssh-ed25519 AAAA... passel-deploy-preprod
 ```
 
-The pre-prod key then can't deploy production, whatever it asks for. A separate user per stack (`deploy-preprod`, also in the `docker` group) is no stronger: membership of `docker` gives either one the whole Docker daemon, so the forced commands are what keeps the stacks apart.
+The pre-prod key then can't ask for a production deploy, whatever it sends. That keeps mistakes apart, not people: the release it deploys runs with the whole Docker daemon, so it can reach production anyway. A separate user per stack (`deploy-preprod`, also in the `docker` group) is no stronger, since membership of `docker` gives either one the whole daemon.
 
 **The settings.** `/opt/passel-preprod/.env` is a copy of `.env.example` filled in as in step 5, with new passwords, a new `ENCODING_ALPHABET` (pre-prod's ids need not match production's) and pre-prod's hosts, plus the keys that would otherwise clash with production's ([Configuration](../reference/configuration.md#compose-deployment)):
 
@@ -172,7 +172,9 @@ The project name keeps the containers, networks and volumes apart (`passel-prepr
 
 **The proxy.** Only one stack can have the bundled edge, since it binds the server's 80 and 443. With two stacks, put both behind one proxy: your own Caddy container, below, or a proxy on the host with `compose.ports.yaml`, pre-prod on its own ports.
 
-**GitHub.** Create a `preprod` environment beside `production`, with its own `DEPLOY_HOST`, `DEPLOY_USER` and `DEPLOY_KNOWN_HOSTS` variables and the pre-prod private key as its `DEPLOY_SSH_KEY` secret. On one server the first three are the same values as production's; the key is not. It may do without required reviewers and allow branches other than `main`, so that a change can be tried on pre-prod first: the workflow still deploys only tags whose three images are in the registry, and only builds of `main` push them. Then deploy with `target` set to `preprod`.
+**GitHub.** Create a `preprod` environment beside `production`, with its own `DEPLOY_HOST`, `DEPLOY_USER` and `DEPLOY_KNOWN_HOSTS` variables and the pre-prod private key as its `DEPLOY_SSH_KEY` secret. On one server the first three are the same values as production's; the key is not. Give it the same protection as `production`: required reviewers, and deployment branches limited to `main`. Without them, anyone with write access to the repository could deploy to pre-prod, and so run code as root beside production, with no review: a dispatched run uses the workflow and build code of its own branch, and an environment open to any branch hands that branch its key. The registry doesn't stop it either. Only the `Build` workflow on `main` pushes images, but the packages role from step 8 lets a workflow on any branch push a `passel-deploy` of its own under a new tag, and the deploy checks only that the tag's three images exist. A pre-prod that should take other branches' builds without review needs its own server, where all it can reach is itself. Then deploy with `target` set to `preprod`.
+
+**The oldest release pre-prod can run.** Releases from before stacks could share a server fix production's aliases, subnets and edge address in their compose files. Pre-prod running one would join a shared proxy network as `passel-api` and `passel-web` and take some of production's traffic, or clash with its own networks. Never deploy or roll back a second stack below the first release whose `compose.yaml` reads `PASSEL_API_ALIAS` and `PASSEL_BACKEND_SUBNET`. The gate enforces it: in a stack whose `COMPOSE_PROJECT_NAME` is not `passel`, it refuses such a release before running anything from it. Production, as `passel`, can still roll back to any of them.
 
 **Backups.** Each stack backs up its own volumes with its own `backup.sh`, into its own directory:
 
@@ -205,10 +207,10 @@ api.passel.link {
 	reverse_proxy passel-api:8080 {
 		# The event stream at /api/packets/events goes out as each event comes
 		flush_interval -1
+		# No read_timeout: Caddy counts it from the start of the request, upload included, so it would cut off
+		# a slow 25 MB upload. The default has none, like the bundled edge
 		transport http {
 			dial_timeout 10s
-			# Waits for the next read from the API: the event stream sends a heartbeat every 20 seconds
-			read_timeout 5m
 		}
 	}
 }
@@ -225,7 +227,6 @@ api.preprod.passel.link {
 		flush_interval -1
 		transport http {
 			dial_timeout 10s
-			read_timeout 5m
 		}
 	}
 }
@@ -235,7 +236,7 @@ preprod.passel.link {
 }
 ```
 
-Caddy passes the client's `Host` on and sets `X-Forwarded-For` and `X-Forwarded-Proto` itself, which is all the API needs. An event stream stays open for up to an hour, until the token it was opened with expires, so nothing may cut a response off sooner: Caddy sets no such limit by default, but a `timeouts { write ... }` in the Caddyfile's global `servers` options would, so leave `write` out or make it more than an hour.
+Caddy passes the client's `Host` on and sets `X-Forwarded-For` and `X-Forwarded-Proto` itself, which is all the API needs. An event stream stays open for up to an hour, until the token it was opened with expires, so nothing may cut a response off sooner: Caddy sets no such limit by default, but a `read_timeout` in the `transport` (which counts the upload too) or a `timeouts { write ... }` in the Caddyfile's global `servers` options would, so leave `write` out or make it more than an hour.
 
 The API believes the forwarded headers only from `PROXY_TRUSTED_CIDR`. Find the Caddy container's address on the proxy network with
 
@@ -271,7 +272,7 @@ Each release deploys with its own compose files, because they come from the depl
 
 ### Rolling back to an earlier release
 
-Run `DeployCompose` with the stack's `target`, `image-tag` set to the release to go back to and `migrate` off; the other stack is not touched. `releases.log` on the server names the earlier tags (`release.env.previous` holds only the last one, which is the same tag after a repeat deploy or a restore); any tag the registry still has works. That release's images start with that release's compose files, on the database as the newer migration left it.
+Run `DeployCompose` with the stack's `target`, `image-tag` set to the release to go back to and `migrate` off; the other stack is not touched. `releases.log` on the server names the earlier tags (`release.env.previous` holds only the last one, which is the same tag after a repeat deploy or a restore); any tag the registry still has works, except that a second stack can't go below the first release that reads its per-stack settings ([Pre-prod and production on one server](#pre-prod-and-production-on-one-server)). That release's images start with that release's compose files, on the database as the newer migration left it.
 
 That only works because of one rule for every change to the schema: a release may add tables and columns, but a new column must be nullable or have a default, so that the release before it, which doesn't know the column, can still insert rows. `db-migrate` never drops a column, an index or a foreign key, and the API's startup check accepts what a newer migration added. With `migrate` off, the older migration doesn't run either; run it (`migrate` on) only if the older release needs Marten functions put back, which its startup check would say.
 
@@ -349,6 +350,7 @@ To restore, or to rehearse a restore on a spare server, from `/opt/passel/curren
 | `edge` fails with "address already in use" | Something else holds port 80 or 443 on the host |
 | A network fails to be created, saying its pool overlaps | Another Docker network on the server, perhaps the other stack's, uses the stack's subnets (`172.30.0.0/24` and `172.30.1.0/24` by default); give one of them other `PASSEL_EDGE_*` and `PASSEL_BACKEND_*` subnets |
 | `deploy-gate: PASSEL_ROOT is not used` | Something sets `PASSEL_ROOT`, which the gate no longer reads: it deploys the directory it is installed in. Remove the variable, and install the gate in the stack's directory |
+| `deploy-gate: <tag> predates stacks beside production` | A stack other than `passel` was asked for a release from before the per-stack settings, whose compose files would use production's aliases and subnets; deploy a later tag |
 | `deploy-gate: ... .env does not exist` | The gate is not installed in a stack's directory, or that stack's `.env` is missing |
 | Requests reach the other stack now and then, or a deploy of one stack seems to change the other's site | Both stacks are on one proxy network with the same `PASSEL_API_ALIAS` or `PASSEL_WEB_ALIAS`, or the proxy points at `api` or `web` |
 | `Bind for 127.0.0.1:18080 failed: port is already allocated` | Both stacks use `compose.ports.yaml` with the same `API_PORT` or `WEB_PORT` (or `DASHBOARD_PORT` with the telemetry profile) |
