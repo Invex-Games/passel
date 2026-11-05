@@ -139,17 +139,18 @@ async function serve() {
 
     const server = http.createServer((request, response) => {
         const path = new URL(request.url ?? "/", "http://localhost").pathname;
+        // In lower case, so that they replace esbuild's headers of the same name rather than being sent twice
         const headers = {
-            "Content-Security-Policy": cspFor(path, apiOrigin),
+            "content-security-policy": cspFor(path, apiOrigin),
             // Google's sign-in needs the full referrer when a page on plain http://localhost talks to it; the web
             // image, always behind https, sends strict-origin-when-cross-origin
-            "Referrer-Policy": "no-referrer-when-downgrade",
-            "Cache-Control": "no-cache",
-            "X-Content-Type-Options": "nosniff",
+            "referrer-policy": "no-referrer-when-downgrade",
+            "cache-control": "no-cache",
+            "x-content-type-options": "nosniff",
         };
 
         if (path === "/app/config.json") {
-            response.writeHead(200, {...headers, "Content-Type": "application/json"});
+            response.writeHead(200, {...headers, "content-type": "application/json"});
             response.end(json);
             return;
         }
