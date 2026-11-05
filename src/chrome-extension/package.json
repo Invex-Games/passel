@@ -21,8 +21,8 @@
     "@passel/ui": "*"
   },
   "devDependencies": {
-    "@types/chrome": "^0.0.304",
+    "@types/chrome": "^0.3.7",
     "esbuild": "^0.28.2",
-    "jsdom": "^29.1.1"
+    "jsdom": "^30.1.3"
   }
 }
