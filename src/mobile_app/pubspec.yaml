@@ -22,7 +22,7 @@ dependencies:
   custom_refresh_indicator: ^4.0.1
   # 1.9.0 builds only with AGP 9 (its Gradle script expects built-in Kotlin)
   # and 2.x needs Dart 3.12 (through material_ui); bump it with the SDKs.
-  dynamic_color: '>=1.7.0 <1.9.0'
+  dynamic_color: ^2.1.0
   share_plus: ^13.3.1
   shared_preferences: ^2.3.0
   package_info_plus: ^10.2.2
