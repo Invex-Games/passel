@@ -11,6 +11,7 @@
     <PackageVersion Include="Asp.Versioning.OpenApi" Version="10.2.3" />
     <PackageVersion Include="Aspire.Azure.Npgsql" Version="13.6.2" />
     <PackageVersion Include="Aspire.Azure.Storage.Blobs" Version="13.6.2" />
+    <PackageVersion Include="Aspire.Dashboard.Sdk.linux-x64" Version="13.6.5" />
     <PackageVersion Include="Dunet" Version="1.16.2" />
     <PackageVersion Include="Google.Apis.Auth.AspNetCore3" Version="1.77.0" />
     <PackageVersion Include="Marten" Version="9.51.0" />
@@ -26,7 +27,7 @@
   </ItemGroup>
 
   <ItemGroup Label="Aspire">
-    <PackageVersion Include="Aspire.Hosting.AppHost" Version="13.6.2" />
+    <PackageVersion Include="Aspire.Hosting.AppHost" Version="13.6.5" />
     <PackageVersion Include="Aspire.Hosting.Azure.AppContainers" Version="13.6.2" />
     <PackageVersion Include="Aspire.Hosting.Azure.ApplicationInsights" Version="13.6.2" />
     <PackageVersion Include="Aspire.Hosting.Azure.KeyVault" Version="13.6.2" />
