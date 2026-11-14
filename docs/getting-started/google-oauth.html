@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+      <title>Google OAuth Clients | Passel </title>
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <meta name="title" content="Google OAuth Clients | Passel ">
+      
+      
+      <link rel="icon" href="../../resources/icon-48.png">
+      <link rel="stylesheet" href="../../public/docfx.min.css">
+      <link rel="stylesheet" href="../../public/main.css">
+      <meta name="docfx:navrel" content="../../toc.html">
+      <meta name="docfx:tocrel" content="../toc.html">
+      
+      <meta name="docfx:rel" content="../../">
+      
+      
+      <meta name="docfx:docurl" content="https://github.com/Invex-Games/passel/blob/main/docs/getting-started/google-oauth.md/#L1">
+      <meta name="loc:inThisArticle" content="In this article">
+      <meta name="loc:searchResultsCount" content="{count} results for &quot;{query}&quot;">
+      <meta name="loc:searchNoResults" content="No results for &quot;{query}&quot;">
+      <meta name="loc:tocFilter" content="Filter by title">
+      <meta name="loc:nextArticle" content="Next">
+      <meta name="loc:prevArticle" content="Previous">
+      <meta name="loc:themeLight" content="Light">
+      <meta name="loc:themeDark" content="Dark">
+      <meta name="loc:themeAuto" content="Auto">
+      <meta name="loc:changeTheme" content="Change theme">
+      <meta name="loc:copy" content="Copy">
+      <meta name="loc:downloadPdf" content="Download PDF">
+
+      <script type="module" src="./../../public/docfx.min.js"></script>
+
+      <script>
+        const theme = localStorage.getItem('theme') || 'auto'
+        document.documentElement.setAttribute('data-bs-theme', theme === 'auto' ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : theme)
+      </script>
+
+  </head>
+
+  <body class="tex2jax_ignore" data-layout="" data-yaml-mime="">
+    <header class="bg-body border-bottom">
+      <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
+        <div class="container-xxl flex-nowrap">
+          <a class="navbar-brand" href="../../index.html">
+            <img id="logo" class="svg" src="../../resources/icon-128.png" alt="Passel">
+            Passel
+          </a>
+          <button class="btn btn-lg d-md-none border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navpanel" aria-controls="navpanel" aria-expanded="false" aria-label="Toggle navigation">
+            <i class="bi bi-three-dots"></i>
+          </button>
+          <div class="collapse navbar-collapse" id="navpanel">
+            <div id="navbar">
+              <form class="search" role="search" id="search">
+                <i class="bi bi-search"></i>
+                <input class="form-control" id="search-query" type="search" disabled placeholder="Search" autocomplete="off" aria-label="Search">
+              </form>
+            </div>
+          </div>
+        </div>
+      </nav>
+    </header>
+
+    <main class="container-xxl">
+      <div class="toc-offcanvas">
+        <div class="offcanvas-md offcanvas-start" tabindex="-1" id="tocOffcanvas" aria-labelledby="tocOffcanvasLabel">
+          <div class="offcanvas-header">
+            <h5 class="offcanvas-title" id="tocOffcanvasLabel">Table of Contents</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="offcanvas" data-bs-target="#tocOffcanvas" aria-label="Close"></button>
+          </div>
+          <div class="offcanvas-body">
+            <nav class="toc" id="toc"></nav>
+          </div>
+        </div>
+      </div>
+
+      <div class="content">
+        <div class="actionbar">
+          <button class="btn btn-lg border-0 d-md-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#tocOffcanvas" aria-controls="tocOffcanvas" aria-expanded="false" aria-label="Show table of contents">
+            <i class="bi bi-list"></i>
+          </button>
+
+          <nav id="breadcrumb"></nav>
+        </div>
+
+        <article data-uid="">
+<h1 id="google-oauth-clients">Google OAuth Clients</h1>
+
+<p>Every Passel client signs in with Google and sends the resulting <strong>ID token</strong> to the API as a bearer token. The API accepts a token only if its audience (<code>aud</code>) is one it knows about. That makes the client ids the one piece of configuration all three apps share.</p>
+<h2 id="the-clients">The clients</h2>
+<p>Create these in a Google Cloud project, under <strong>APIs &amp; Services → Credentials</strong>. If you're joining the team, ask for the existing ids instead of creating new ones.</p>
+<table>
+<thead>
+<tr>
+<th>Client</th>
+<th>Google client type</th>
+<th>Setup</th>
+<th>Used by</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Web client</strong></td>
+<td>Web application</td>
+<td>Authorized redirect URI <code>https://localhost:7030/signin-oidc</code>, used by the development-only Scalar login; Authorized JavaScript origins <code>http://localhost</code> and <code>http://localhost:5245</code>, for the web app's sign-in button and One Tap (add the deployed site's origin, such as <code>https://passel.link</code>, when it is hosted)</td>
+<td>The API (its main audience), the web app's <code>GOOGLE_CLIENT_ID</code>, the mobile app's <code>SERVER_CLIENT_ID</code></td>
+</tr>
+<tr>
+<td><strong>Extension client</strong></td>
+<td>Web application</td>
+<td>Authorized redirect URI <code>https://aikjdmilnbdacmaeahelifppjjgppemj.chromiumapp.org/</code></td>
+<td>The extension's <code>GOOGLE_CLIENT_ID</code>; the API accepts it as an additional audience</td>
+</tr>
+<tr>
+<td><strong>Android client</strong></td>
+<td>Android</td>
+<td>Package <code>com.invex.passel.mobileapp.dev</code> (development flavor) and the SHA-1 of your signing certificate (the debug keystore for local builds)</td>
+<td>The mobile app's <code>APP_CLIENT_ID</code></td>
+</tr>
+</tbody>
+</table>
+<p>The extension id <code>aikjdmilnbdacmaeahelifppjjgppemj</code> comes from the <code>key</code> field in <code>src/chrome-extension/static/manifest.json</code>. Don't change that key: the id, and with it the redirect URI, would change.</p>
+<p>The mobile app asks Google for a token for the <strong>web</strong> client (<code>serverClientId</code>), and the web app signs in with that client directly, which is why neither needs an audience of its own.</p>
+<h2 id="giving-the-values-to-the-apphost">Giving the values to the AppHost</h2>
+<p>The AppHost declares three parameters:</p>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>google-client-id</code></td>
+<td>The web client id</td>
+</tr>
+<tr>
+<td><code>google-client-secret</code></td>
+<td>The web client secret (secret parameter)</td>
+</tr>
+<tr>
+<td><code>google-extension-client-id</code></td>
+<td>The extension client id</td>
+</tr>
+</tbody>
+</table>
+<p>The AppHost reads them from its user secrets. In Development they're optional, so the dashboard doesn't ask for them: without them the API runs with the Dev scheme described in <a href="running-locally.html#run-without-google">Run without Google</a>. Set the ones you have with:</p>
+<pre><code>dotnet user-secrets --project src/webapi/Invex.Passel.AppHost set Parameters:google-client-id &lt;web client id&gt;
+dotnet user-secrets --project src/webapi/Invex.Passel.AppHost set Parameters:google-client-secret &lt;web client secret&gt;
+dotnet user-secrets --project src/webapi/Invex.Passel.AppHost set Parameters:google-extension-client-id &lt;extension client id&gt;
+</code></pre>
+<p>The AppHost passes these values to the API, the extension's watch build and the web app's dev server, so none of them needs a local config file. The mobile app is built separately, so its ids still go in <code>src/mobile_app/.env</code>; see <a href="running-locally.html#mobile-app">Running Locally</a>.</p>
+
+</article>
+
+        <div class="contribution d-print-none">
+          <a href="https://github.com/Invex-Games/passel/blob/main/docs/getting-started/google-oauth.md/#L1" class="edit-link">Edit this page</a>
+        </div>
+
+        <div class="next-article d-print-none border-top" id="nextArticle"></div>
+
+      </div>
+
+      <div class="affix">
+        <nav id="affix"></nav>
+      </div>
+    </main>
+
+    <div class="container-xxl search-results" id="search-results"></div>
+
+    <footer class="border-top text-secondary">
+      <div class="container-xxl">
+        <div class="flex-fill">
+          Passel · Invex Games
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>

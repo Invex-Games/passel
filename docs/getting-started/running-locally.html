@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+      <title>Running Locally | Passel </title>
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <meta name="title" content="Running Locally | Passel ">
+      
+      
+      <link rel="icon" href="../../resources/icon-48.png">
+      <link rel="stylesheet" href="../../public/docfx.min.css">
+      <link rel="stylesheet" href="../../public/main.css">
+      <meta name="docfx:navrel" content="../../toc.html">
+      <meta name="docfx:tocrel" content="../toc.html">
+      
+      <meta name="docfx:rel" content="../../">
+      
+      
+      <meta name="docfx:docurl" content="https://github.com/Invex-Games/passel/blob/main/docs/getting-started/running-locally.md/#L1">
+      <meta name="loc:inThisArticle" content="In this article">
+      <meta name="loc:searchResultsCount" content="{count} results for &quot;{query}&quot;">
+      <meta name="loc:searchNoResults" content="No results for &quot;{query}&quot;">
+      <meta name="loc:tocFilter" content="Filter by title">
+      <meta name="loc:nextArticle" content="Next">
+      <meta name="loc:prevArticle" content="Previous">
+      <meta name="loc:themeLight" content="Light">
+      <meta name="loc:themeDark" content="Dark">
+      <meta name="loc:themeAuto" content="Auto">
+      <meta name="loc:changeTheme" content="Change theme">
+      <meta name="loc:copy" content="Copy">
+      <meta name="loc:downloadPdf" content="Download PDF">
+
+      <script type="module" src="./../../public/docfx.min.js"></script>
+
+      <script>
+        const theme = localStorage.getItem('theme') || 'auto'
+        document.documentElement.setAttribute('data-bs-theme', theme === 'auto' ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : theme)
+      </script>
+
+  </head>
+
+  <body class="tex2jax_ignore" data-layout="" data-yaml-mime="">
+    <header class="bg-body border-bottom">
+      <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
+        <div class="container-xxl flex-nowrap">
+          <a class="navbar-brand" href="../../index.html">
+            <img id="logo" class="svg" src="../../resources/icon-128.png" alt="Passel">
+            Passel
+          </a>
+          <button class="btn btn-lg d-md-none border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navpanel" aria-controls="navpanel" aria-expanded="false" aria-label="Toggle navigation">
+            <i class="bi bi-three-dots"></i>
+          </button>
+          <div class="collapse navbar-collapse" id="navpanel">
+            <div id="navbar">
+              <form class="search" role="search" id="search">
+                <i class="bi bi-search"></i>
+                <input class="form-control" id="search-query" type="search" disabled placeholder="Search" autocomplete="off" aria-label="Search">
+              </form>
+            </div>
+          </div>
+        </div>
+      </nav>
+    </header>
+
+    <main class="container-xxl">
+      <div class="toc-offcanvas">
+        <div class="offcanvas-md offcanvas-start" tabindex="-1" id="tocOffcanvas" aria-labelledby="tocOffcanvasLabel">
+          <div class="offcanvas-header">
+            <h5 class="offcanvas-title" id="tocOffcanvasLabel">Table of Contents</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="offcanvas" data-bs-target="#tocOffcanvas" aria-label="Close"></button>
+          </div>
+          <div class="offcanvas-body">
+            <nav class="toc" id="toc"></nav>
+          </div>
+        </div>
+      </div>
+
+      <div class="content">
+        <div class="actionbar">
+          <button class="btn btn-lg border-0 d-md-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#tocOffcanvas" aria-controls="tocOffcanvas" aria-expanded="false" aria-label="Show table of contents">
+            <i class="bi bi-list"></i>
+          </button>
+
+          <nav id="breadcrumb"></nav>
+        </div>
+
+        <article data-uid="">
+<h1 id="running-locally">Running Locally</h1>
+
+<h2 id="start-the-apphost">Start the AppHost</h2>
+<pre><code>aspire run
+</code></pre>
+<p>Or, without the Aspire CLI:</p>
+<pre><code>dotnet run --project src/webapi/Invex.Passel.AppHost
+</code></pre>
+<p>The Aspire dashboard opens at <code>https://localhost:17106</code>. It asks for a login token, because it shows the Google client secret and the database password: the console prints a link that carries the token (<code>https://localhost:17106/login?t=&lt;token&gt;</code>), and <code>aspire run</code> opens that link for you. The AppHost starts these resources:</p>
+<table>
+<thead>
+<tr>
+<th>Resource</th>
+<th>What it is</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>passel-pg</code></td>
+<td>PostgreSQL in Docker, with pgweb for browsing data. The container is persistent, so data survives AppHost restarts.</td>
+</tr>
+<tr>
+<td><code>passel-storage</code></td>
+<td>Azurite in Docker, the Azure Storage emulator, holding uploaded files in its <code>parcels</code> blob container (<code>passel-blobs</code> and <code>passel-parcels</code> are its blob service and that container). Persistent too, with a data volume, so files survive AppHost restarts as their records in the database do.</td>
+</tr>
+<tr>
+<td><code>invex-passel-webapi</code></td>
+<td>The API at <code>https://localhost:7030</code>. It waits for the database and the <code>parcels</code> container.</td>
+</tr>
+<tr>
+<td><code>chrome-extension</code></td>
+<td>The extension's watch build. It rebuilds <code>src/chrome-extension/dist</code> on every change.</td>
+</tr>
+<tr>
+<td><code>web-app</code></td>
+<td>The web app's dev server at <code>http://localhost:5245</code>, rebuilt on every change. See <a href="#web-app">Web app</a>.</td>
+</tr>
+<tr>
+<td><code>passel-api-tunnel</code></td>
+<td>A dev tunnel giving the API a public HTTPS URL, for a phone that is not on USB. It doesn't start with the AppHost: start it from the dashboard when you need it, see <a href="#a-phone-that-is-not-on-usb-the-dev-tunnel">the dev tunnel</a>.</td>
+</tr>
+</tbody>
+</table>
+<p>The Google client values are optional in Development. Without them, use the Dev scheme described in <a href="#run-without-google">Run without Google</a>; to sign in with Google, set them in the AppHost's user secrets, see <a href="google-oauth.html">Google OAuth Clients</a>.</p>
+<h2 id="web-api">Web API</h2>
+<ul>
+<li>Scalar API reference: <code>https://localhost:7030/scalar</code>. Use the <strong>Login with Google</strong> banner, or the <strong>Dev</strong> security scheme, to call authenticated endpoints from the browser.</li>
+<li>Health checks: <code>/health</code> (every check, including the database; file storage is deliberately not one, so the API stays ready while Azurite is down and only the file endpoints answer 503) and <code>/alive</code> (liveness only).</li>
+<li>Logs, traces and metrics: the dashboard.</li>
+</ul>
+<div class="WARNING">
+<h5>Warning</h5>
+<p>In development, Marten recreates any table whose schema doesn't match the code (<code>AutoCreate.All</code>). Expect local data to be dropped when you change the document model. When the parcel table is recreated, the files it described stay in Azurite until the orphan scan removes them, which first runs a day after the API starts (<code>Parcels:OrphanScanInterval</code>) and only takes files more than two hours old. An API restarted more often than that never gets there; lower the interval in <code>appsettings.Development.json</code>, or remove the <code>passel-storage</code> container and its volume to start with no files.</p>
+</div>
+<p>To run the API on its own, outside the AppHost, use its <code>https</code> launch profile. You then need to supply a <code>passel-db</code> connection string, a <code>passel-blobs</code> one if you want file uploads to work (without it they answer 503), and any <code>Authentication:Google:*</code> settings you want, in <code>src/webapi/Invex.Passel.WebApi/appsettings.Development.json</code> (git-ignored). See <a href="../reference/configuration.html#web-api">Configuration</a>. For files without Azurite, set <code>Parcels:Store</code> to <code>FileSystem</code> and <code>Parcels:FileSystemRoot</code> to an absolute path, a directory of your own such as <code>C:\passel\parcels</code> or <code>/tmp/passel-parcels</code>, which the API creates on the first upload; this is the store a self-hosted deployment uses.</p>
+<h2 id="run-without-google">Run without Google</h2>
+<p>In Development the three Google values are optional, so a fresh clone runs without a Google Cloud project. Leave them unset and the API accepts a development scheme in place of Google tokens: <code>Authorization: Dev &lt;user-id&gt;</code> signs the request in as that user. An id is one to 255 letters, digits or <code>-._@+</code>, and different ids are different users, each with their own packets.</p>
+<pre><code>curl -H &quot;Authorization: Dev alice&quot; https://localhost:7030/api/packets
+</code></pre>
+<p>Scalar opens with the <strong>Dev</strong> scheme selected and filled in with <code>Dev alice</code>, so its requests go out as alice straight away; open <strong>Auth</strong> (or the lock on a request) to change the user. With Google login configured the document also declares a <strong>GoogleLogin</strong> scheme, which stands for the login cookie: once you log in with Google from the banner, the page selects it, the browser sends the cookie by itself, and requests go as your Google account with nothing to enter. Pick the <strong>Dev</strong> scheme again to act as a development user while logged in: a <code>Dev</code> header wins over the cookie. The banner at the top says who you are logged in as, and when Google login isn't configured.</p>
+<p>The clients can use the scheme too, in their development builds only:</p>
+<ul>
+<li><strong>Chrome extension:</strong> the AppHost builds it with <code>DEV_SIGN_IN=true</code> (for a standalone build, set it in <code>src/chrome-extension/.env</code>), and the popup then has a <strong>Development user</strong> field under the Google button. Type a name and sign in; the name is offered again next time. Built without a <code>GOOGLE_CLIENT_ID</code>, the popup offers only the development sign-in. <code>npm run build</code> never compiles the field in.</li>
+<li><strong>Web app:</strong> the AppHost builds it with <code>DEV_SIGN_IN=true</code> (for a standalone build, set it in <code>src/web/.env</code>), and the sign-in page then has a <strong>Development user</strong> field under the Google button. The name is offered again next time. Built without a <code>GOOGLE_CLIENT_ID</code>, the page offers only the development sign-in. <code>npm run build</code> never compiles the field in.</li>
+<li><strong>Mobile app:</strong> set <code>DEV_USER=&lt;name&gt;</code> in <code>src/mobile_app/.env</code> (or pass <code>--dart-define=DEV_USER=&lt;name&gt;</code>), and the development flavor signs in as that user without Google, so <code>SERVER_CLIENT_ID</code> isn't needed. The login page has a <strong>Development user</strong> field, prefilled with that name, for signing in as someone else, and the app comes back as whoever signed in last. The production flavor refuses to start with <code>DEV_USER</code> set.</li>
+</ul>
+<p>Signing in as a different user is an account change: the client drops its cached packets, so each user sees only their own. That is how per-user behaviour gets tested from one browser or one phone: sign in as <code>alice</code>, send a packet, sign out, sign in as <code>bob</code> and the feed is empty. The same id reaches the same account from every client, so <code>Dev alice</code> in curl, the extension and the app share one feed.</p>
+<p>The scheme only exists while the API runs as <code>Development</code>; outside it, only Google tokens are accepted, and a client signed in as a development user is signed out as soon as the API refuses it. Google sign-in needs the real clients from <a href="google-oauth.html">Google OAuth Clients</a>. Setting those parameters later and restarting the AppHost turns Google sign-in on without affecting the Dev scheme.</p>
+<h2 id="chrome-extension">Chrome extension</h2>
+<ol>
+<li>Open <code>chrome://extensions</code> and turn on <strong>Developer mode</strong>.</li>
+<li>Select <strong>Load unpacked</strong> and choose <code>src/chrome-extension/dist</code>.</li>
+<li>After the watch build rebuilds, select the reload icon on the extension card. Popup changes appear the next time you open the popup.</li>
+</ol>
+<p>The AppHost builds the extension against <code>https://localhost:7030/api/packets</code>. The API always runs on that port, so an extension you've loaded keeps working across runs.</p>
+<h2 id="web-app">Web app</h2>
+<p>Open <code>http://localhost:5245/</code> for the landing page, or <code>http://localhost:5245/app/</code> for the app. The dev server rebuilds <code>src/web/dist</code> on every change and reloads the page. The AppHost builds the app against <code>https://localhost:7030/api/packets</code> with the web client id, and gives the API <code>http://localhost:5245</code> as its one CORS origin. The port is fixed, because Google signs in only from the origins registered on the web client: add <code>http://localhost</code> and <code>http://localhost:5245</code> to its <strong>Authorized JavaScript origins</strong> (<a href="google-oauth.html">Google OAuth Clients</a>), or use the development user.</p>
+<p>To run the web app without the AppHost, copy <code>src/web/.env.example</code> to <code>src/web/.env</code>, fill it in, and run <code>npm run dev</code> in <code>src/web</code>. The API then needs <code>Cors:AllowedOrigins</code> set to the web app's origin; see <a href="../reference/configuration.html#web-app">Configuration</a>.</p>
+<h2 id="mobile-app">Mobile app</h2>
+<p>The app has the API's URL compiled in, as the device will reach it. By default that is your machine over the USB cable; the dev tunnel is only for a phone that is not on USB.</p>
+<h3 id="a-phone-on-usb-or-an-emulator">A phone on USB, or an emulator</h3>
+<ol>
+<li><p>Fill in <code>src/mobile_app/.env</code> (<code>SetupDevEnvironment</code> creates it from <code>.env.example</code>): keep <code>API_BASE_URL=http://localhost:5218</code>, and set <code>SERVER_CLIENT_ID</code> (the web client id) and <code>APP_CLIENT_ID</code> (the Android client id), or set <code>DEV_USER</code> instead to skip Google altogether (<a href="#run-without-google">Run without Google</a>).</p>
+</li>
+<li><p>Plug the phone in with USB debugging on, and make its port 5218 reach your machine:</p>
+<pre><code>adb reverse tcp:5218 tcp:5218
+</code></pre>
+<p>The forward lasts until the phone is unplugged or restarted, so run it again after that. With more than one device attached, add <code>-s &lt;serial&gt;</code> (<code>adb devices</code> lists them). An emulator needs no forward: set <code>API_BASE_URL=http://10.0.2.2:5218</code>, the address an emulator reaches its host by.</p>
+</li>
+<li><p>Run the <strong>Mobile app (development)</strong> launch configuration in VS Code, or run:</p>
+<pre><code>cd src/mobile_app
+flutter run --flavor development --dart-define-from-file=.env
+</code></pre>
+</li>
+</ol>
+<p>This works because the API also listens for plain HTTP on port 5218 (the <code>https</code> launch profile, see <code>Properties/launchSettings.json</code>), and the development flavor of the app allows plain HTTP to <code>localhost</code>, <code>127.0.0.1</code> and <code>10.0.2.2</code> only (<code>android/app/src/development/res/xml/network_security_config.xml</code>). The app checks the URL at start-up: the development flavor rejects an <code>http://</code> URL to any other host, and the production flavor rejects every <code>http://</code> URL, so a store build can never talk to the API in the clear. Nothing leaves your machine; the phone reaches the API through the cable.</p>
+<p>The development flavor installs as <strong>Passel Dev</strong> (<code>com.invex.passel.mobileapp.dev</code>), alongside the production app. If a required value is missing, or a value can't be used in that flavor, the app opens on a configuration page that says which.</p>
+<h3 id="a-phone-that-is-not-on-usb-the-dev-tunnel">A phone that is not on USB: the dev tunnel</h3>
+<p>The <code>passel-api-tunnel</code> resource gives the API a public HTTPS URL. It doesn't start with the AppHost: start it from the dashboard when you need it (the resource's <strong>Start</strong> action), and stop it when you are done.</p>
+<ol>
+<li>The first time, sign in to Dev Tunnels: <code>devtunnel user login</code>. The dashboard also prompts you if you aren't signed in.</li>
+<li>Copy the tunnel URL from the dashboard into <code>API_BASE_URL</code> in <code>src/mobile_app/.env</code>. The URL stays the same between runs.</li>
+<li>Run the app as above. The URL is compiled in, so rebuild when you switch between the USB URL and the tunnel URL.</li>
+</ol>
+<div class="WARNING">
+<h5>Warning</h5>
+<p>While the tunnel runs, anyone with its URL can reach your API, and it is the Development configuration they reach: every packet endpoint, with a Google ID token anyone can mint for their own account; the Development exception page with stack traces; the <code>Dev &lt;user&gt;</code> scheme, which signs in as any user without a password; and a database that Marten recreates freely. Scalar, the OpenAPI document and the browser login only answer on <code>localhost</code>, so they are not served through the tunnel. The URL is stable, so treat it like a credential: keep it out of screenshots and commits, and stop the tunnel when the phone is back on USB.</p>
+</div>
+<h4 id="requiring-a-token">Requiring a token</h4>
+<p>To make the tunnel refuse anyone without a token, turn off anonymous access and give the app a token:</p>
+<ol>
+<li>Set <code>DevTunnel:AllowAnonymous</code> to <code>false</code> for the AppHost: in its user secrets (<code>dotnet user-secrets set DevTunnel:AllowAnonymous false --project src/webapi/Invex.Passel.AppHost</code>), in its git-ignored <code>appsettings.Development.json</code>, or as the <code>DevTunnel__AllowAnonymous</code> environment variable. Restart the AppHost and start the tunnel.</li>
+<li>Issue a token for the tunnel: <code>devtunnel token &lt;tunnel-id&gt; --scopes connect</code>. The tunnel id is the resource name followed by a short hash (<code>passel-api-tunnel-xxxxxxxx</code>); <code>devtunnel list</code> shows it, and it is also the start of the tunnel URL.</li>
+<li>Put the token in <code>TUNNEL_ACCESS_TOKEN</code> in <code>.env</code> and rebuild the app. It sends <code>X-Tunnel-Authorization: tunnel &lt;token&gt;</code> with every request, and the tunnel checks it before forwarding. Tokens expire, so repeat the last two steps when the app starts reporting that the session has expired (the tunnel's 401 looks like one to the app).</li>
+</ol>
+<p>The production flavor refuses to start with a tunnel token, since it is a development credential that would otherwise be compiled into a store build.</p>
+
+</article>
+
+        <div class="contribution d-print-none">
+          <a href="https://github.com/Invex-Games/passel/blob/main/docs/getting-started/running-locally.md/#L1" class="edit-link">Edit this page</a>
+        </div>
+
+        <div class="next-article d-print-none border-top" id="nextArticle"></div>
+
+      </div>
+
+      <div class="affix">
+        <nav id="affix"></nav>
+      </div>
+    </main>
+
+    <div class="container-xxl search-results" id="search-results"></div>
+
+    <footer class="border-top text-secondary">
+      <div class="container-xxl">
+        <div class="flex-fill">
+          Passel · Invex Games
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>

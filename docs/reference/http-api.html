@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+      <title>HTTP API | Passel </title>
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <meta name="title" content="HTTP API | Passel ">
+      
+      
+      <link rel="icon" href="../../resources/icon-48.png">
+      <link rel="stylesheet" href="../../public/docfx.min.css">
+      <link rel="stylesheet" href="../../public/main.css">
+      <meta name="docfx:navrel" content="../../toc.html">
+      <meta name="docfx:tocrel" content="../toc.html">
+      
+      <meta name="docfx:rel" content="../../">
+      
+      
+      <meta name="docfx:docurl" content="https://github.com/Invex-Games/passel/blob/main/docs/reference/http-api.md/#L1">
+      <meta name="loc:inThisArticle" content="In this article">
+      <meta name="loc:searchResultsCount" content="{count} results for &quot;{query}&quot;">
+      <meta name="loc:searchNoResults" content="No results for &quot;{query}&quot;">
+      <meta name="loc:tocFilter" content="Filter by title">
+      <meta name="loc:nextArticle" content="Next">
+      <meta name="loc:prevArticle" content="Previous">
+      <meta name="loc:themeLight" content="Light">
+      <meta name="loc:themeDark" content="Dark">
+      <meta name="loc:themeAuto" content="Auto">
+      <meta name="loc:changeTheme" content="Change theme">
+      <meta name="loc:copy" content="Copy">
+      <meta name="loc:downloadPdf" content="Download PDF">
+
+      <script type="module" src="./../../public/docfx.min.js"></script>
+
+      <script>
+        const theme = localStorage.getItem('theme') || 'auto'
+        document.documentElement.setAttribute('data-bs-theme', theme === 'auto' ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : theme)
+      </script>
+
+  </head>
+
+  <body class="tex2jax_ignore" data-layout="" data-yaml-mime="">
+    <header class="bg-body border-bottom">
+      <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
+        <div class="container-xxl flex-nowrap">
+          <a class="navbar-brand" href="../../index.html">
+            <img id="logo" class="svg" src="../../resources/icon-128.png" alt="Passel">
+            Passel
+          </a>
+          <button class="btn btn-lg d-md-none border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navpanel" aria-controls="navpanel" aria-expanded="false" aria-label="Toggle navigation">
+            <i class="bi bi-three-dots"></i>
+          </button>
+          <div class="collapse navbar-collapse" id="navpanel">
+            <div id="navbar">
+              <form class="search" role="search" id="search">
+                <i class="bi bi-search"></i>
+                <input class="form-control" id="search-query" type="search" disabled placeholder="Search" autocomplete="off" aria-label="Search">
+              </form>
+            </div>
+          </div>
+        </div>
+      </nav>
+    </header>
+
+    <main class="container-xxl">
+      <div class="toc-offcanvas">
+        <div class="offcanvas-md offcanvas-start" tabindex="-1" id="tocOffcanvas" aria-labelledby="tocOffcanvasLabel">
+          <div class="offcanvas-header">
+            <h5 class="offcanvas-title" id="tocOffcanvasLabel">Table of Contents</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="offcanvas" data-bs-target="#tocOffcanvas" aria-label="Close"></button>
+          </div>
+          <div class="offcanvas-body">
+            <nav class="toc" id="toc"></nav>
+          </div>
+        </div>
+      </div>
+
+      <div class="content">
+        <div class="actionbar">
+          <button class="btn btn-lg border-0 d-md-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#tocOffcanvas" aria-controls="tocOffcanvas" aria-expanded="false" aria-label="Show table of contents">
+            <i class="bi bi-list"></i>
+          </button>
+
+          <nav id="breadcrumb"></nav>
+        </div>
+
+        <article data-uid="">
+<h1 id="http-api">HTTP API</h1>
+
+<p>When the API runs locally in development, the interactive reference is at <code>https://localhost:7030/scalar</code>. This page summarises the contract.</p>
+<p>Every endpoint below requires <code>Authorization: Bearer &lt;Google ID token&gt;</code>. When the API runs in Development it also accepts <code>Authorization: Dev &lt;user-id&gt;</code>; see <a href="../getting-started/running-locally.html#run-without-google">Run without Google</a>. Browsers may call the API only from the origins in <code>Cors:AllowedOrigins</code>, which is where the web app is served from (<a href="configuration.html#web-api">Configuration</a>). Requests may pass <code>?api-version=1</code>; when it's omitted, version 1 is assumed. Errors use <code>application/problem+json</code>.</p>
+<h2 id="limits">Limits</h2>
+<p>Each endpoint is rate limited per user, over a sliding window of one minute. The defaults are 30 creates, 120 list or delete requests (the device list counts here too), 10 event-stream connections, 20 device writes (registrations, renames, removals and push token changes), 10 file uploads and discards (<code>parcel-uploads</code>), and 600 file downloads and thumbnails (<code>parcel-reads</code>) per minute; see <a href="configuration.html#web-api">Configuration</a>. A request over the limit gets <strong>429 Too Many Requests</strong> with a <code>Retry-After</code> header (in seconds) and a problem body.</p>
+<p>Each user also has a quota: by default 5,000 packets and 50 MB of stored packets. A create at the packet limit gets <strong>429</strong>, and one that would pass the byte limit gets <strong>413 Content Too Large</strong>; the problem <code>detail</code> says which, and that deleting packets frees the quota. Neither has a <code>Retry-After</code>, because only a delete changes the outcome. In the same way, a user may have 20 devices; registering another gets <strong>429</strong> without a <code>Retry-After</code> until one is removed. The cap is not exact: registrations of new installations sent at the same moment are each checked against the count before any of them is stored, so a burst can take a user past it, by at most one less than the device-writes rate limit.</p>
+<p>Uploaded files have quotas of their own, apart from the packet quota: a file may be at most 25 MB, a user's files at most 500 MB together, and a user may have 20 files uploaded but not yet sent. An upload of a larger file gets <strong>413</strong> (&quot;File too large&quot;), one that would pass the storage limit <strong>413</strong> (&quot;Storage limit reached&quot;), and one beyond the unsent files <strong>429</strong> (&quot;Too many unsent files&quot;), none with a <code>Retry-After</code>: sending, discarding or deleting files, or waiting for unsent ones to expire after an hour, is what frees the quota. Like the packet quota, these are checked before the file is stored and can be passed by uploads sent at the same moment. When file storage can't be reached, the file endpoints answer <strong>503</strong> with <code>Retry-After</code>, and packets, devices and the event stream keep working; see <a href="#parcels">Parcels</a>.</p>
+<p>A request body the API cannot read at all (malformed JSON, a missing or unknown <code>$type</code>, an unknown enum value, a missing required field) gets <strong>400</strong> with a plain problem; one it can read but refuses gets <strong>400</strong> with a validation problem, whose <code>errors</code> are keyed by field.</p>
+<h2 id="packets">Packets</h2>
+<p>Packets are a tagged union with a <code>$type</code> discriminator. <code>$type</code> doesn't have to be the first property.</p>
+<table>
+<thead>
+<tr>
+<th><code>$type</code></th>
+<th>Fields</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Link</code></td>
+<td><code>id</code>, <code>createdAt</code>, <code>name</code> (nullable), <code>url</code>, <code>preview</code> (nullable; see <a href="#link-previews">Link previews</a>)</td>
+</tr>
+<tr>
+<td><code>Text</code></td>
+<td><code>id</code>, <code>createdAt</code>, <code>title</code> (nullable), <code>body</code></td>
+</tr>
+<tr>
+<td><code>File</code></td>
+<td><code>id</code>, <code>createdAt</code>, <code>fileName</code> (nullable), <code>contentType</code>, <code>parcelId</code>, <code>isImage</code>. Created from an uploaded file; see <a href="#parcels">Parcels</a>.</td>
+</tr>
+</tbody>
+</table>
+<p><code>id</code> is an opaque string (a Sqids-encoded Guid). <code>createdAt</code> is when the packet was created, as an ISO 8601 timestamp in UTC (for example <code>2026-10-22T11:03:08.1234567+00:00</code>); it is returned, never sent.</p>
+<h3 id="link-previews">Link previews</h3>
+<p>After a link is created, the API fetches its page in the background and reads what the page says about itself: the Open Graph tags first (<code>og:title</code>, <code>og:description</code>, <code>og:image</code>), the Twitter card tags next, and the <code>&lt;title&gt;</code> and <code>&lt;meta name=&quot;description&quot;&gt;</code> last. What it finds is stored on the link and returned as its <code>preview</code>:</p>
+<pre><code class="lang-json">{ &quot;title&quot;: &quot;Example Domain&quot;, &quot;description&quot;: &quot;This domain is for use in illustrative examples in documents.&quot;, &quot;imageUrl&quot;: &quot;https://example.com/images/og.png&quot;, &quot;fetchedAt&quot;: &quot;2026-10-22T11:03:10.1234567+00:00&quot; }
+</code></pre>
+<p><code>title</code>, <code>description</code> and <code>imageUrl</code> are each nullable, but never all three at once; <code>fetchedAt</code> is when the page was read. The title keeps at most 256 characters and the description 512. <code>imageUrl</code> is the page's image as an absolute <code>http</code> or <code>https</code> URL; the API has not fetched it, so clients load it as they would any third-party image.</p>
+<p><code>preview</code> is <code>null</code> on the create response and in the <code>packet-created</code> event, because the page is fetched after the create has returned. When the fetch finds something, the link is announced again as a <code>packet-updated</code> event, and the list shows the preview from then on. When the page gives nothing, is not HTML, cannot be reached within a few attempts, or is on a private network the API refuses to fetch from, <code>preview</code> stays <code>null</code> for good: nothing is stored or announced about the failure. Links created before previews existed have none.</p>
+<h3 id="get-apipackets"><code>GET /api/packets</code></h3>
+<p>Returns the caller's packets, newest first, 50 per page.</p>
+<table>
+<thead>
+<tr>
+<th>Query</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>cursor</code></td>
+<td>The <code>nextCursor</code> from the previous page. An invalid cursor returns 400.</td>
+</tr>
+</tbody>
+</table>
+<pre><code class="lang-json">{ &quot;packets&quot;: [ { &quot;$type&quot;: &quot;Link&quot;, &quot;id&quot;: &quot;…&quot;, &quot;createdAt&quot;: &quot;2026-10-22T11:03:08.1234567+00:00&quot;, &quot;name&quot;: &quot;Example&quot;, &quot;url&quot;: &quot;https://example.com&quot; } ], &quot;nextCursor&quot;: &quot;…&quot; }
+</code></pre>
+<p><code>nextCursor</code> is <code>null</code> on the last page.</p>
+<h3 id="post-apipackets"><code>POST /api/packets</code></h3>
+<p>Creates a packet and returns it, with its <code>id</code> and <code>createdAt</code>, as <strong>200 OK</strong>. Nullable fields must be sent explicitly, even as <code>null</code>.</p>
+<pre><code class="lang-json">{ &quot;$type&quot;: &quot;Text&quot;, &quot;title&quot;: null, &quot;body&quot;: &quot;Hello from my laptop&quot; }
+</code></pre>
+<table>
+<thead>
+<tr>
+<th>Rule</th>
+<th>Limit</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>name</code> and <code>title</code></td>
+<td>At most 256 characters</td>
+</tr>
+<tr>
+<td><code>url</code></td>
+<td>Absolute <code>http</code> or <code>https</code> URL, at most 2048 characters</td>
+</tr>
+<tr>
+<td><code>body</code></td>
+<td>Not blank, at most 65,536 characters</td>
+</tr>
+<tr>
+<td>Request body</td>
+<td>At most 256 KB</td>
+</tr>
+</tbody>
+</table>
+<p>A <code>File</code> packet sends a file uploaded to <a href="#post-apiparcels"><code>POST /api/parcels</code></a>, by the <code>parcelId</code> the upload answered with. <code>fileName</code> may be left out (or <code>null</code>) to keep the name the file was uploaded with, or given to send it under another; it is made safe the way an uploaded name is. The type and <code>isImage</code> always come from the upload.</p>
+<pre><code class="lang-json">{ &quot;$type&quot;: &quot;File&quot;, &quot;parcelId&quot;: &quot;qrjMmYBVnK8m3coMo0hiMeN&quot;, &quot;fileName&quot;: &quot;screenshot.png&quot; }
+</code></pre>
+<table>
+<thead>
+<tr>
+<th>Rule</th>
+<th>Limit</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>parcelId</code></td>
+<td>A file the caller uploaded, has not discarded, and has not sent yet</td>
+</tr>
+<tr>
+<td><code>fileName</code></td>
+<td>At most 256 characters</td>
+</tr>
+</tbody>
+</table>
+<p>A <code>parcelId</code> that isn't one of the caller's uploaded files (another user's, one still uploading, one discarded or expired, or not an id at all) gets <strong>400</strong> with a validation problem on <code>parcelId</code>. A missing file and another user's get the same answer, so ids can't be probed. A file that is already in a packet gets <strong>409 Conflict</strong> (&quot;File already sent&quot;): a file is sent once, so upload it again to send it twice. Two sends of the same file at the same moment get one 200 and one 409.</p>
+<p>Validation failures return a validation problem keyed by field. A create that would exceed the caller's quota returns 429 or 413; see <a href="#limits">Limits</a>. A File packet counts against the packet quota for its name only; its bytes count against the file quota when uploaded.</p>
+<h3 id="delete-apipacketsid"><code>DELETE /api/packets/{id}</code></h3>
+<p>Returns 204 and erases the packet; nothing of it is kept. Returns 404 if the id is malformed, the packet doesn't exist, or it belongs to someone else. Deleting a File packet deletes its file with it: from that moment the file's download and thumbnail answer 404, and its bytes are erased from storage within seconds (at most five minutes, the sweep interval).</p>
+<h3 id="get-apipacketsevents"><code>GET /api/packets/events</code></h3>
+<p>A <code>text/event-stream</code> of the caller's changes:</p>
+<table>
+<thead>
+<tr>
+<th>Event</th>
+<th>Data</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>resync</code></td>
+<td>Empty. Sent first, and whenever events may have been missed. Fetch the list again.</td>
+</tr>
+<tr>
+<td><code>packet-created</code></td>
+<td>The packet, in the same shape as a list item</td>
+</tr>
+<tr>
+<td><code>packet-updated</code></td>
+<td>The packet, in the same shape as <code>packet-created</code>, after a change to it: today, a link whose <a href="#link-previews">preview</a> arrived. A client that doesn't handle the event loses nothing by ignoring it; the next list shows the change.</td>
+</tr>
+<tr>
+<td><code>packet-deleted</code></td>
+<td><code>{ &quot;id&quot;: &quot;…&quot; }</code></td>
+</tr>
+<tr>
+<td><code>ping</code></td>
+<td>Heartbeat, after 20 seconds without other events</td>
+</tr>
+</tbody>
+</table>
+<p>There are no event ids. To recover after a disconnect, reconnect and handle the <code>resync</code>. The server may close a stream at any time, for example on shutdown or when the client falls behind. The first event carries a <code>retry:</code> field, a reconnection delay between 2 and 6 seconds chosen per stream, so clients that honour it (such as <code>EventSource</code>) reconnect spread out after a restart. Other clients should reconnect with jittered backoff.</p>
+<p>A stream also ends when the token that opened it would stop validating (its <code>exp</code> plus five minutes of clock skew, so about an hour for a Google ID token) and after a day at most. Reconnect with a fresh token. A user may hold five streams open per API instance; opening a sixth closes the oldest. When an instance has no room for another stream at all, the request gets <strong>503 Service Unavailable</strong> with <code>Retry-After</code>.</p>
+<h2 id="devices">Devices</h2>
+<p>A device is one installation of a client (the Android app, the extension in one browser profile, the web app in one browser) signed in as one user. Clients register on every start and may give the API a push token, which the API will use to tell the device that something arrived (push sending is not built yet). Every device endpoint lives under <code>/api/devices</code> and acts only on the caller's own devices; another user's device is answered as a missing one, with <strong>404</strong>.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>id</code></td>
+<td>The device's public id, opaque like a packet id. Keep the id your registration returned: it is how the client tells itself apart in the list.</td>
+</tr>
+<tr>
+<td><code>name</code></td>
+<td>What the user calls the device, at most 64 characters</td>
+</tr>
+<tr>
+<td><code>platform</code></td>
+<td><code>android</code>, <code>extension</code> or <code>web</code></td>
+</tr>
+<tr>
+<td><code>createdAt</code></td>
+<td>When the installation first registered, in UTC</td>
+</tr>
+<tr>
+<td><code>lastSeenAt</code></td>
+<td>When it last registered, in UTC</td>
+</tr>
+<tr>
+<td><code>pushUpdatedAt</code></td>
+<td>When its push token was last set, in UTC, or <code>null</code> when it has none. The token itself is never returned.</td>
+</tr>
+</tbody>
+</table>
+<pre><code class="lang-json">{ &quot;id&quot;: &quot;…&quot;, &quot;name&quot;: &quot;Pixel 9&quot;, &quot;platform&quot;: &quot;android&quot;, &quot;createdAt&quot;: &quot;2026-11-04T09:30:00.1234567+00:00&quot;, &quot;lastSeenAt&quot;: &quot;2026-11-07T08:12:45.7654321+00:00&quot;, &quot;pushUpdatedAt&quot;: null }
+</code></pre>
+<h3 id="post-apidevices"><code>POST /api/devices</code></h3>
+<p>Registers the installation and returns the device.</p>
+<pre><code class="lang-json">{ &quot;installationId&quot;: &quot;6f1c2a9e-4b7d-4e2a-9c3f-0d8e5b7a1c24&quot;, &quot;name&quot;: &quot;Pixel 9&quot;, &quot;platform&quot;: &quot;android&quot; }
+</code></pre>
+<p>The installation id is the client's own: generate it once per installation (a random UUID will do), keep it in the client's storage, and send it with every registration. That makes registering idempotent:</p>
+<ul>
+<li>An installation id the caller has not registered makes a new device: <strong>201 Created</strong>, with a <code>Location</code> of <code>/api/devices/{id}</code>.</li>
+<li>One the caller has registered returns the same device as <strong>200 OK</strong>, with <code>lastSeenAt</code> moved on. The <code>name</code> sent is ignored, because the user may have renamed the device since; it is only the name of a new device.</li>
+<li>One the caller has registered with another platform gets <strong>409 Conflict</strong>, whose <code>detail</code> names the client it is registered for.</li>
+<li>Registrations of one installation sent at the same moment all get the same device: one gets <strong>201</strong> and the rest <strong>200</strong>.</li>
+<li>The same installation id under another account is a separate device of that account. Signing out and in as someone else therefore adds a device to the second account and leaves the first account's device where it was, to be removed from its settings.</li>
+<li>A removed device is gone: when its installation registers again, it gets a new device with a new <code>id</code>.</li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>Rule</th>
+<th>Limit</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>installationId</code></td>
+<td>16 to 128 ASCII letters, digits, <code>-</code> or <code>_</code></td>
+</tr>
+<tr>
+<td><code>name</code></td>
+<td>Not blank, at most 64 characters without the whitespace around it (which is trimmed), no control characters</td>
+</tr>
+<tr>
+<td><code>platform</code></td>
+<td><code>android</code>, <code>extension</code> or <code>web</code></td>
+</tr>
+<tr>
+<td>Request body</td>
+<td>At most 16 KB, on every device endpoint</td>
+</tr>
+</tbody>
+</table>
+<p>A new device beyond the caller's device cap gets <strong>429</strong>; see <a href="#limits">Limits</a>. An installation that is registered already is never refused.</p>
+<h3 id="get-apidevices"><code>GET /api/devices</code></h3>
+<p>Returns all of the caller's devices, in the order they registered. The list is not paged; the device cap bounds it.</p>
+<pre><code class="lang-json">{ &quot;devices&quot;: [ { &quot;id&quot;: &quot;…&quot;, &quot;name&quot;: &quot;Pixel 9&quot;, &quot;platform&quot;: &quot;android&quot;, &quot;createdAt&quot;: &quot;…&quot;, &quot;lastSeenAt&quot;: &quot;…&quot;, &quot;pushUpdatedAt&quot;: &quot;…&quot; } ] }
+</code></pre>
+<h3 id="patch-apidevicesid"><code>PATCH /api/devices/{id}</code></h3>
+<p>Renames the device and returns it. The name follows the registration rules.</p>
+<pre><code class="lang-json">{ &quot;name&quot;: &quot;Work phone&quot; }
+</code></pre>
+<h3 id="delete-apidevicesid"><code>DELETE /api/devices/{id}</code></h3>
+<p>Returns 204 and removes the device with its push token. Returns 404 if the id is malformed, the device doesn't exist, or it belongs to someone else.</p>
+<h3 id="put-apidevicesidpush"><code>PUT /api/devices/{id}/push</code></h3>
+<p>Gives the device its push token, replacing any it had, and returns <strong>204</strong>. Android devices send their Firebase Cloud Messaging registration token:</p>
+<pre><code class="lang-json">{ &quot;$type&quot;: &quot;Fcm&quot;, &quot;token&quot;: &quot;…&quot; }
+</code></pre>
+<p>Extension and web devices send their Web Push subscription, which is <code>PushSubscription.toJSON()</code> with the discriminator added (<code>expirationTime</code> is ignored):</p>
+<pre><code class="lang-json">{ &quot;$type&quot;: &quot;WebPush&quot;, &quot;endpoint&quot;: &quot;https://fcm.googleapis.com/fcm/send/…&quot;, &quot;keys&quot;: { &quot;p256dh&quot;: &quot;…&quot;, &quot;auth&quot;: &quot;…&quot; } }
+</code></pre>
+<table>
+<thead>
+<tr>
+<th>Rule</th>
+<th>Limit</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Kind</td>
+<td><code>Fcm</code> on an <code>android</code> device, <code>WebPush</code> on an <code>extension</code> or <code>web</code> device; the other kind is a validation problem keyed <code>$type</code></td>
+</tr>
+<tr>
+<td><code>token</code></td>
+<td>1 to 4,096 printable ASCII characters, no spaces</td>
+</tr>
+<tr>
+<td><code>endpoint</code></td>
+<td>An absolute <code>https</code> URL of at most 2,048 characters, on a host name (not an IP address) and the default port, without credentials</td>
+</tr>
+<tr>
+<td><code>keys.p256dh</code></td>
+<td>Base64url of a 65-byte uncompressed P-256 public key</td>
+</tr>
+<tr>
+<td><code>keys.auth</code></td>
+<td>Base64url of a 16-byte secret</td>
+</tr>
+</tbody>
+</table>
+<p>Send the token again whenever the client starts or the platform gives it a new one; <code>pushUpdatedAt</code> then shows how fresh it is. A push token belongs to one device at a time. When a token (an FCM token, or a subscription's endpoint) is set on a device while another device holds it, under this account or any other, the other device loses it. That is what happens when one installation signs in as another account: its token follows the new account, and the old account's device stops receiving pushes. Nothing in the response says that a token moved.</p>
+<p>A body without <code>$type</code>, such as <code>PushSubscription.toJSON()</code> sent as it is, gets <strong>400</strong>.</p>
+<h3 id="delete-apidevicesidpush"><code>DELETE /api/devices/{id}/push</code></h3>
+<p>Removes the device's push token and returns <strong>204</strong>, also when it had none. Returns 404 for a device the caller doesn't have.</p>
+<h3 id="conflicts">Conflicts</h3>
+<p>A registration, a rename, or setting or removing a push token, that keeps colliding with other requests changing the same device at the same moment gets <strong>409 Conflict</strong> with a problem saying to send it again. That is safe: each of these requests can be repeated without a different outcome. Registrations of one installation never collide with each other this way.</p>
+<h2 id="parcels">Parcels</h2>
+<p>A parcel is an uploaded file. Sending a file takes two requests: upload it to <code>POST /api/parcels</code>, then create a <code>File</code> packet with the <code>parcelId</code> the upload answered with (<a href="#post-apipackets"><code>POST /api/packets</code></a>). Every parcel endpoint lives under <code>/api/parcels</code> and acts only on the caller's own files; another user's file is answered as a missing one, with <strong>404</strong>. A file is the packet's from the moment it is sent: it lives as long as its packet, and deleting the packet deletes it. A file uploaded but not sent within an hour is deleted.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>parcelId</code></td>
+<td>The file's public id, opaque like a packet id, and the <code>parcelId</code> of the File packet that sends it</td>
+</tr>
+<tr>
+<td><code>fileName</code></td>
+<td>The name the file was uploaded with, made safe (see below), or <code>null</code> when nothing of it was left</td>
+</tr>
+<tr>
+<td><code>contentType</code></td>
+<td>The type read from the file's first bytes: <code>image/jpeg</code>, <code>image/png</code>, <code>image/gif</code>, <code>image/webp</code>, <code>application/pdf</code>, or <code>application/octet-stream</code> for anything else. The type the client declared is never used.</td>
+</tr>
+<tr>
+<td><code>size</code></td>
+<td>The file's size in bytes</td>
+</tr>
+<tr>
+<td><code>isImage</code></td>
+<td>Whether the file decoded as a JPEG, PNG, GIF or WebP image. Only an image has a thumbnail.</td>
+</tr>
+<tr>
+<td><code>width</code>, <code>height</code></td>
+<td>The image's size in pixels as it is displayed, after its EXIF orientation; <code>null</code> when it is not an image</td>
+</tr>
+</tbody>
+</table>
+<pre><code class="lang-json">{ &quot;parcelId&quot;: &quot;qrjMmYBVnK8m3coMo0hiMeN&quot;, &quot;fileName&quot;: &quot;screenshot.png&quot;, &quot;contentType&quot;: &quot;image/png&quot;, &quot;size&quot;: 48213, &quot;isImage&quot;: true, &quot;width&quot;: 1280, &quot;height&quot;: 720 }
+</code></pre>
+<p>An image larger than 40 megapixels, or more than 16,384 pixels on a side, is not decoded: it is stored with its type but as <code>isImage: false</code>, with no thumbnail and with <code>width</code> and <code>height</code> null. So is one that fails to decode, and one uploaded while the server's image decoder stays busy with other uploads for more than five seconds (<code>Parcels:DecodeSlotTimeout</code>).</p>
+<h3 id="post-apiparcels"><code>POST /api/parcels</code></h3>
+<p>Uploads one file as <code>multipart/form-data</code>, with one part named <code>file</code> that carries a file name, which is what a browser's <code>FormData</code> and Flutter's <code>MultipartRequest</code> send:</p>
+<pre><code>POST /api/parcels
+Content-Type: multipart/form-data; boundary=x
+
+--x
+Content-Disposition: form-data; name=&quot;file&quot;; filename=&quot;screenshot.png&quot;
+Content-Type: image/png
+
+&lt;the bytes&gt;
+--x--
+</code></pre>
+<p>The part's <code>Content-Type</code> is ignored. The file name is made safe before it is kept: only what follows the last <code>/</code> or <code>\</code> is kept, control characters and the characters that reorder text (such as U+202E) are removed, it is normalised (NFC), and spaces and dots are trimmed from both ends. A name with nothing left is <code>null</code>.</p>
+<p>Returns the file as <strong>201 Created</strong>, with a <code>Location</code> of <code>/api/parcels/{parcelId}</code>.</p>
+<table>
+<thead>
+<tr>
+<th>Status</th>
+<th>When</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>201</strong></td>
+<td>The file is stored</td>
+</tr>
+<tr>
+<td><strong>400</strong></td>
+<td>A validation problem on <code>file</code>: no <code>multipart/form-data</code> boundary, no part named <code>file</code> with a file name, an empty file, more than one part, or a body that isn't valid multipart. On <code>fileName</code>: the safe name is longer than 256 characters.</td>
+</tr>
+<tr>
+<td><strong>413</strong></td>
+<td>The file is over 25 MB (&quot;File too large&quot;; a body that says it is longer is refused before it is read), or it would take the caller's files past 500 MB (&quot;Storage limit reached&quot;)</td>
+</tr>
+<tr>
+<td><strong>415</strong></td>
+<td>The body is not <code>multipart/form-data</code></td>
+</tr>
+<tr>
+<td><strong>429</strong></td>
+<td>The caller has 20 files uploaded but not sent (&quot;Too many unsent files&quot;, no <code>Retry-After</code>), or the <code>parcel-uploads</code> rate limit (with <code>Retry-After</code>)</td>
+</tr>
+<tr>
+<td><strong>503</strong></td>
+<td>Too many uploads at once on the server (&quot;File storage is busy&quot;, <code>Retry-After: 5</code>), file storage can't be reached (&quot;File storage unavailable&quot;, <code>Retry-After: 30</code>), or the upload took so long that it was discarded (&quot;Upload discarded&quot;); send it again</td>
+</tr>
+</tbody>
+</table>
+<p>A body sent without a <code>Content-Length</code> (chunked) is accepted, and counts as 25 MB against the storage limit until it is stored.</p>
+<h3 id="get-apiparcelsid"><code>GET /api/parcels/{id}</code></h3>
+<p>Returns the file's bytes as they were uploaded, with its sniffed <code>Content-Type</code>.</p>
+<table>
+<thead>
+<tr>
+<th>Header</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>ETag</code></td>
+<td>The SHA-256 of the bytes, in lower-case hex, quoted. Send it as <code>If-None-Match</code> and an unchanged file (they never change) gets <strong>304 Not Modified</strong>.</td>
+</tr>
+<tr>
+<td><code>Last-Modified</code></td>
+<td>When the file was uploaded</td>
+</tr>
+<tr>
+<td><code>Accept-Ranges</code></td>
+<td><code>bytes</code>: a <code>Range</code> request gets <strong>206 Partial Content</strong>, and one outside the file <strong>416 Range Not Satisfiable</strong>. <code>If-Range</code> is honoured.</td>
+</tr>
+<tr>
+<td><code>Content-Disposition</code></td>
+<td><code>inline</code> for an image that decoded and for a PDF, <code>attachment</code> for anything else, so an uploaded page or script is saved rather than opened. Always with the file's name, as <code>filename*</code> in UTF-8 and as an ASCII <code>filename</code> for clients that only read that (<code>file.png</code> and so on when the file has no name).</td>
+</tr>
+</tbody>
+</table>
+<p>Returns 404 if the id is malformed, the file doesn't exist, belongs to someone else, is still uploading, or has been discarded, expired or deleted with its packet. A browser that opens a PDF under <code>Content-Security-Policy: sandbox</code> may refuse to show it; the file is then downloaded instead.</p>
+<h3 id="get-apiparcelsidthumbnail"><code>GET /api/parcels/{id}/thumbnail</code></h3>
+<p>Returns the image's thumbnail: a WebP of at most 512 pixels on its longest side (smaller images keep their size), the first frame of an animated image, turned upright by its EXIF orientation. Its <code>ETag</code> is the file's with the thumbnail size added, and <code>If-None-Match</code> gets 304; it has no ranges. Returns 404 as the download does, and for a file that has no thumbnail (<code>isImage: false</code>).</p>
+<h3 id="delete-apiparcelsid"><code>DELETE /api/parcels/{id}</code></h3>
+<p>Discards a file that hasn't been sent and returns <strong>204</strong>. It is unavailable at once, and its bytes are erased from storage within seconds. A file that is in a packet gets <strong>409 Conflict</strong> (&quot;Delete the item instead&quot;): delete its packet instead, which deletes the file with it. Returns 404 for a file the caller doesn't have. Discards count against the <code>parcel-uploads</code> rate limit.</p>
+<h3 id="headers-and-caching">Headers and caching</h3>
+<p>Every answer of a parcel endpoint, its problems and 404s included, carries <code>Content-Security-Policy: sandbox; default-src 'none'</code>, <code>X-Content-Type-Options: nosniff</code> and <code>Referrer-Policy: no-referrer</code>, so nothing uploaded runs as a page on the API's origin or is read as another type. A download or thumbnail (200, 206 or 304) is <code>Cache-Control: private, max-age=31536000, immutable</code> with <code>Vary: Authorization</code>, since a file never changes; every other answer is <code>Cache-Control: no-store</code>. File bodies are never compressed, so <code>Content-Length</code> and ranges always hold. The 401, the rate limit's 429 and the 415 for a body that isn't multipart are answered before the endpoint runs, and carry none of these.</p>
+<p>From a browser, the web app's origin may send <code>Range</code> and <code>If-None-Match</code> and read <code>ETag</code>, <code>Content-Disposition</code>, <code>Content-Range</code>, <code>Accept-Ranges</code>, <code>Content-Length</code> and <code>Location</code>; see <a href="configuration.html#web-api">Configuration</a>.</p>
+<h3 id="privacy">Privacy</h3>
+<p>The original is stored and returned byte for byte, so a photo keeps its EXIF metadata, GPS position included, for whoever downloads it with the owner's token. Only the thumbnail is stripped: it carries no EXIF, XMP or colour profile. Delete a file (or its packet) to erase it: the storage keeps no deleted copy, neither a soft-deleted blob nor an earlier version.</p>
+<h2 id="other-endpoints">Other endpoints</h2>
+<table>
+<thead>
+<tr>
+<th>Endpoint</th>
+<th>Auth</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>GET /health</code></td>
+<td>None</td>
+<td>Readiness: every health check. File storage is not one of them, so a storage outage leaves the API ready.</td>
+</tr>
+<tr>
+<td><code>GET /alive</code></td>
+<td>None</td>
+<td>Liveness</td>
+</tr>
+<tr>
+<td><code>GET /auth/login</code>, <code>/auth/logout</code>, <code>/auth/me</code></td>
+<td>Development only</td>
+<td>Cookie login for Scalar. <code>/auth/login</code> answers 503 when the Google client isn't configured.</td>
+</tr>
+</tbody>
+</table>
+
+</article>
+
+        <div class="contribution d-print-none">
+          <a href="https://github.com/Invex-Games/passel/blob/main/docs/reference/http-api.md/#L1" class="edit-link">Edit this page</a>
+        </div>
+
+        <div class="next-article d-print-none border-top" id="nextArticle"></div>
+
+      </div>
+
+      <div class="affix">
+        <nav id="affix"></nav>
+      </div>
+    </main>
+
+    <div class="container-xxl search-results" id="search-results"></div>
+
+    <footer class="border-top text-secondary">
+      <div class="container-xxl">
+        <div class="flex-fill">
+          Passel · Invex Games
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>

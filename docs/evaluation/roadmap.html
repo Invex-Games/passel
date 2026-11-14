@@ -1,0 +1,640 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+      <title>Roadmap | Passel </title>
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <meta name="title" content="Roadmap | Passel ">
+      
+      
+      <link rel="icon" href="../../resources/icon-48.png">
+      <link rel="stylesheet" href="../../public/docfx.min.css">
+      <link rel="stylesheet" href="../../public/main.css">
+      <meta name="docfx:navrel" content="../../toc.html">
+      <meta name="docfx:tocrel" content="../toc.html">
+      
+      <meta name="docfx:rel" content="../../">
+      
+      
+      <meta name="docfx:docurl" content="https://github.com/Invex-Games/passel/blob/main/docs/evaluation/roadmap.md/#L1">
+      <meta name="loc:inThisArticle" content="In this article">
+      <meta name="loc:searchResultsCount" content="{count} results for &quot;{query}&quot;">
+      <meta name="loc:searchNoResults" content="No results for &quot;{query}&quot;">
+      <meta name="loc:tocFilter" content="Filter by title">
+      <meta name="loc:nextArticle" content="Next">
+      <meta name="loc:prevArticle" content="Previous">
+      <meta name="loc:themeLight" content="Light">
+      <meta name="loc:themeDark" content="Dark">
+      <meta name="loc:themeAuto" content="Auto">
+      <meta name="loc:changeTheme" content="Change theme">
+      <meta name="loc:copy" content="Copy">
+      <meta name="loc:downloadPdf" content="Download PDF">
+
+      <script type="module" src="./../../public/docfx.min.js"></script>
+
+      <script>
+        const theme = localStorage.getItem('theme') || 'auto'
+        document.documentElement.setAttribute('data-bs-theme', theme === 'auto' ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : theme)
+      </script>
+
+  </head>
+
+  <body class="tex2jax_ignore" data-layout="" data-yaml-mime="">
+    <header class="bg-body border-bottom">
+      <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
+        <div class="container-xxl flex-nowrap">
+          <a class="navbar-brand" href="../../index.html">
+            <img id="logo" class="svg" src="../../resources/icon-128.png" alt="Passel">
+            Passel
+          </a>
+          <button class="btn btn-lg d-md-none border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navpanel" aria-controls="navpanel" aria-expanded="false" aria-label="Toggle navigation">
+            <i class="bi bi-three-dots"></i>
+          </button>
+          <div class="collapse navbar-collapse" id="navpanel">
+            <div id="navbar">
+              <form class="search" role="search" id="search">
+                <i class="bi bi-search"></i>
+                <input class="form-control" id="search-query" type="search" disabled placeholder="Search" autocomplete="off" aria-label="Search">
+              </form>
+            </div>
+          </div>
+        </div>
+      </nav>
+    </header>
+
+    <main class="container-xxl">
+      <div class="toc-offcanvas">
+        <div class="offcanvas-md offcanvas-start" tabindex="-1" id="tocOffcanvas" aria-labelledby="tocOffcanvasLabel">
+          <div class="offcanvas-header">
+            <h5 class="offcanvas-title" id="tocOffcanvasLabel">Table of Contents</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="offcanvas" data-bs-target="#tocOffcanvas" aria-label="Close"></button>
+          </div>
+          <div class="offcanvas-body">
+            <nav class="toc" id="toc"></nav>
+          </div>
+        </div>
+      </div>
+
+      <div class="content">
+        <div class="actionbar">
+          <button class="btn btn-lg border-0 d-md-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#tocOffcanvas" aria-controls="tocOffcanvas" aria-expanded="false" aria-label="Show table of contents">
+            <i class="bi bi-list"></i>
+          </button>
+
+          <nav id="breadcrumb"></nav>
+        </div>
+
+        <article data-uid="">
+<h1 id="roadmap">Roadmap</h1>
+
+<p>Everything from the evaluation and the <a href="features.html">feature ideas</a>, cut into work packages that can be picked up independently. Each package names the area it touches so that packages in different areas can run at the same time (in parallel sessions or by different people) without stepping on each other.</p>
+<h2 id="how-to-read-it">How to read it</h2>
+<ul>
+<li><strong>Lanes</strong> are areas of the repository: <strong>A</strong> platform, operations and docs, <strong>B</strong> the API, <strong>C</strong> the extension, <strong>D</strong> the mobile app, <strong>E</strong> the web app, <strong>F</strong> product and design decisions.</li>
+<li><strong>Phases</strong> are the suggested order. Inside a phase, packages in different lanes run in parallel; packages in the same lane that touch the same files are listed in the order they should land.</li>
+<li><strong>Size:</strong> S under a day, M a few days, L about a week, XL several weeks.</li>
+<li><strong>Source</strong> links the report that motivates the package: <a href="performance.html">Performance</a>, <a href="security.html">Security</a>, <a href="ux.html">UX</a>, <a href="ui-design.html">UI</a>, <a href="codebase-health.html">Health</a>, <a href="developer-experience.html">DX</a>, <a href="features.html">Features</a>, <a href="web-app.html">Web app</a>.</li>
+</ul>
+<p>Decisions that gate packages are listed in the <a href="index.html">overview</a>; make them in the first week.</p>
+<h2 id="phase-0-safe-to-ship-one-to-two-weeks">Phase 0: safe to ship (one to two weeks)</h2>
+<p>Goal: the API deployed with CI in front of it, basic abuse protection, the storage model settled, and the fixes that would be embarrassing in front of users.</p>
+<table>
+<thead>
+<tr>
+<th>Package</th>
+<th>Lane</th>
+<th>What</th>
+<th>Size</th>
+<th>Depends on</th>
+<th>Touches</th>
+<th>Source</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>0.X</td>
+<td>all</td>
+<td><strong>Hygiene sweep, done first and alone:</strong> <code>.gitattributes</code> with LF, <code>.editorconfig</code> to LF, strip BOMs, tool manifest for Atom and the README fix for target discovery, delete the stray keystore from the tree, untrack <code>.flutter-plugins</code>, commit <code>devtools_options.yaml</code>, trim the ignore file, vitest 5 and esbuild patch, align Aspire versions, Node-only npm scripts, <code>pubspec.yaml</code> cleanup, remove <code>avoid_print</code>, delete <code>CreateFilePacket</code> and the unused endpoint helpers, keep the personal device id out of <code>launch.json</code></td>
+<td>S to M</td>
+<td></td>
+<td>Small edits across every area, so it lands before parallel work starts</td>
+<td>DX 4, 5, 7, 11; Health 5, 11; Security 8, 9</td>
+</tr>
+<tr>
+<td>0.A1</td>
+<td>A</td>
+<td>CI through Atom's GitHub workflows module: <code>Test</code> on pull requests, <code>Build*</code> and docs publish on <code>main</code>, Dependabot for NuGet, npm, pub and actions, vulnerability scans; branch protection; CONTRIBUTING, LICENSE, CODEOWNERS, pull-request template, CHANGELOG from conventional commits; central package management and SDK, Node and Flutter pins</td>
+<td>M</td>
+<td>0.X</td>
+<td><code>.github/</code>, <code>_atom/</code>, root files</td>
+<td>DX 1, 2, 12; Health 7</td>
+</tr>
+<tr>
+<td>0.A2</td>
+<td>A</td>
+<td>Deploy the API: container image from <code>dotnet publish</code> with GitVersion tags, managed PostgreSQL, secrets from the host's store with the keys documented, health checks wired, OpenTelemetry to a real backend, backups, a <code>DeployWebApi</code> target and workflow</td>
+<td>L</td>
+<td>0.A1</td>
+<td><code>src/webapi</code>, <code>_atom/</code>, infrastructure</td>
+<td>DX 1; Security 5</td>
+</tr>
+<tr>
+<td>0.A3</td>
+<td>A</td>
+<td>Schema and startup for production: <code>AutoCreate.None</code> with migrations applied by the pipeline, a DML-only database role, static code generation (<code>TypeLoadMode.Static</code>, <code>codegen write</code> in CI), <code>ApplyAllDatabaseChangesOnStartup</code></td>
+<td>S</td>
+<td>0.A2</td>
+<td><code>Program.cs</code>, pipeline</td>
+<td>Security 5; Performance 7</td>
+</tr>
+<tr>
+<td>0.A4</td>
+<td>A</td>
+<td>Dev tunnel: <code>WithExplicitStart()</code> now, <code>adb reverse</code> documented as the default, tunnel token from a dart-define when a remote device is needed, <code>RequireHost(&quot;localhost&quot;)</code> on the dev endpoints; remove the anonymous-dashboard variable</td>
+<td>S</td>
+<td></td>
+<td><code>AppHost.cs</code>, <code>HostDevExtensions.cs</code>, <code>docs/</code></td>
+<td>Security 3, 7</td>
+</tr>
+<tr>
+<td>0.B1</td>
+<td>B</td>
+<td>Abuse controls and hygiene: rate limiter partitioned by user, per-user packet and byte quotas, caps on event streams per user and per instance, streams that end at token expiry, Kestrel connection limits, remove CORS until the web app needs it, HSTS, <code>AllowedHosts</code>, forwarded headers, fix the OIDC nonce setting and cookie flags</td>
+<td>S</td>
+<td></td>
+<td><code>HostWebExtensions.cs</code>, <code>PacketEventHub.cs</code>, <code>GetPacketEvents.cs</code></td>
+<td>Security 2, 4, 6, 7</td>
+</tr>
+<tr>
+<td>0.B2</td>
+<td>B</td>
+<td>Storage model: ADR, then packets as plain Marten documents with <code>CreatedAt</code> and <code>DeletedAt</code>, true deletes, <code>CreatedAt</code> in the list and create responses and the SSE payload; or, if event sourcing is kept, <code>ArchiveStream</code> on delete with partitioning and a purge job</td>
+<td>M</td>
+<td>0.B1 (same files)</td>
+<td><code>Domain/</code>, <code>Endpoints/</code>, <code>Program.cs</code>, tests, <code>docs/</code></td>
+<td>Health decision; Security 1; Performance 6; UX 3</td>
+</tr>
+<tr>
+<td>0.B3</td>
+<td>B</td>
+<td>Query and live-update tuning: composite index on user and id (verify the DDL), batched notification dispatch, <code>Task.WhenAny</code> heartbeat, exclude the event stream from tracing, spread <code>PublishToAll</code> resyncs</td>
+<td>S</td>
+<td>0.B2</td>
+<td><code>Program.cs</code>, <code>PacketNotificationListener.cs</code>, <code>GetPacketEvents.cs</code></td>
+<td>Performance 3, 4, 5, 9</td>
+</tr>
+<tr>
+<td>0.B4</td>
+<td>B</td>
+<td>Development authentication scheme (<code>Authorization: Dev &lt;user&gt;</code> or <code>dotnet user-jwts</code>) selected by the existing policy scheme; AppHost Google parameters optional in Development; a &quot;run without Google&quot; docs section</td>
+<td>S</td>
+<td></td>
+<td><code>HostWebExtensions.cs</code>, <code>AppHost.cs</code>, <code>docs/</code></td>
+<td>DX 3</td>
+</tr>
+<tr>
+<td>0.C1</td>
+<td>C</td>
+<td>Popup quick fixes: cache capped at the first page, read-then-write in <code>measureClampedTiles</code>, animate only live arrivals, one snackbar with no layout shift, <code>:focus-visible</code>, signed-out state, rename the image menu item, truncate long tab titles, cap the SSE buffer, full jitter and a delay before the resync fetch</td>
+<td>S to M</td>
+<td></td>
+<td><code>static/</code>, <code>popup.ts</code>, <code>feed.ts</code>, <code>live.ts</code>, <code>background.ts</code>, <code>sse.ts</code></td>
+<td>Performance 2, 5; UX 14, 15; Security 10</td>
+</tr>
+<tr>
+<td>0.D1</td>
+<td>D</td>
+<td>Mobile quick fixes: cache capped at the first page with debounced writes and no re-parse, route to the feed before Google initialises, <code>findChildIndexCallback</code>, ProblemDetails parsing and one <code>describeError</code>, clamp long notes, full jitter and a delay before the resync fetch</td>
+<td>M</td>
+<td></td>
+<td><code>packets_provider.dart</code>, <code>packet_cache.dart</code>, <code>auth_helpers.dart</code>, <code>app.dart</code>, <code>widgets/</code></td>
+<td>Performance 1, 5, 8, 10; Health 4; UX 9, 10</td>
+</tr>
+<tr>
+<td>0.F1</td>
+<td>F</td>
+<td>Decide vocabulary, ordering and item naming; draft the privacy and terms pages; choose the web app stack and parcel storage</td>
+<td>S</td>
+<td></td>
+<td><code>docs/</code></td>
+<td>UX 4, 5; overview decisions</td>
+</tr>
+</tbody>
+</table>
+<p>0.B1 to 0.B3 share files, so one person does them in that order; 0.B4 is independent. 0.X lands first and alone. Everything else runs in parallel.</p>
+<h2 id="phase-1-foundations-three-to-four-weeks">Phase 1: foundations (three to four weeks)</h2>
+<p>Goal: a test net under the API, the server-side building blocks every later feature needs, the shared TypeScript core, and the first web app.</p>
+<table>
+<thead>
+<tr>
+<th>Package</th>
+<th>Lane</th>
+<th>What</th>
+<th>Size</th>
+<th>Depends on</th>
+<th>Touches</th>
+<th>Source</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1.A1</td>
+<td>A</td>
+<td>Integration tests: <code>Testcontainers.PostgreSql</code> with <code>WebApplicationFactory</code>, the test auth scheme, create and list with ownership isolation, paging over 51 packets, delete semantics, SSE end to end through <code>pg_notify</code>, schema from an empty database; wired into <code>atom TestWebApi</code></td>
+<td>M</td>
+<td>0.A1, 0.B4</td>
+<td>new <code>Invex.Passel.WebApi.IntegrationTests</code></td>
+<td>Health 1</td>
+</tr>
+<tr>
+<td>1.A2</td>
+<td>A</td>
+<td>Contracts: one wire DTO and one mapper, committed OpenAPI with a staleness test, <code>contracts/fixtures/</code> written from the real <code>JsonOptions</code> and parsed by both client test suites, <code>contracts/feed-scenarios.json</code> run by both feed test suites</td>
+<td>M</td>
+<td>0.B2</td>
+<td><code>Endpoints/</code>, <code>docs/reference/</code>, both clients' tests</td>
+<td>Health 2, 3</td>
+</tr>
+<tr>
+<td>1.A3</td>
+<td>A</td>
+<td>Docs: architecture sequence diagram, feed state-machine page, ADRs (storage model, ids, token flow, LISTEN/NOTIFY, tunnel), troubleshooting page, from-zero OAuth walkthrough with <code>keytool</code>, release and deploy page</td>
+<td>M</td>
+<td>0.B2</td>
+<td><code>docs/</code></td>
+<td>DX 6, 9</td>
+</tr>
+<tr>
+<td>1.A4</td>
+<td>A</td>
+<td><code>SetupDevEnvironment</code>: version checks, <code>devtunnel</code> login hint, config sync from AppHost user secrets to both <code>.env</code> files with one vocabulary, next-steps checklist; keystore written to a random temp path and Gradle without a daemon; keystore secrets required only for the production flavor</td>
+<td>M</td>
+<td></td>
+<td><code>_atom/</code>, <code>.env.example</code> files, <code>docs/</code></td>
+<td>DX 8, 10; Health 6; Security 8</td>
+</tr>
+<tr>
+<td>1.B1</td>
+<td>B</td>
+<td>First-party sessions: exchange a Google ID token for an access token and a rotating refresh token, revocation per device, API accepts both token kinds during migration</td>
+<td>L</td>
+<td>0.A2</td>
+<td>new <code>Auth</code> endpoints, <code>HostWebExtensions.cs</code></td>
+<td>Features 7</td>
+</tr>
+<tr>
+<td>1.B2</td>
+<td>B</td>
+<td>Device registry: register, rename, remove, list; push token storage</td>
+<td>M</td>
+<td></td>
+<td>new <code>Devices</code> endpoints and documents</td>
+<td>Features 2</td>
+</tr>
+<tr>
+<td>1.B3</td>
+<td>B</td>
+<td>Parcels: <code>IParcelStore</code>, Azure Blob with Azurite in the AppHost, upload, download and thumbnail endpoints, the <code>File</code> branch of create, quotas, sweep job</td>
+<td>L</td>
+<td>0.A2, 0.B2, 0.F1</td>
+<td>new <code>Parcels</code> area, <code>PostPacket.cs</code>, <code>AppHost.cs</code></td>
+<td>Features 1</td>
+</tr>
+<tr>
+<td>1.B4</td>
+<td>B</td>
+<td>Link previews: async fetch with SSRF guards, preview fields on the packet, <code>packet-updated</code> SSE event</td>
+<td>M</td>
+<td>0.B2</td>
+<td>new service, the packet document</td>
+<td>Features 5</td>
+</tr>
+<tr>
+<td>1.E1</td>
+<td>E</td>
+<td>Shared TypeScript core: npm workspace, <code>packages/core</code> from the extension's chrome-free modules with their tests, <code>packages/ui</code> from the tokens, <code>popup.ts</code> split into feed view, composer and toast modules behind a controller, the popup harness committed; the extension consumes the packages</td>
+<td>M</td>
+<td>0.C1</td>
+<td><code>src/chrome-extension</code> moves</td>
+<td>Health 8; Web app; DX harness</td>
+</tr>
+<tr>
+<td>1.E2</td>
+<td>E</td>
+<td>Web app M1: sign-in, read-only live feed, AppHost integration, preview deployment</td>
+<td>M</td>
+<td>1.E1</td>
+<td><code>apps/web</code></td>
+<td>Web app</td>
+</tr>
+<tr>
+<td>1.E3</td>
+<td>E</td>
+<td>Landing page, privacy and terms pages</td>
+<td>S</td>
+<td>0.F1</td>
+<td><code>apps/web</code></td>
+<td>Web app</td>
+</tr>
+<tr>
+<td>1.C1</td>
+<td>C</td>
+<td>Side panel, keyboard commands, omnibox keyword</td>
+<td>S to M</td>
+<td>1.E1</td>
+<td><code>manifest.json</code>, <code>background.ts</code></td>
+<td>UX 11, 12</td>
+</tr>
+<tr>
+<td>1.C2</td>
+<td>C</td>
+<td>Extension unit tests with jsdom and a stubbed <code>chrome</code>: auth, api (401 matrix, problem parsing), live backoff, background delete scheduling; coverage in the Atom target</td>
+<td>M</td>
+<td>1.E1</td>
+<td><code>test/</code></td>
+<td>Health 9</td>
+</tr>
+<tr>
+<td>1.D1</td>
+<td>D</td>
+<td>Android share target and process-text, pre-filled send sheet</td>
+<td>S to M</td>
+<td>0.F1</td>
+<td><code>AndroidManifest.xml</code>, <code>pubspec.yaml</code>, new handler</td>
+<td>UX 1</td>
+</tr>
+<tr>
+<td>1.D2</td>
+<td>D</td>
+<td>Settings page skeleton: account, version, theme override</td>
+<td>S</td>
+<td></td>
+<td>new <code>settings/</code></td>
+<td>UX 18</td>
+</tr>
+<tr>
+<td>1.D3</td>
+<td>D</td>
+<td>Dependency majors: Riverpod 3 (automated migration), <code>share_plus</code> 13, <code>dynamic_color</code> 2</td>
+<td>M</td>
+<td>0.D1</td>
+<td><code>pubspec.yaml</code>, <code>lib/</code></td>
+<td>Health 7</td>
+</tr>
+<tr>
+<td>1.D4</td>
+<td>D</td>
+<td>Widget tests: feed page, list load-more and retry and signed-out rows, send sheet, tiles; coverage in the Atom target</td>
+<td>M</td>
+<td>0.D1</td>
+<td><code>test/</code></td>
+<td>Health 9</td>
+</tr>
+<tr>
+<td>1.F1</td>
+<td>F</td>
+<td>Tile redesign specification and brand kit (logo, wordmark, icon style, empty-state illustrations)</td>
+<td>M</td>
+<td>0.F1</td>
+<td>design assets, <code>docs/</code></td>
+<td>UI</td>
+</tr>
+</tbody>
+</table>
+<p>1.B1 to 1.B4 all add to <code>src/webapi</code>, mostly in new folders; run them on separate branches and expect small merge conflicts in <code>Program.cs</code> and <code>EndpointMapper.cs</code>. 1.E1 must land before 1.E2, 1.C1 and 1.C2. 1.D3 and 1.D4 touch <code>lib/</code> and <code>test/</code> broadly, so land them before 1.D1 and 1.D2 or rebase. Lane A and lane F packages are independent of everything else in the phase.</p>
+<h2 id="phase-2-parity-and-parcels-four-to-six-weeks">Phase 2: parity and parcels (four to six weeks)</h2>
+<p>Goal: every client gets the redesign, parcels and notifications; the web app reaches parity; the apps are listed.</p>
+<table>
+<thead>
+<tr>
+<th>Package</th>
+<th>Lane</th>
+<th>What</th>
+<th>Size</th>
+<th>Depends on</th>
+<th>Touches</th>
+<th>Source</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>2.B1</td>
+<td>B</td>
+<td>Push sender: FCM and Web Push, triggered on packet commit, targeting the user's other devices</td>
+<td>M</td>
+<td>1.B2</td>
+<td>new service beside the notification listener</td>
+<td>Features 2</td>
+</tr>
+<tr>
+<td>2.B2</td>
+<td>B</td>
+<td>Search: <code>?q=</code> on the list endpoint with a Marten full-text index</td>
+<td>M</td>
+<td>0.B2</td>
+<td><code>GetPackets.cs</code>, <code>Program.cs</code></td>
+<td>Features 6</td>
+</tr>
+<tr>
+<td>2.B3</td>
+<td>B</td>
+<td>Account deletion and export, retention setting with nightly expiry, trash and restore</td>
+<td>M</td>
+<td>0.B2</td>
+<td>new endpoints and jobs</td>
+<td>Features 10, 11, 14; Security 1</td>
+</tr>
+<tr>
+<td>2.B4</td>
+<td>B</td>
+<td>Per-user change log, resumable SSE with event ids, <code>?since=</code> delta sync</td>
+<td>M</td>
+<td>0.B2, 1.A2</td>
+<td>the packet document, <code>GetPacketEvents.cs</code>, both clients' stores</td>
+<td>Health 3</td>
+</tr>
+<tr>
+<td>2.C1</td>
+<td>C</td>
+<td>Tile redesign, day headers, previews, avatar menu in the extension</td>
+<td>M</td>
+<td>0.B2, 1.B4, 1.F1</td>
+<td><code>popup/</code>, <code>packages/ui</code></td>
+<td>UI</td>
+</tr>
+<tr>
+<td>2.C2</td>
+<td>C</td>
+<td>Parcels in the extension: paste, drop, optional host permission for image URLs, thumbnails, viewer</td>
+<td>M</td>
+<td>1.B3, 2.C1</td>
+<td><code>popup/</code>, <code>background.ts</code>, <code>manifest.json</code></td>
+<td>Features 1</td>
+</tr>
+<tr>
+<td>2.C3</td>
+<td>C</td>
+<td>Sessions in the extension</td>
+<td>S</td>
+<td>1.B1</td>
+<td><code>auth.ts</code>, <code>api.ts</code></td>
+<td>Features 7</td>
+</tr>
+<tr>
+<td>2.D1</td>
+<td>D</td>
+<td>Tile redesign, detail page, day headers, surface-coloured app bar, one ordering</td>
+<td>M</td>
+<td>0.B2, 1.B4, 1.F1</td>
+<td><code>widgets/</code>, <code>theme/</code></td>
+<td>UI; UX 4</td>
+</tr>
+<tr>
+<td>2.D2</td>
+<td>D</td>
+<td>Parcels on mobile: shared images, picker, camera, viewer, authenticated cache</td>
+<td>M</td>
+<td>1.B3, 1.D1, 2.D1</td>
+<td><code>packets/data/</code>, <code>widgets/</code></td>
+<td>Features 1</td>
+</tr>
+<tr>
+<td>2.D3</td>
+<td>D</td>
+<td>Push notifications and device registration</td>
+<td>M</td>
+<td>1.B2, 2.B1</td>
+<td>new <code>push/</code>, <code>auth/</code></td>
+<td>Features 2</td>
+</tr>
+<tr>
+<td>2.D4</td>
+<td>D</td>
+<td>Sessions, account deletion and export in settings</td>
+<td>M</td>
+<td>1.B1, 2.B3, 1.D2</td>
+<td><code>auth/</code>, <code>settings/</code></td>
+<td>Features 7, 14</td>
+</tr>
+<tr>
+<td>2.E1</td>
+<td>E</td>
+<td>Web app M2 parity: send, delete with undo, offline cache, PWA install, the mobile layout below 600 px and the two-pane layout above 840 px, settings</td>
+<td>L</td>
+<td>1.E2, 0.B2, 0.F1</td>
+<td><code>apps/web</code></td>
+<td>Web app</td>
+</tr>
+<tr>
+<td>2.E2</td>
+<td>E</td>
+<td>Web app parcels, share target, Web Push, search</td>
+<td>M</td>
+<td>1.B3, 2.B1, 2.B2</td>
+<td><code>apps/web</code></td>
+<td>Web app</td>
+</tr>
+<tr>
+<td>2.A1</td>
+<td>A</td>
+<td>Release pipeline and store listings: extension zip with the version stamped from GitVersion to the Chrome Web Store, app bundle to Play internal testing then production, deletion page linked from the listing</td>
+<td>M</td>
+<td>0.A1, 1.E3, 2.B3</td>
+<td><code>_atom/</code>, <code>.github/</code></td>
+<td>DX 1</td>
+</tr>
+<tr>
+<td>2.A2</td>
+<td>A</td>
+<td>Observability in production: dashboards, alerts on error rate and stream count, error tracking; a load test with a few hundred synthetic users against staging</td>
+<td>M</td>
+<td>0.A2</td>
+<td>infrastructure, <code>tests/load/</code></td>
+<td>Performance steps</td>
+</tr>
+</tbody>
+</table>
+<p>Within a lane the packages touch different screens and can run in parallel branches; the redesign packages (2.C1, 2.D1) conflict with the parcel packages (2.C2, 2.D2) in the tile widgets, so land the redesign first.</p>
+<h2 id="phase-3-delight-ongoing">Phase 3: delight (ongoing)</h2>
+<p>In no particular order, each independent unless noted: send to a specific device (needs 1.B2 and 2.B1), pin and archive, home-screen widget and quick-settings tile, app shortcuts, Android App Links for <code>passel.link/p/{id}</code>, collections (needs parcels), offline send queue, read state, Markdown and code notes, public API with keys and a CLI (needs 1.B1), webhooks, iOS with Sign in with Apple, a desktop app, an end-to-end encryption design study.</p>
+<h2 id="critical-paths">Critical paths</h2>
+<ul>
+<li><strong>Ship:</strong> 0.X, 0.A1, 0.A2, 0.A3, with 0.B1 and 0.B2 landing before the first public deployment.</li>
+<li><strong>Parcels:</strong> 0.B2, 1.B3, then 2.C2, 2.D2 and 2.E2 in parallel.</li>
+<li><strong>Design:</strong> 0.F1, 0.B2, 1.F1, then 2.C1, 2.D1 and 2.E1 in parallel.</li>
+<li><strong>Web app:</strong> 0.C1, 1.E1, 1.E2, 2.E1; public launch also wants 1.B1 (so the web session doesn't expire hourly) and 2.A1.</li>
+<li><strong>Notifications:</strong> 1.B2, 2.B1, then 2.D3 and 2.E2.</li>
+<li><strong>Store listings:</strong> 0.F1, 1.E3, 1.D2, 2.B3, 2.D4, 2.A1.</li>
+</ul>
+<h2 id="what-can-run-at-the-same-time">What can run at the same time</h2>
+<table>
+<thead>
+<tr>
+<th>While working on</th>
+<th>Safe to run in parallel</th>
+<th>Will conflict</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Any lane B package</td>
+<td>Every A, C, D, E, F package</td>
+<td>Other lane B packages that edit <code>Program.cs</code> or <code>EndpointMapper.cs</code> (rebase; conflicts are small)</td>
+</tr>
+<tr>
+<td>1.E1 (core extraction)</td>
+<td>Lanes A, B, D, F</td>
+<td>Every lane C package: do 1.E1 first, or rebase C onto it</td>
+</tr>
+<tr>
+<td>2.C1 or 2.D1 (redesign)</td>
+<td>Everything outside their lane</td>
+<td>2.C2 or 2.D2 in the tile widgets: land the redesign first</td>
+</tr>
+<tr>
+<td>Lane D</td>
+<td>Everything else</td>
+<td>Nothing: the mobile app shares no files with the other lanes</td>
+</tr>
+<tr>
+<td>Lane A docs and tests</td>
+<td>Everything</td>
+<td>1.A2 edits both clients' test folders lightly; coordinate with 1.C2 and 1.D4</td>
+</tr>
+<tr>
+<td>Lane F</td>
+<td>Everything</td>
+<td>Nothing, but its decisions gate 1.B3, 1.D1, 1.E3, 2.C1, 2.D1, 2.E1</td>
+</tr>
+</tbody>
+</table>
+<p>Phase 0's 0.X is the exception: it touches every area lightly and should be merged before anything else starts.</p>
+<h2 id="if-one-person-does-it-all">If one person does it all</h2>
+<p>Quick wins first, then ship, then the thing users notice most, then the web app, then parcels: 0.X, 0.F1, 0.D1, 0.C1, then 0.B1, 0.B2, 0.B3, 0.B4, then 0.A1, 0.A2, 0.A3, 0.A4, then 1.D1, then 1.A1, 1.E1, 1.E2, 1.E3, then 1.B3 followed by 2.C1, 2.C2, 2.D1, 2.D2, then 1.B2, 2.B1, 2.D3, then 1.B1, 2.C3, 2.D4, then 2.E1, 2.B3, 2.A1, and the rest as demand dictates.</p>
+
+</article>
+
+        <div class="contribution d-print-none">
+          <a href="https://github.com/Invex-Games/passel/blob/main/docs/evaluation/roadmap.md/#L1" class="edit-link">Edit this page</a>
+        </div>
+
+        <div class="next-article d-print-none border-top" id="nextArticle"></div>
+
+      </div>
+
+      <div class="affix">
+        <nav id="affix"></nav>
+      </div>
+    </main>
+
+    <div class="container-xxl search-results" id="search-results"></div>
+
+    <footer class="border-top text-secondary">
+      <div class="container-xxl">
+        <div class="flex-fill">
+          Passel · Invex Games
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>

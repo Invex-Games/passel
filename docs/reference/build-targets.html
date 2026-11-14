@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+      <title>Build Targets | Passel </title>
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <meta name="title" content="Build Targets | Passel ">
+      
+      
+      <link rel="icon" href="../../resources/icon-48.png">
+      <link rel="stylesheet" href="../../public/docfx.min.css">
+      <link rel="stylesheet" href="../../public/main.css">
+      <meta name="docfx:navrel" content="../../toc.html">
+      <meta name="docfx:tocrel" content="../toc.html">
+      
+      <meta name="docfx:rel" content="../../">
+      
+      
+      <meta name="docfx:docurl" content="https://github.com/Invex-Games/passel/blob/main/docs/reference/build-targets.md/#L1">
+      <meta name="loc:inThisArticle" content="In this article">
+      <meta name="loc:searchResultsCount" content="{count} results for &quot;{query}&quot;">
+      <meta name="loc:searchNoResults" content="No results for &quot;{query}&quot;">
+      <meta name="loc:tocFilter" content="Filter by title">
+      <meta name="loc:nextArticle" content="Next">
+      <meta name="loc:prevArticle" content="Previous">
+      <meta name="loc:themeLight" content="Light">
+      <meta name="loc:themeDark" content="Dark">
+      <meta name="loc:themeAuto" content="Auto">
+      <meta name="loc:changeTheme" content="Change theme">
+      <meta name="loc:copy" content="Copy">
+      <meta name="loc:downloadPdf" content="Download PDF">
+
+      <script type="module" src="./../../public/docfx.min.js"></script>
+
+      <script>
+        const theme = localStorage.getItem('theme') || 'auto'
+        document.documentElement.setAttribute('data-bs-theme', theme === 'auto' ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : theme)
+      </script>
+
+  </head>
+
+  <body class="tex2jax_ignore" data-layout="" data-yaml-mime="">
+    <header class="bg-body border-bottom">
+      <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
+        <div class="container-xxl flex-nowrap">
+          <a class="navbar-brand" href="../../index.html">
+            <img id="logo" class="svg" src="../../resources/icon-128.png" alt="Passel">
+            Passel
+          </a>
+          <button class="btn btn-lg d-md-none border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navpanel" aria-controls="navpanel" aria-expanded="false" aria-label="Toggle navigation">
+            <i class="bi bi-three-dots"></i>
+          </button>
+          <div class="collapse navbar-collapse" id="navpanel">
+            <div id="navbar">
+              <form class="search" role="search" id="search">
+                <i class="bi bi-search"></i>
+                <input class="form-control" id="search-query" type="search" disabled placeholder="Search" autocomplete="off" aria-label="Search">
+              </form>
+            </div>
+          </div>
+        </div>
+      </nav>
+    </header>
+
+    <main class="container-xxl">
+      <div class="toc-offcanvas">
+        <div class="offcanvas-md offcanvas-start" tabindex="-1" id="tocOffcanvas" aria-labelledby="tocOffcanvasLabel">
+          <div class="offcanvas-header">
+            <h5 class="offcanvas-title" id="tocOffcanvasLabel">Table of Contents</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="offcanvas" data-bs-target="#tocOffcanvas" aria-label="Close"></button>
+          </div>
+          <div class="offcanvas-body">
+            <nav class="toc" id="toc"></nav>
+          </div>
+        </div>
+      </div>
+
+      <div class="content">
+        <div class="actionbar">
+          <button class="btn btn-lg border-0 d-md-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#tocOffcanvas" aria-controls="tocOffcanvas" aria-expanded="false" aria-label="Show table of contents">
+            <i class="bi bi-list"></i>
+          </button>
+
+          <nav id="breadcrumb"></nav>
+        </div>
+
+        <article data-uid="">
+<h1 id="build-targets">Build Targets</h1>
+
+<p>The build is an <a href="https://github.com/Invex-Games/atom">Atom</a> project in <code>_atom/</code>. Run <code>dotnet tool restore</code> once, then run a target from the repository root with <code>dotnet atom &lt;Target&gt;</code>. To list the targets and their parameters, run <code>dotnet run --project _atom -- --help</code> (the help of the tool itself describes the tool, not the targets). With the tool installed globally, <code>atom &lt;Target&gt;</code> also works from PowerShell and cmd.</p>
+<p>Parameters can be passed on the command line (<code>--mobile-app-flavor production</code>), or set in <code>_atom/appsettings.json</code>. Secrets are read from Azure Key Vault (<code>invex-passel</code>).</p>
+<h2 id="development">Development</h2>
+<table>
+<thead>
+<tr>
+<th>Target</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>SetupDevEnvironment</code></td>
+<td>Checks the tools you need, Docker, and the HTTPS development certificate. Creates <code>src/mobile_app/.env</code>, then restores npm and Flutter packages.</td>
+</tr>
+<tr>
+<td><code>Test</code></td>
+<td>Runs <code>TestWebApi</code>, <code>TestChromeExtension</code> and <code>TestMobileApp</code></td>
+</tr>
+<tr>
+<td><code>TestWebApi</code></td>
+<td><code>dotnet test</code> on the Web API unit tests, then on the integration tests, which start PostgreSQL and Azurite in Docker containers</td>
+</tr>
+<tr>
+<td><code>TestChromeExtension</code></td>
+<td>Type-checks every member of the npm workspace (the shared packages, the extension and the web app) and runs their Vitest suites with coverage; keeps the lcov reports in <code>atom-publish/ChromeExtensionCoverage</code></td>
+</tr>
+<tr>
+<td><code>TestMobileApp</code></td>
+<td><code>flutter analyze</code> and <code>flutter test --coverage</code>; keeps the lcov report in <code>atom-publish/MobileAppCoverage</code></td>
+</tr>
+<tr>
+<td><code>BuildDocs</code></td>
+<td>Builds this site into <code>_site/</code> and <code>atom-publish/GeneratedDocs</code></td>
+</tr>
+<tr>
+<td><code>ServeDocs</code></td>
+<td>Builds the docs and serves them at <code>http://localhost:8080</code></td>
+</tr>
+<tr>
+<td><code>Gen</code></td>
+<td>Regenerates the GitHub workflows and Dependabot configuration under <code>.github/</code> from <code>_atom/IBuild.cs</code>; see <a href="../guides/ci.html">Continuous Integration</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="release-builds">Release builds</h2>
+<table>
+<thead>
+<tr>
+<th>Target</th>
+<th>Output</th>
+<th>Parameters</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>BuildWebApi</code></td>
+<td>Published API, in <code>atom-publish/Invex.Passel.WebApi</code></td>
+<td>None</td>
+</tr>
+<tr>
+<td><code>BuildChromeExtension</code></td>
+<td><code>atom-publish/ChromeExtension/chrome-extension.zip</code></td>
+<td><code>api-base-url-production</code> (the extension calls <code>&lt;url&gt;/api/packets</code>), <code>chrome-extension-client-id</code></td>
+</tr>
+<tr>
+<td><code>BuildWebApp</code></td>
+<td>The web app's static site (landing, privacy and terms pages, and the app), in <code>atom-publish/WebApp</code>. It holds no environment's values: the app reads the API's address and the Google client id from <code>/app/config.json</code>, which the web image writes when it starts; see <a href="../components/web-app.html#hosting">Hosting</a></td>
+<td>None</td>
+</tr>
+<tr>
+<td><code>BuildMobileAppAndroid</code></td>
+<td>A debug APK (development) or a signed, obfuscated app bundle plus symbols (production), in <code>atom-publish/android</code></td>
+<td><code>mobile-app-flavor</code>, <code>api-base-url-production</code> / <code>api-base-url-development</code>, <code>server-client-id</code>, <code>mobile-app-client-id</code>, plus the <code>android-keystore-*</code> secrets for production</td>
+</tr>
+<tr>
+<td><code>PublishImages</code></td>
+<td>The API image (<code>passel-webapi</code>, from the .NET SDK's container support) and the web image (<code>passel-web</code>, Caddy with the site <code>BuildWebApp</code> built and an entrypoint that configures it from <code>API_ORIGIN</code> and <code>GOOGLE_CLIENT_ID</code> when the container starts), tagged with the version and <code>sha-&lt;commit&gt;</code>. Pushed to the registry only from <code>refs/heads/main</code> with <code>push-images</code>; otherwise loaded into the local Docker daemon as <code>invex-games/passel-webapi</code> and <code>invex-games/passel-web</code>. Runs after <code>TestWebApi</code></td>
+<td><code>container-registry</code> (<code>ghcr.io</code>), <code>container-namespace</code> (<code>invex-games</code>), <code>push-images</code></td>
+</tr>
+<tr>
+<td><code>PublishDeployBundle</code></td>
+<td>The deploy bundle image (<code>passel-deploy</code>): the compose files and scripts in <code>deploy/compose</code>, <code>FROM scratch</code>, with the same tags and push rules as <code>PublishImages</code>. Runs after <code>TestWebApi</code></td>
+<td>The same as <code>PublishImages</code></td>
+</tr>
+<tr>
+<td><code>PublishDocs</code></td>
+<td>The site built by <code>BuildDocs</code>, force-pushed to the <code>gh-pages</code> branch for GitHub Pages</td>
+<td><code>github-token</code></td>
+</tr>
+</tbody>
+</table>
+<p><code>BuildMobileAppAndroid</code> checks out the Flutter version in <code>flutter-version</code> (<code>_atom/appsettings.json</code>). If there's no Flutter on your <code>PATH</code>, it clones that version into <code>.flutter/</code>. Running it locally can therefore switch the version of your own Flutter SDK. The client-id parameters only take effect when they're real Google client ids (ending in <code>.apps.googleusercontent.com</code>). Otherwise the build logs a warning and uses the values in <code>src/mobile_app/.env</code>.</p>
+<h2 id="deployment">Deployment</h2>
+<p>The versions come from GitVersion (<code>GitVersion.yml</code>), which <code>IBuild</code> uses as its version and build id provider: <code>SetupBuildInfo</code> prints the version, and the image targets read the one it stored, so run it first locally. An image tag is the version with <code>+</code> and <code>/</code> replaced by <code>-</code>. A version tag already in the registry is never moved: the image targets skip a push the registry already has for the same commit, and fail when the tag names another.</p>
+<table>
+<thead>
+<tr>
+<th>Target</th>
+<th>What it does</th>
+<th>Parameters</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>ValidateCompose</code></td>
+<td><code>docker compose config</code> over <code>deploy/compose/compose.yaml</code>, alone and with each override, with every profile on and the placeholders in <code>ci.env</code>, then checks that the web service gets <code>API_ORIGIN=https://&lt;API_HOST&gt;</code> and <code>GOOGLE_CLIENT_ID=&lt;GOOGLE_WEB_CLIENT_ID&gt;</code>, then shellcheck over the deploy scripts and the web image's entrypoint (in the <code>koalaman/shellcheck</code> image when shellcheck isn't installed). The <code>Validate</code> workflow runs it on every pull request.</td>
+<td>None</td>
+</tr>
+<tr>
+<td><code>DeployCompose</code></td>
+<td>Deploys a tag to the self-hosted server: checks that the three images exist, then runs <code>ssh</code> to the deploy gate with <code>deploy &lt;tag&gt;</code> and the registry token on stdin. Needs the <code>DEPLOY_SSH_KEY</code>, <code>DEPLOY_KNOWN_HOSTS</code> and <code>GHCR_PULL_TOKEN</code> environment variables; the <code>DeployCompose</code> workflow sets them. See <a href="../guides/deploying.html#the-deploycompose-workflow">Releasing and Deploying</a></td>
+<td><code>image-tag</code> (blank for this build's version), <code>migrate</code> (default <code>true</code>; <code>false</code> for a rollback), <code>deploy-host</code>, <code>deploy-user</code></td>
+</tr>
+<tr>
+<td><code>PublishAzureInfrastructure</code></td>
+<td>Writes the Bicep of the Azure deployment from the AppHost into <code>atom-publish/AzureInfrastructure</code>, without signing in to Azure. The <code>Validate</code> workflow runs it on every pull request.</td>
+<td>None</td>
+</tr>
+<tr>
+<td><code>DeployWebApi</code></td>
+<td>Runs <code>aspire deploy</code>: provisions or updates the Azure resources, builds the images with the .NET SDK's container support, runs the database migration job, then updates the API. Also attaches the Bicep as <code>AzureInfrastructure</code>. Needs a signed-in Azure CLI; the <code>Deploy</code> workflow signs in with OIDC.</td>
+<td><code>azure-subscription-id</code>, <code>azure-resource-group</code>, <code>azure-location</code>, <code>server-client-id</code> (the Google web client id), <code>chrome-extension-client-id</code>, optionally <code>api-domain</code> and <code>api-certificate-name</code>, and the <code>Parameters__encoding-alphabet</code> environment variable</td>
+</tr>
+</tbody>
+</table>
+<p><code>PublishAzureInfrastructure</code> and <code>DeployWebApi</code> belong to the legacy Azure deployment and run the Aspire CLI pinned in <code>dotnet-tools.json</code> (<code>dotnet aspire</code>). See <a href="../guides/deploying.html">Releasing and Deploying</a> for the one-off Azure setup <code>DeployWebApi</code> needs, and <a href="configuration.html#azure-deployment">Configuration</a> for where each value ends up.</p>
+
+</article>
+
+        <div class="contribution d-print-none">
+          <a href="https://github.com/Invex-Games/passel/blob/main/docs/reference/build-targets.md/#L1" class="edit-link">Edit this page</a>
+        </div>
+
+        <div class="next-article d-print-none border-top" id="nextArticle"></div>
+
+      </div>
+
+      <div class="affix">
+        <nav id="affix"></nav>
+      </div>
+    </main>
+
+    <div class="container-xxl search-results" id="search-results"></div>
+
+    <footer class="border-top text-secondary">
+      <div class="container-xxl">
+        <div class="flex-fill">
+          Passel · Invex Games
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>

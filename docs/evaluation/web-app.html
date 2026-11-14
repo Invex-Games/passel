@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+      <title>Web App Plan | Passel </title>
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <meta name="title" content="Web App Plan | Passel ">
+      
+      
+      <link rel="icon" href="../../resources/icon-48.png">
+      <link rel="stylesheet" href="../../public/docfx.min.css">
+      <link rel="stylesheet" href="../../public/main.css">
+      <meta name="docfx:navrel" content="../../toc.html">
+      <meta name="docfx:tocrel" content="../toc.html">
+      
+      <meta name="docfx:rel" content="../../">
+      
+      
+      <meta name="docfx:docurl" content="https://github.com/Invex-Games/passel/blob/main/docs/evaluation/web-app.md/#L1">
+      <meta name="loc:inThisArticle" content="In this article">
+      <meta name="loc:searchResultsCount" content="{count} results for &quot;{query}&quot;">
+      <meta name="loc:searchNoResults" content="No results for &quot;{query}&quot;">
+      <meta name="loc:tocFilter" content="Filter by title">
+      <meta name="loc:nextArticle" content="Next">
+      <meta name="loc:prevArticle" content="Previous">
+      <meta name="loc:themeLight" content="Light">
+      <meta name="loc:themeDark" content="Dark">
+      <meta name="loc:themeAuto" content="Auto">
+      <meta name="loc:changeTheme" content="Change theme">
+      <meta name="loc:copy" content="Copy">
+      <meta name="loc:downloadPdf" content="Download PDF">
+
+      <script type="module" src="./../../public/docfx.min.js"></script>
+
+      <script>
+        const theme = localStorage.getItem('theme') || 'auto'
+        document.documentElement.setAttribute('data-bs-theme', theme === 'auto' ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : theme)
+      </script>
+
+  </head>
+
+  <body class="tex2jax_ignore" data-layout="" data-yaml-mime="">
+    <header class="bg-body border-bottom">
+      <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
+        <div class="container-xxl flex-nowrap">
+          <a class="navbar-brand" href="../../index.html">
+            <img id="logo" class="svg" src="../../resources/icon-128.png" alt="Passel">
+            Passel
+          </a>
+          <button class="btn btn-lg d-md-none border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navpanel" aria-controls="navpanel" aria-expanded="false" aria-label="Toggle navigation">
+            <i class="bi bi-three-dots"></i>
+          </button>
+          <div class="collapse navbar-collapse" id="navpanel">
+            <div id="navbar">
+              <form class="search" role="search" id="search">
+                <i class="bi bi-search"></i>
+                <input class="form-control" id="search-query" type="search" disabled placeholder="Search" autocomplete="off" aria-label="Search">
+              </form>
+            </div>
+          </div>
+        </div>
+      </nav>
+    </header>
+
+    <main class="container-xxl">
+      <div class="toc-offcanvas">
+        <div class="offcanvas-md offcanvas-start" tabindex="-1" id="tocOffcanvas" aria-labelledby="tocOffcanvasLabel">
+          <div class="offcanvas-header">
+            <h5 class="offcanvas-title" id="tocOffcanvasLabel">Table of Contents</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="offcanvas" data-bs-target="#tocOffcanvas" aria-label="Close"></button>
+          </div>
+          <div class="offcanvas-body">
+            <nav class="toc" id="toc"></nav>
+          </div>
+        </div>
+      </div>
+
+      <div class="content">
+        <div class="actionbar">
+          <button class="btn btn-lg border-0 d-md-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#tocOffcanvas" aria-controls="tocOffcanvas" aria-expanded="false" aria-label="Show table of contents">
+            <i class="bi bi-list"></i>
+          </button>
+
+          <nav id="breadcrumb"></nav>
+        </div>
+
+        <article data-uid="">
+<h1 id="web-app-plan">Web App Plan</h1>
+
+<p>Goal: a first-class client at <code>passel.link</code> that matches the mobile app rather than the extension popup: the full feed, sending, live updates, undo, offline cache and settings, in a layout that works on a phone's browser and scales to a desktop screen. Plus a public landing page, since <code>passel.link</code> is also where people will look first.</p>
+<h2 id="what-a-closer-match-to-the-mobile-app-means">What &quot;a closer match to the mobile app&quot; means</h2>
+<p>The popup is a 380 by 600 pixel window that closes when you look away; the mobile app is a full screen with a collapsing app bar, a feed, a floating send button that opens a sheet, swipe to delete with undo, pull to refresh and a sign-in sheet when the session lapses. The web app should reproduce that screen one to one below 600 px wide, and above 840 px widen into a two-pane layout: navigation rail, feed list, detail pane. Everything the mobile app can do, the web app can do; everything a browser can do better (keyboard, drag and drop, a wide screen) it adds.</p>
+<h2 id="information-architecture">Information architecture</h2>
+<table>
+<thead>
+<tr>
+<th>URL</th>
+<th>Page</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>passel.link</code></td>
+<td>Landing: what it is, get the extension, get the app, sign in</td>
+</tr>
+<tr>
+<td><code>passel.link/app</code></td>
+<td>The feed with the composer (signed in), or the sign-in page</td>
+</tr>
+<tr>
+<td><code>passel.link/app/p/{id}</code></td>
+<td>Item detail: full text, link preview, parcel viewer, copy, share, delete</td>
+</tr>
+<tr>
+<td><code>passel.link/app/settings</code></td>
+<td>Account, devices, theme, retention, storage, export, delete account</td>
+</tr>
+<tr>
+<td><code>passel.link/privacy</code>, <code>/terms</code></td>
+<td>Required for the Chrome Web Store and Google Play listings</td>
+</tr>
+<tr>
+<td><code>api.passel.link</code></td>
+<td>The existing API</td>
+</tr>
+<tr>
+<td><code>docs.passel.link</code></td>
+<td>The DocFX site</td>
+</tr>
+</tbody>
+</table>
+<p>Serving the app under <code>/app</code> on the same host as the landing page keeps one origin for cookies and share-target registration; <code>app.passel.link</code> is the alternative if the landing page is hosted elsewhere.</p>
+<h2 id="stack-options">Stack options</h2>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>TypeScript PWA (shared core with the extension)</th>
+<th>Flutter Web (the mobile app compiled for the browser)</th>
+<th>Blazor WebAssembly</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Fidelity to the mobile app</td>
+<td>Rebuilt from the same design; close, not identical</td>
+<td>Identical widgets and behaviour</td>
+<td>Rebuilt; MD3 fidelity weakest</td>
+</tr>
+<tr>
+<td>Code sharing</td>
+<td><code>feed.ts</code>, <code>packets.ts</code>, <code>sse.ts</code>, <code>types.ts</code> from the extension are already free of <code>chrome.*</code> and move as-is; the extension becomes another consumer</td>
+<td>All of <code>lib/</code> except sign-in and SSE transport</td>
+<td>DTOs with the API via a contracts project; nothing with the clients</td>
+</tr>
+<tr>
+<td>Initial download</td>
+<td>About 100 to 200 KB</td>
+<td>1.5 to 3 MB (CanvasKit or WASM renderer), slow first paint</td>
+<td>2 MB plus with trimming</td>
+</tr>
+<tr>
+<td>Web platform</td>
+<td>Native: text selection, find in page, SEO for the landing page, accessibility, Web Share Target, Web Push, Background Sync, installable PWA</td>
+<td>Weak: canvas rendering, no SEO, selection and accessibility via workarounds, share target and push need JS interop</td>
+<td>Partial: needs JS interop for Google sign-in, push and share target</td>
+</tr>
+<tr>
+<td>Google sign-in</td>
+<td>Google Identity Services button and One Tap; ID token has the web client id as audience, which the API already accepts</td>
+<td><code>google_sign_in_web</code> renders the GIS button; <code>authenticate()</code> is unsupported on web so the sign-in UI changes anyway</td>
+<td>GIS through JS interop</td>
+</tr>
+<tr>
+<td>Live updates</td>
+<td><code>fetch</code> plus the existing SSE parser</td>
+<td>The default <code>http</code> client on web is XHR-based and doesn't stream; needs <code>fetch_client</code> or similar</td>
+<td><code>HttpClient</code> streaming works in WASM</td>
+</tr>
+<tr>
+<td>Team fit</td>
+<td>TypeScript already in the repo</td>
+<td>Dart already in the repo</td>
+<td>C# already in the repo</td>
+</tr>
+<tr>
+<td>Verdict</td>
+<td><strong>Recommended</strong></td>
+<td>Good for a quick internal preview; not the public site</td>
+<td>Only if the front end must be C#</td>
+</tr>
+</tbody>
+</table>
+<h3 id="within-the-typescript-option">Within the TypeScript option</h3>
+<ul>
+<li><strong>Framework:</strong> SvelteKit is the lighter fit (small bundles, built-in routing, static adapter for CDN hosting, prerendering for the landing page). React with Vite is the safer pick if contributors know React. Both consume the same plain-TypeScript core. Avoid rebuilding the extension's hand-written DOM code for a multi-page app; it was right for a popup, it won't scale to routes, lists and sheets.</li>
+<li><strong>Monorepo:</strong> an npm workspace at <code>src/</code> with <code>packages/core</code> (feed store, packet parsing, SSE, API client, auth helpers, tests), <code>packages/ui</code> (the MD3 tokens and the handful of components from <a href="ui-design.html">UI Design</a>), <code>apps/extension</code> (the current extension, consuming both packages) and <code>apps/web</code>. The AppHost already runs the extension's watch build with <code>AddJavaScriptApp</code>; it runs the web app the same way.</li>
+<li><strong>State and cache:</strong> the <code>FeedStore</code> from <code>feed.ts</code> with an IndexedDB cache (<code>idb-keyval</code>) instead of <code>chrome.storage</code>, so the feed shows instantly and offline.</li>
+<li><strong>PWA:</strong> <code>vite-plugin-pwa</code> or Workbox for the app shell, a web manifest with <code>share_target</code> (so an installed PWA appears in Android's share sheet, which covers phones without the store app), <code>display: standalone</code>, icons from the brand kit, Web Push subscription stored in the device registry, Background Sync for queued sends.</li>
+<li><strong>Layout:</strong> below 600 px the mobile screen (top bar, feed, FAB and bottom sheet composer, swipe to delete via pointer gestures or an explicit delete); 600 to 840 px a single column with a docked composer; above 840 px a navigation rail, the feed list and a detail pane, keyboard shortcuts (<code>n</code> new note, <code>/</code> search, <code>j</code>/<code>k</code> move, <code>Enter</code> open, <code>Delete</code> delete with undo).</li>
+<li><strong>Hosting:</strong> static files on a CDN (Azure Static Web Apps or Cloudflare Pages) with the API on its own host; CORS on the API limited to <code>https://passel.link</code>. Serving the static files from the API itself is the fallback if a second host is unwanted.</li>
+</ul>
+<h2 id="authentication-on-the-web">Authentication on the web</h2>
+<p>The simplest path that works today: Google Identity Services issues an ID token for the web client id, which is already the API's main audience, so the web app can call the API with no API changes. The catch is the one-hour lifetime: a browser tab can't silently mint a new ID token without a One Tap prompt, so users would see a prompt roughly hourly. That is the strongest reason for first-party sessions (<a href="features.html">Features</a>, item 7): exchange the Google token once for a Passel access token and a rotating refresh token, keep the access token in memory and the refresh token in an <code>HttpOnly</code> cookie scoped to <code>api.passel.link/auth</code>, and the web session lasts for weeks. Build the web app against Google tokens first so it ships, and switch when sessions land; the API should accept both during the overlap.</p>
+<p>For local development the web app should also offer the API's Development-only <code>Dev</code> scheme behind a build flag, as the extension (<code>DEV_SIGN_IN</code>) and the mobile app (<code>DEV_USER</code>) do: a development build then runs without a Google client and can switch between named users, which is how per-user behaviour gets tested (<a href="../getting-started/running-locally.html#run-without-google">Running Locally</a>). A production build never has the flag.</p>
+<h2 id="milestones">Milestones</h2>
+<table>
+<thead>
+<tr>
+<th>Milestone</th>
+<th>Scope</th>
+<th>Size</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>M1 Skeleton</strong></td>
+<td>Workspace set up; <code>packages/core</code> extracted from the extension with its tests; web app with Google sign-in, read-only feed, live updates, deployed to a preview URL; the AppHost runs it locally</td>
+<td>M</td>
+</tr>
+<tr>
+<td><strong>M2 Parity</strong></td>
+<td>Send text and links, delete with undo, offline cache, PWA install, the mobile layout below 600 px and the two-pane layout above 840 px, settings page, timestamps and day headers (needs the API change), the agreed vocabulary and ordering</td>
+<td>L</td>
+</tr>
+<tr>
+<td><strong>M3 Beyond</strong></td>
+<td>Parcels with drag, drop, paste and a viewer; share target; Web Push; search; device targeting; export and account deletion</td>
+<td>L to XL, tracks the API features</td>
+</tr>
+<tr>
+<td><strong>Landing page</strong></td>
+<td>Prerendered pages: hero, three steps, extension and app buttons, privacy, terms, docs link</td>
+<td>S</td>
+</tr>
+</tbody>
+</table>
+<p>M1 and the landing page can start now in parallel with the API work; M2 needs the timestamp change and the vocabulary decision; M3 follows the <a href="roadmap.html">Roadmap</a> feature tracks.</p>
+<h2 id="risks">Risks</h2>
+<ul>
+<li><strong>Two feed implementations become three.</strong> The feed state machine already exists in TypeScript and Dart. Extracting the TypeScript one into <code>packages/core</code> is the fix, not a third copy.</li>
+<li><strong>Hourly sign-in prompts</strong> until first-party sessions exist. Acceptable for a preview, not for launch.</li>
+<li><strong>Chrome Web Store and Play Store policies</strong> need the privacy page and account deletion before public listing; the landing page should carry them from the start.</li>
+<li><strong>Flutter Web temptation.</strong> It is a few commands away from &quot;working&quot; and will look right in a demo; its first-load cost and web-platform gaps make it the wrong public site. Use it for a stakeholder preview only if that's useful.</li>
+</ul>
+
+</article>
+
+        <div class="contribution d-print-none">
+          <a href="https://github.com/Invex-Games/passel/blob/main/docs/evaluation/web-app.md/#L1" class="edit-link">Edit this page</a>
+        </div>
+
+        <div class="next-article d-print-none border-top" id="nextArticle"></div>
+
+      </div>
+
+      <div class="affix">
+        <nav id="affix"></nav>
+      </div>
+    </main>
+
+    <div class="container-xxl search-results" id="search-results"></div>
+
+    <footer class="border-top text-secondary">
+      <div class="container-xxl">
+        <div class="flex-fill">
+          Passel · Invex Games
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>
