@@ -132,14 +132,21 @@ internal interface IBuild : IWorkflowBuildDefinition,
             Options = [CancelSupersededWorkflowRuns],
         },
 
-        // Manual only, behind the production environment: deploys a tag to the self-hosted server (ADR 0004) through the
-        // deploy gate its SSH key is restricted to. A blank tag deploys this ref's build; an older tag with migrate off
-        // rolls back (docs/guides/deploying.md)
+        // Manual only: deploys a tag to one of the self-hosted stacks (ADR 0004), pre-prod or production, in the
+        // GitHub environment of the same name, through the deploy gate that environment's SSH key is restricted to. A
+        // blank tag deploys this ref's build; an older tag with migrate off rolls back (docs/guides/deploying.md)
         new("DeployCompose")
         {
             Triggers =
             [
                 WorkflowTriggers.ManualWithInputs(
+                    // Required with no default. GitHub's run dialog still preselects the first choice, so preprod
+                    // comes first and production is always picked on purpose
+                    new ManualChoiceInput("target",
+                        "Stack to deploy to, and the GitHub environment the run uses",
+                        true,
+                        IDeployCompose.DeployTargets,
+                        null),
                     new ManualStringInput("image-tag",
                         "Tag to deploy; blank = this ref; an older tag rolls back",
                         false,
@@ -156,7 +163,11 @@ internal interface IBuild : IWorkflowBuildDefinition,
                 {
                     Options =
                     [
-                        BuildOptions.Deploy.ToEnvironment(DeploymentEnvironment),
+                        // The target names the environment, so its protection rules apply and the variables and the
+                        // secret below are that stack's: each has its own DEPLOY_HOST, DEPLOY_USER, DEPLOY_KNOWN_HOSTS
+                        // and DEPLOY_SSH_KEY. Atom writes the environment as given, so the expression is spelled out
+                        // whole
+                        BuildOptions.Deploy.ToEnvironment("${{ inputs.target }}"),
                         BuildOptions.Github.TokenPermissions.Set(new Permissions.Exact(new()
                         {
                             Contents = PermissionsLevel.Read,
@@ -164,6 +175,7 @@ internal interface IBuild : IWorkflowBuildDefinition,
                         })),
                         // The job checks that the tag's three images exist before it reaches the server
                         GhcrLogin,
+                        BuildOptions.Inject.Param(nameof(DeployTarget), TextExpressions.Github.InputsInput("target")),
                         BuildOptions.Inject.Param(nameof(DeployImageTag), TextExpressions.Github.InputsInput("image-tag")),
                         BuildOptions.Inject.Param(nameof(Migrate), TextExpressions.Github.InputsInput("migrate")),
                         BuildOptions.Inject.Param(nameof(DeployHost), TextExpressions.Github.VarsVar("DEPLOY_HOST")),
@@ -180,8 +192,9 @@ internal interface IBuild : IWorkflowBuildDefinition,
                 },
             ],
             Types = [WorkflowTypes.Github.Action],
-            // Deployments queue rather than cancel each other: a cancelled one could stop between two compose steps
-            Options = [BuildOptions.Github.Concurrency.Set("deploy-compose", (bool?)false)],
+            // Deployments to one stack queue rather than cancel each other, since a cancelled one could stop between
+            // two compose steps; the two stacks deploy independently
+            Options = [BuildOptions.Github.Concurrency.Set("deploy-compose-${{ inputs.target }}", (bool?)false)],
         },
 
         // Manual only, behind the production environment, so nothing deploys until the owner has set Azure up

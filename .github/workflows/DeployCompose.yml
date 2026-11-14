@@ -3,6 +3,11 @@ name: DeployCompose
 on:
   workflow_dispatch:
     inputs:
+      target:
+        description: Stack to deploy to, and the GitHub environment the run uses
+        required: true
+        type: choice
+        options: [ preprod, production ]
       image-tag:
         description: Tag to deploy; blank = this ref; an older tag rolls back
         required: false
@@ -16,7 +21,7 @@ on:
 permissions: { }
 
 concurrency:
-  group: deploy-compose
+  group: 'deploy-compose-${{ inputs.target }}'
   cancel-in-progress: false
 
 jobs:
@@ -50,7 +55,7 @@ jobs:
       packages: read
     needs: [ SetupBuildInfo ]
     runs-on: ubuntu-latest
-    environment: production
+    environment: ${{ inputs.target }}
     steps:
 
       - name: Checkout
@@ -74,6 +79,7 @@ jobs:
         id: DeployCompose
         run: dotnet run --project _atom/_atom.csproj -- DeployCompose --skip --headless
         env:
+          target: ${{ inputs.target }}
           image-tag: ${{ inputs.image-tag }}
           migrate: ${{ inputs.migrate }}
           build-version: ${{ needs.SetupBuildInfo.outputs.build-version }}

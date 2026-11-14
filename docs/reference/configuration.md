@@ -18,7 +18,7 @@ The AppHost reads one setting of its own:
 
 ## Compose deployment
 
-The self-hosted deployment ([Releasing and Deploying](../guides/deploying.md#self-hosted-docker-compose)) reads every value from the server's `/opt/passel/.env`, whose template, with a comment on each key, is `deploy/compose/.env.example`; `release.env`, written by `deploy.sh`, adds `PASSEL_TAG`. `compose.yaml` gives the API, `db-migrate` and the web app an explicit environment built from those keys, never the whole file, so nothing else in `.env` reaches them.
+The self-hosted deployment ([Releasing and Deploying](../guides/deploying.md#self-hosted-docker-compose)) reads every value from the stack's `.env`, `/opt/passel/.env` for production and `/opt/passel-preprod/.env` for a pre-prod stack beside it, whose template, with a comment on each key, is `deploy/compose/.env.example`; `release.env`, written by `deploy.sh`, adds `PASSEL_TAG`. `compose.yaml` gives the API, `db-migrate` and the web app an explicit environment built from those keys, never the whole file, so nothing else in `.env` reaches them.
 
 | `.env` key | Required | Becomes |
 |---|---|---|
@@ -34,9 +34,16 @@ The self-hosted deployment ([Releasing and Deploying](../guides/deploying.md#sel
 | `API_HOST` | Yes | `AllowedHosts`, as `<API_HOST>;localhost` (the healthcheck sends `localhost`); the web app's `API_ORIGIN`, `https://<API_HOST>`, which it calls and allows in its policy; the edge's site for the API; the smoke check's default `https://<API_HOST>/health` |
 | `WEB_HOST` | Yes | The edge's site for the web app. Only the edge uses it, but the compose file requires it in every setup |
 | `WEB_ORIGIN` | Yes | `Cors__AllowedOrigins__0`, written as a browser sends it |
-| `PROXY_TRUSTED_CIDR` | No | `ForwardedHeaders__KnownNetworks__0`, with `ForwardedHeaders__Enabled=true`. Default `172.30.0.2/32`, the bundled edge. `compose.ports.yaml` replaces it with the host's addresses on the two networks, `172.30.0.1/32` and `172.30.1.1/32` |
+| `PROXY_TRUSTED_CIDR` | No | `ForwardedHeaders__KnownNetworks__0`, with `ForwardedHeaders__Enabled=true`. Default `<PASSEL_EDGE_ADDRESS>/32`, the bundled edge (`172.30.0.2/32`). `compose.ports.yaml` replaces it with the host's addresses on the two networks, `<PASSEL_EDGE_GATEWAY>/32` and `<PASSEL_BACKEND_GATEWAY>/32` (`172.30.0.1/32` and `172.30.1.1/32`) |
 | `PROXY_NETWORK` | With `compose.external-proxy.yaml` | The existing Docker network the `edge` network becomes |
 | `API_PORT`, `WEB_PORT` | No | The loopback ports of `compose.ports.yaml` (18080, 18081) |
+| `DASHBOARD_PORT` | No | The dashboard's loopback port with the `telemetry` profile (18888) |
+| `COMPOSE_PROJECT_NAME` | No | The project name, `passel` by default, which prefixes the stack's containers, networks and volumes (`passel_pgdata`). A second stack on the server needs another, such as `passel-preprod` |
+| `PASSEL_BACKEND_SUBNET`, `PASSEL_BACKEND_GATEWAY` | No | The `backend` network's subnet and gateway (`172.30.1.0/24`, `172.30.1.1`) |
+| `PASSEL_EDGE_SUBNET`, `PASSEL_EDGE_GATEWAY`, `PASSEL_EDGE_IP_RANGE` | No | The `edge` network's subnet, gateway and the range other containers get addresses from (`172.30.0.0/24`, `172.30.0.1`, `172.30.0.128/25`). Not used with `compose.external-proxy.yaml` |
+| `PASSEL_EDGE_ADDRESS` | No | The bundled edge's fixed address (`172.30.0.2`), in the subnet but outside `PASSEL_EDGE_IP_RANGE`, and the default of `PROXY_TRUSTED_CIDR` |
+| `PASSEL_API_ALIAS`, `PASSEL_WEB_ALIAS` | No | The names the API and the web app have on the `edge` network, which a proxy sends requests to (`passel-api`, `passel-web`); the bundled edge gets them too. Two stacks on one external proxy network need different ones |
+| `PASSEL_DEPLOYMENT_ENVIRONMENT` | No | `deployment.environment` in the API's and `db-migrate`'s `OTEL_RESOURCE_ATTRIBUTES` (`production`); `preprod` for a pre-prod stack. `ASPNETCORE_ENVIRONMENT` stays `Production` in both |
 | `SMOKE_URL` | No | What `deploy.sh` fetches after starting a release |
 | `OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_EXPORTER_OTLP_PROTOCOL`, `OTEL_EXPORTER_OTLP_HEADERS` | No | Passed to the API and `db-migrate` as they are; no endpoint, no export. `OTEL_SERVICE_NAME` is `passel-webapi` and `passel-migrate` |
 

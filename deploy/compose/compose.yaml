@@ -1,11 +1,17 @@
 # Passel on Docker Compose (ADR 0004). See docs/guides/deploying.md.
 #
 # Every value comes from the server's .env (see .env.example) and from release.env, which deploy.sh writes with
-# PASSEL_TAG, the version being deployed. Run compose through deploy.sh, or by hand from a release directory with
-# both env files: docker compose --env-file ../../.env --env-file ../../release.env <command>
+# PASSEL_TAG, the version being deployed. Run compose through deploy.sh, or by hand from the running release with
+# both env files by their full paths, since <root>/current is a link and ../.. from it is not the root:
+#   cd /opt/passel/current && docker compose --env-file /opt/passel/.env --env-file /opt/passel/release.env <command>
 #
 # The one-shot services (db-roles, parcels-init, db-migrate) run in that order before api starts. deploy.sh runs
 # each of them itself; the depends_on conditions below are a second line of defence for a plain "up".
+#
+# One server can run several stacks, pre-prod beside production, each from its own root with its own .env. What would
+# clash between them is set per stack there, with today's values as the defaults: the project name
+# (COMPOSE_PROJECT_NAME, which wins over the name below, and with it the containers, networks and volumes), the two
+# networks' subnets and the edge's address, the aliases on the proxy's network and the loopback ports.
 
 name: passel
 
@@ -101,7 +107,7 @@ services:
       ConnectionStrings__passel-db: Host=postgres;Port=5432;Database=${POSTGRES_DB:-passel};Username=passel_owner;Password=${PASSEL_OWNER_DB_PASSWORD:?set PASSEL_OWNER_DB_PASSWORD in .env}
       Database__ApiRole: passel_api
       OTEL_SERVICE_NAME: passel-migrate
-      OTEL_RESOURCE_ATTRIBUTES: deployment.environment=production,service.version=${PASSEL_TAG}
+      OTEL_RESOURCE_ATTRIBUTES: deployment.environment=${PASSEL_DEPLOYMENT_ENVIRONMENT:-production},service.version=${PASSEL_TAG}
     depends_on:
       db-roles:
         condition: service_completed_successfully
@@ -127,11 +133,11 @@ services:
       AllowedHosts: ${API_HOST:?set API_HOST in .env};localhost
       # Only the proxy may set the client address and scheme; never also ASPNETCORE_FORWARDEDHEADERS_ENABLED
       ForwardedHeaders__Enabled: "true"
-      ForwardedHeaders__KnownNetworks__0: ${PROXY_TRUSTED_CIDR:-172.30.0.2/32}
+      ForwardedHeaders__KnownNetworks__0: ${PROXY_TRUSTED_CIDR:-${PASSEL_EDGE_ADDRESS:-172.30.0.2}/32}
       Parcels__Store: FileSystem
       Parcels__FileSystemRoot: /var/lib/passel/parcels
       OTEL_SERVICE_NAME: passel-webapi
-      OTEL_RESOURCE_ATTRIBUTES: deployment.environment=production,service.version=${PASSEL_TAG}
+      OTEL_RESOURCE_ATTRIBUTES: deployment.environment=${PASSEL_DEPLOYMENT_ENVIRONMENT:-production},service.version=${PASSEL_TAG}
     volumes:
       - parcels:/var/lib/passel
     # The image has bash but no curl or wget; /health checks the database too
@@ -156,11 +162,13 @@ services:
         condition: service_completed_successfully
       db-migrate:
         condition: service_completed_successfully
+    # The proxy reaches it by this alias. Two stacks on one proxy network need different ones: Docker resolves a
+    # shared alias to either stack's container
     networks:
       backend: {}
       edge:
         aliases:
-          - passel-api
+          - ${PASSEL_API_ALIAS:-passel-api}
     <<: *hardening
     logging: *logging
 
@@ -181,7 +189,7 @@ services:
     networks:
       edge:
         aliases:
-          - passel-web
+          - ${PASSEL_WEB_ALIAS:-passel-web}
     <<: *hardening
     logging: *logging
 
@@ -197,6 +205,8 @@ services:
     environment:
       API_HOST: ${API_HOST:?set API_HOST in .env}
       WEB_HOST: ${WEB_HOST:?set WEB_HOST in .env}
+      PASSEL_API_ALIAS: ${PASSEL_API_ALIAS:-passel-api}
+      PASSEL_WEB_ALIAS: ${PASSEL_WEB_ALIAS:-passel-web}
     ports:
       - "80:80"
       - "443:443"
@@ -210,7 +220,7 @@ services:
       - web
     networks:
       edge:
-        ipv4_address: 172.30.0.2
+        ipv4_address: ${PASSEL_EDGE_ADDRESS:-172.30.0.2}
     security_opt:
       - no-new-privileges:true
     cap_drop:
@@ -226,20 +236,22 @@ services:
     profiles: [telemetry]
     restart: unless-stopped
     ports:
-      - "127.0.0.1:18888:18888"
+      - "127.0.0.1:${DASHBOARD_PORT:-18888}:18888"
     networks:
       - backend
     <<: *hardening
     logging: *logging
 
+# Each stack on a server needs subnets of its own: PASSEL_BACKEND_* and PASSEL_EDGE_* in .env, which default to
+# 172.30.1.0/24 and 172.30.0.0/24
 networks:
   # Not internal: the API fetches link previews and Google's signing keys. A fixed subnet gives the host a fixed
   # address on it, which compose.ports.yaml trusts
   backend:
     ipam:
       config:
-        - subnet: 172.30.1.0/24
-          gateway: 172.30.1.1
+        - subnet: ${PASSEL_BACKEND_SUBNET:-172.30.1.0/24}
+          gateway: ${PASSEL_BACKEND_GATEWAY:-172.30.1.1}
   # The proxy's network. A fixed subnet gives the bundled edge a fixed address for PROXY_TRUSTED_CIDR, and the other
   # containers get addresses from the upper half only, so none of them can take it first. The gateway is pinned too:
   # with an ip_range Docker would otherwise put it at the start of the range.
@@ -247,9 +259,9 @@ networks:
   edge:
     ipam:
       config:
-        - subnet: 172.30.0.0/24
-          gateway: 172.30.0.1
-          ip_range: 172.30.0.128/25
+        - subnet: ${PASSEL_EDGE_SUBNET:-172.30.0.0/24}
+          gateway: ${PASSEL_EDGE_GATEWAY:-172.30.0.1}
+          ip_range: ${PASSEL_EDGE_IP_RANGE:-172.30.0.128/25}
 
 volumes:
   pgdata: {}

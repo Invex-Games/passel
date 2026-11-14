@@ -1,6 +1,6 @@
 # Releasing and Deploying
 
-Passel runs on the owner's Ubuntu server as one Docker Compose project: PostgreSQL, the API and the web app, with an optional Caddy in front for TLS ([ADR 0004](../decisions/0004-hosting-on-docker-compose.md)). Every build of `main` pushes the images to GitHub Container Registry, and a manual workflow deploys a tag over SSH. Nothing deploys on a merge.
+Passel runs on the owner's Ubuntu server as one Docker Compose project per stack: PostgreSQL, the API and the web app, with an optional Caddy in front for TLS ([ADR 0004](../decisions/0004-hosting-on-docker-compose.md)). There are two stacks, pre-prod and production, which can share one server ([Pre-prod and production on one server](#pre-prod-and-production-on-one-server)). Every build of `main` pushes the images to GitHub Container Registry, and a manual workflow deploys a tag to the stack it is told to over SSH. Nothing deploys on a merge.
 
 The Azure deployment of [ADR 0003](../decisions/0003-hosting-on-azure.md) is still in the code and is described at the end, under [Azure (legacy, ADR 0003)](#azure-legacy-adr-0003). The extension and the mobile app are not deployed from here yet; their release builds are described in [Build Targets](../reference/build-targets.md#release-builds).
 
@@ -20,7 +20,7 @@ The version tag is the one deployed and rolled back to. It never moves: a build 
 
 ### What gets deployed
 
-`deploy/compose/compose.yaml` describes the stack. Its project is named `passel`, so its volumes are `passel_pgdata` and so on.
+`deploy/compose/compose.yaml` describes the stack. Its project is named `passel`, so its volumes are `passel_pgdata` and so on; a stack whose `.env` sets `COMPOSE_PROJECT_NAME`, such as `passel-preprod`, has `passel-preprod_pgdata` and its own containers and networks.
 
 | Service | Image | Runs | Purpose |
 |---|---|---|---|
@@ -33,7 +33,7 @@ The version tag is the one deployed and rolled back to. It never moves: a build 
 | `edge` | `caddy:2.10-alpine` | With the `edge` profile | TLS for both hosts on ports 80 and 443, with certificates from Let's Encrypt |
 | `dashboard` | `aspire-dashboard` | With the `telemetry` profile | A telemetry viewer on the server's loopback |
 
-`api` and `web` publish no port: a proxy reaches them on the `edge` network as `passel-api:8080` and `passel-web:8080`. Both run with every capability dropped and `no-new-privileges`, and so does `edge` but for `NET_BIND_SERVICE`, which it needs to bind 80 and 443. Every service's logs rotate at 10 MB, five files. The server's `.env` supplies every setting; [Configuration](../reference/configuration.md#compose-deployment) maps each one to the API's.
+`api` and `web` publish no port: a proxy reaches them on the `edge` network as `passel-api:8080` and `passel-web:8080` (`PASSEL_API_ALIAS` and `PASSEL_WEB_ALIAS` rename them). Both run with every capability dropped and `no-new-privileges`, and so does `edge` but for `NET_BIND_SERVICE`, which it needs to bind 80 and 443. Every service's logs rotate at 10 MB, five files. The server's `.env` supplies every setting; [Configuration](../reference/configuration.md#compose-deployment) maps each one to the API's.
 
 ### Server requirements
 
@@ -44,7 +44,7 @@ The version tag is the one deployed and rolled back to. It never moves: a build 
 
 ### Server setup
 
-Once, as an administrator on the server, then on GitHub.
+Once, as an administrator on the server, then on GitHub. These steps set up production in `/opt/passel`; a pre-prod stack beside it follows the same steps with its own directory, key and settings, as described in [Pre-prod and production on one server](#pre-prod-and-production-on-one-server).
 
 1. **Updates.** `sudo apt install unattended-upgrades` and keep it on, so security updates install themselves.
 2. **The deploy user.** It runs Docker, and a member of the `docker` group can do anything root can, so it gets no password and no other use:
@@ -66,17 +66,17 @@ Once, as an administrator on the server, then on GitHub.
    ```
    command="/opt/passel/deploy-gate.sh",restrict ssh-ed25519 AAAA... passel-deploy
    ```
-   Whatever a client asks for, SSH runs the gate, which accepts only `deploy <tag>` and `deploy <tag> --no-migrate` and refuses anything else before running a thing; `restrict` turns off forwarding, terminals and agent use. The private key goes to GitHub in step 7; delete both files from your machine afterwards.
+   Whatever a client asks for, SSH runs the gate, which accepts only `deploy <tag>` and `deploy <tag> --no-migrate` and refuses anything else before running a thing; `restrict` turns off forwarding, terminals and agent use. The gate deploys the stack in the directory it is installed in, `/opt/passel` here, and takes that from its own location only: no variable, from the key's line or from the client, can point it at another directory. The private key goes to GitHub in step 7; delete both files from your machine afterwards.
 5. **The settings.** Copy `deploy/compose/.env.example` to `/opt/passel/.env`, readable by the deploy user only (`chmod 600`), and fill it in. Generate each password with `openssl rand -hex 32`: hex needs no quoting in a connection string or in the file. `ENCODING_ALPHABET` is the Sqids alphabet for public ids, single-quoted. Generate it once and never change it; if the Azure deployment ever held data, use its `ENCODING_ALPHABET` secret instead, or every id a client holds stops working. Keep a copy of the finished `.env` off the server, in a password manager for instance: the backups don't include it, and without the same alphabet a restored database's ids and shared links no longer decode. `POSTGRES_PASSWORD` only takes effect when the database is first created (see [Troubleshooting](#troubleshooting-the-server)).
 6. **DNS and the proxy.** Point `API_HOST` and `WEB_HOST` at the server, then pick how requests reach the stack, with `COMPOSE_FILE` and `COMPOSE_PROFILES` in `.env`:
 
    | Setup | `COMPOSE_FILE` | `COMPOSE_PROFILES` | `PROXY_TRUSTED_CIDR` |
    |---|---|---|---|
-   | The bundled edge: Caddy on 80 and 443 with Let's Encrypt (the default) | `compose.yaml` | `edge` | `172.30.0.2/32`, the edge's fixed address |
-   | A proxy already running in a Docker network of its own | `compose.yaml:compose.external-proxy.yaml`, and `PROXY_NETWORK` naming the network | empty | The proxy container's address as a `/32`, or the network's CIDR |
-   | A proxy running on the host, such as nginx | `compose.yaml:compose.ports.yaml` (the API on `127.0.0.1:18080`, the web app on `127.0.0.1:18081`) | empty | Not used: Docker's port forwarding connects from the host's address on one of the API's two networks, which one depending on the Docker version, so the override trusts both, `172.30.0.1` and `172.30.1.1` |
+   | The bundled edge: Caddy on 80 and 443 with Let's Encrypt (the default) | `compose.yaml` | `edge` | Unset: the edge's fixed address, `PASSEL_EDGE_ADDRESS` (`172.30.0.2`) as a `/32` |
+   | A proxy already running in a Docker network of its own | `compose.yaml:compose.external-proxy.yaml`, and `PROXY_NETWORK` naming the network | empty | The proxy container's address as a `/32`, or the network's CIDR ([Behind your own Caddy container](#behind-your-own-caddy-container)) |
+   | A proxy running on the host, such as nginx | `compose.yaml:compose.ports.yaml` (the API on `127.0.0.1:18080`, the web app on `127.0.0.1:18081`, or `API_PORT` and `WEB_PORT`) | empty | Not used: Docker's port forwarding connects from the host's address on one of the API's two networks, which one depending on the Docker version, so the override trusts both gateways, `PASSEL_EDGE_GATEWAY` and `PASSEL_BACKEND_GATEWAY` (`172.30.0.1` and `172.30.1.1`) |
 
-   The API believes `X-Forwarded-For` and `X-Forwarded-Proto` from `PROXY_TRUSTED_CIDR` only. The stack's two networks have fixed subnets, `172.30.0.0/24` (`edge`) and `172.30.1.0/24` (`backend`), so no other Docker network on the server may use them. For the bundled edge, open 80/tcp, 443/tcp and 443/udp. Another proxy must pass the client address and scheme in those two headers, stream the event stream at `/api/packets/events` without buffering, keep it open for up to an hour and accept 25 MB uploads; It must also pass the client's original `Host` header (`API_HOST` for the API), since the API answers `400 Invalid Hostname` to any other. For nginx that is `proxy_set_header Host $host`, which nginx doesn't do by default (it sends the `proxy_pass` address, such as `127.0.0.1:18080`), then `proxy_buffering off`, `proxy_read_timeout 1h` and `client_max_body_size 32m`, besides the usual `proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for` and `X-Forwarded-Proto $scheme`. Caddy does all of it by default.
+   The API believes `X-Forwarded-For` and `X-Forwarded-Proto` from `PROXY_TRUSTED_CIDR` only. The stack's two networks have fixed subnets, `172.30.0.0/24` (`edge`) and `172.30.1.0/24` (`backend`) unless `.env` sets others (`PASSEL_EDGE_SUBNET`, `PASSEL_BACKEND_SUBNET` and their gateways), so no other Docker network on the server may use them. An `.env` from before these settings existed needs no change: every default is the old fixed value. If it still has `PROXY_TRUSTED_CIDR=172.30.0.2/32` from the old template, that is the same as leaving it unset. For the bundled edge, open 80/tcp, 443/tcp and 443/udp. Another proxy must pass the client address and scheme in those two headers, stream the event stream at `/api/packets/events` without buffering, keep it open for up to an hour and accept 25 MB uploads; It must also pass the client's original `Host` header (`API_HOST` for the API), since the API answers `400 Invalid Hostname` to any other. For nginx that is `proxy_set_header Host $host`, which nginx doesn't do by default (it sends the `proxy_pass` address, such as `127.0.0.1:18080`), then `proxy_buffering off`, `proxy_read_timeout 1h` and `client_max_body_size 32m`, besides the usual `proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for` and `X-Forwarded-Proto $scheme`. Caddy does all of it by default.
 
    **IPv6 and the bundled edge.** The `edge` network is IPv4 only. On a server with an IPv6 address, Docker still publishes 80 and 443 on IPv6 too, and its userland proxy (`docker-proxy`) carries each IPv6 connection to the edge over IPv4, from the network's gateway, `172.30.0.1`. Caddy then sees every IPv6 client as that one address and passes it on in `X-Forwarded-For`, so the API logs it for all of them and counts all their unauthenticated requests against one rate limit. IPv6 is not turned on by default, since it needs settings that depend on the server. Pick one of these, in a file of your own such as `/opt/passel/compose.edge.yaml`, added to `COMPOSE_FILE` by its full path (`compose.yaml:/opt/passel/compose.edge.yaml`), since the release's files are replaced on every deploy. Both use `!override`, which needs Compose 2.24.4 or later:
 
@@ -113,7 +113,7 @@ Once, as an administrator on the server, then on GitHub.
            ForwardedHeaders__KnownNetworks__1: fdc4:9a3e:7b10::2/128
      ```
      This is for the bundled edge only: `compose.ports.yaml` sets `ForwardedHeaders__KnownNetworks__1` itself. It needs Docker Engine 27 or later, where IPv6 port forwarding (`ip6tables`) is on by default; an older Engine needs `"ip6tables": true` in `/etc/docker/daemon.json`. The server's firewall must let IPv6 through to 80 and 443 as well. Changing the network's settings means recreating it, so `dc down` (the volumes stay) before the next deploy ([Troubleshooting](#troubleshooting-the-server)).
-7. **The `production` environment on GitHub** (Settings, Environments): required reviewers, and deployment branches limited to `main`. Add these to it:
+7. **The `production` environment on GitHub** (Settings, Environments): required reviewers, and deployment branches limited to `main`. A pre-prod stack gets a `preprod` environment of its own with the same four entries ([Pre-prod and production on one server](#pre-prod-and-production-on-one-server)). Add these to it, as environment variables and an environment secret, not repository ones, so each stack's run gets its own:
 
    | Name | Kind | Value |
    |---|---|---|
@@ -125,13 +125,140 @@ Once, as an administrator on the server, then on GitHub.
    The web image needs no repository variables: it is the same image in every environment, and takes the API's origin (`https://<API_HOST>`) and the Google web client id (`GOOGLE_WEB_CLIENT_ID`) from the server's `.env` when it starts. The repository variables `GOOGLE_WEB_CLIENT_ID` and `API_BASE_URL` that earlier builds compiled into it are no longer read ([Continuous Integration](ci.md#what-the-repository-needs)).
 8. **The packages.** After the first build of `main` has pushed them, make `passel-webapi`, `passel-web` and `passel-deploy` private (the package's settings on GitHub). Leave this repository's role under Manage Actions access as the first push set it, Admin, or at least Write, or leave the package inheriting access from the repository: the `Build` workflow pushes every later release to the same packages with its own token, and a Read role makes those pushes fail. The deploy job only reads them, with its own token, and the server signs in with that token for the one deploy only.
 9. **Google.** Add `https://<WEB_HOST>` to the Google web client's Authorized JavaScript origins ([Google OAuth Clients](../getting-started/google-oauth.md)).
-10. **The first deploy.** Run the `DeployCompose` workflow from `main` with the tag left blank. Then `https://<API_HOST>/health` should answer `Healthy`, and signing in at `https://<WEB_HOST>/app/` should show an empty feed.
+10. **The first deploy.** Run the `DeployCompose` workflow from `main` with `target` set to `production` and the tag left blank. Then `https://<API_HOST>/health` should answer `Healthy`, and signing in at `https://<WEB_HOST>/app/` should show an empty feed.
+
+### Pre-prod and production on one server
+
+Pre-prod is a second, complete stack: its own directory, settings, database, files, Google origins and deploy key. It can run on its own server, set up exactly as above, or beside production on the same one, which needs the differences below. Only a separate server keeps what is deployed to pre-prod away from production's data: a deploy runs the release's `deploy.sh` as the deploy user, with the whole Docker daemon and so root on the server, and on a shared server that reaches production's volumes, containers and `.env` as well. So on one server a pre-prod deploy needs the same review as a production one (**GitHub**, below), and a pre-prod meant for unreviewed builds needs a server of its own. The same images serve both; only the server's `.env` tells them apart.
+
+**Layout.** Production stays in `/opt/passel`, and an `.env` from before pre-prod existed needs no change. Pre-prod lives in `/opt/passel-preprod`, created like step 3, with its own copy of the gate:
+
+```
+sudo install -d -o deploy -g deploy -m 750 /opt/passel-preprod
+sudo install -o root -g root -m 755 deploy/compose/deploy-gate.sh /opt/passel-preprod/deploy-gate.sh
+```
+
+Each gate deploys the directory it is installed in, takes its own lock there, and keeps its own `releases/`, `current`, `release.env` and `releases.log`, so the two stacks deploy, roll back and fail independently, even at the same time.
+
+**The deploy user and keys.** One deploy user with two keys is enough: make a second key (`ssh-keygen -t ed25519 -N "" -C passel-deploy-preprod -f passel-deploy-preprod`) and give each key its own line in `~deploy/.ssh/authorized_keys`, forced to its own stack's gate:
+
+```
+command="/opt/passel/deploy-gate.sh",restrict ssh-ed25519 AAAA... passel-deploy
+command="/opt/passel-preprod/deploy-gate.sh",restrict ssh-ed25519 AAAA... passel-deploy-preprod
+```
+
+The pre-prod key then can't ask for a production deploy, whatever it sends. That keeps mistakes apart, not people: the release it deploys runs with the whole Docker daemon, so it can reach production anyway. A separate user per stack (`deploy-preprod`, also in the `docker` group) is no stronger, since membership of `docker` gives either one the whole daemon.
+
+**The settings.** `/opt/passel-preprod/.env` is a copy of `.env.example` filled in as in step 5, with new passwords, a new `ENCODING_ALPHABET` (pre-prod's ids need not match production's) and pre-prod's hosts, plus the keys that would otherwise clash with production's ([Configuration](../reference/configuration.md#compose-deployment)):
+
+```
+COMPOSE_PROJECT_NAME=passel-preprod
+PASSEL_BACKEND_SUBNET=172.30.3.0/24
+PASSEL_BACKEND_GATEWAY=172.30.3.1
+PASSEL_EDGE_SUBNET=172.30.2.0/24
+PASSEL_EDGE_GATEWAY=172.30.2.1
+PASSEL_EDGE_IP_RANGE=172.30.2.128/25
+PASSEL_EDGE_ADDRESS=172.30.2.2
+PASSEL_API_ALIAS=passel-preprod-api
+PASSEL_WEB_ALIAS=passel-preprod-web
+PASSEL_DEPLOYMENT_ENVIRONMENT=preprod
+# With compose.ports.yaml, and with the telemetry profile
+API_PORT=18082
+WEB_PORT=18083
+DASHBOARD_PORT=18890
+```
+
+The project name keeps the containers, networks and volumes apart (`passel-preprod_pgdata` beside `passel_pgdata`); the subnets must not overlap production's or any other Docker network's (`docker network inspect $(docker network ls -q) --format '{{.Name}} {{range .IPAM.Config}}{{.Subnet}} {{end}}'` lists them). Add pre-prod's web origin to a Google web client too; a separate client for pre-prod keeps its sign-ins apart.
+
+**The proxy.** Only one stack can have the bundled edge, since it binds the server's 80 and 443. With two stacks, put both behind one proxy: your own Caddy container, below, or a proxy on the host with `compose.ports.yaml`, pre-prod on its own ports.
+
+**GitHub.** Create a `preprod` environment beside `production`, with its own `DEPLOY_HOST`, `DEPLOY_USER` and `DEPLOY_KNOWN_HOSTS` variables and the pre-prod private key as its `DEPLOY_SSH_KEY` secret. On one server the first three are the same values as production's; the key is not. Give it the same protection as `production`: required reviewers, and deployment branches limited to `main`. Without them, anyone with write access to the repository could deploy to pre-prod, and so run code as root beside production, with no review: a dispatched run uses the workflow and build code of its own branch, and an environment open to any branch hands that branch its key. The registry doesn't stop it either. Only the `Build` workflow on `main` pushes images, but the packages role from step 8 lets a workflow on any branch push a `passel-deploy` of its own under a new tag, and the deploy checks only that the tag's three images exist. A pre-prod that should take other branches' builds without review needs its own server, where all it can reach is itself. Then deploy with `target` set to `preprod`.
+
+**The oldest release pre-prod can run.** Releases from before stacks could share a server fix production's aliases, subnets and edge address in their compose files. Pre-prod running one would join a shared proxy network as `passel-api` and `passel-web` and take some of production's traffic, or clash with its own networks. Never deploy or roll back a second stack below the first release whose `compose.yaml` reads `PASSEL_API_ALIAS` and `PASSEL_BACKEND_SUBNET`. The gate enforces it: in a stack whose `COMPOSE_PROJECT_NAME` is not `passel`, it refuses such a release before running anything from it. Production, as `passel`, can still roll back to any of them.
+
+**Backups.** Each stack backs up its own volumes with its own `backup.sh`, into its own directory:
+
+```
+15 3 * * * /opt/passel/current/backup.sh /var/backups/passel >>/var/log/passel/backup.log 2>&1
+45 3 * * * /opt/passel-preprod/current/backup.sh /var/backups/passel-preprod >>/var/log/passel/backup-preprod.log 2>&1
+```
+
+#### Behind your own Caddy container
+
+When the server already runs Caddy in a container on a Docker network of its own (`proxy` here), both stacks use `compose.external-proxy.yaml` and join that network, and Caddy reaches each stack's API and web app by its aliases. Each stack's `.env` has:
+
+```
+COMPOSE_FILE=compose.yaml:compose.external-proxy.yaml
+COMPOSE_PROFILES=
+PROXY_NETWORK=proxy
+PROXY_TRUSTED_CIDR=<the Caddy container's address>/32
+```
+
+and pre-prod's has its own aliases as well (`PASSEL_API_ALIAS=passel-preprod-api`, `PASSEL_WEB_ALIAS=passel-preprod-web`). The aliases must differ: Docker answers a name two containers share on one network with either of them, so pre-prod's API could answer production's traffic. For the same reason, never point Caddy at the service names `api` and `web`, which both stacks' containers answer to on that network. The `PASSEL_EDGE_*` settings are not used in this setup, but `PASSEL_BACKEND_*` still must differ.
+
+Add a site for each host to your Caddyfile, and reload Caddy (`docker exec <caddy> caddy reload --config /etc/caddy/Caddyfile`):
+
+```
+api.passel.link {
+	# The API accepts 25 MB files; the rest is the multipart framing
+	request_body {
+		max_size 32MB
+	}
+	reverse_proxy passel-api:8080 {
+		# The event stream at /api/packets/events goes out as each event comes
+		flush_interval -1
+		# No read_timeout: Caddy counts it from the start of the request, upload included, so it would cut off
+		# a slow 25 MB upload. The default has none, like the bundled edge
+		transport http {
+			dial_timeout 10s
+		}
+	}
+}
+
+passel.link {
+	reverse_proxy passel-web:8080
+}
+
+api.preprod.passel.link {
+	request_body {
+		max_size 32MB
+	}
+	reverse_proxy passel-preprod-api:8080 {
+		flush_interval -1
+		transport http {
+			dial_timeout 10s
+		}
+	}
+}
+
+preprod.passel.link {
+	reverse_proxy passel-preprod-web:8080
+}
+```
+
+Caddy passes the client's `Host` on and sets `X-Forwarded-For` and `X-Forwarded-Proto` itself, which is all the API needs. An event stream stays open for up to an hour, until the token it was opened with expires, so nothing may cut a response off sooner: Caddy sets no such limit by default, but a `read_timeout` in the `transport` (which counts the upload too) or a `timeouts { write ... }` in the Caddyfile's global `servers` options would, so leave `write` out or make it more than an hour.
+
+The API believes the forwarded headers only from `PROXY_TRUSTED_CIDR`. Find the Caddy container's address on the proxy network with
+
+```
+docker inspect <caddy> --format '{{(index .NetworkSettings.Networks "proxy").IPAddress}}'
+```
+
+and set it as a `/32` in both stacks' `.env`. Docker gives a container a new address when it is recreated, unless its own compose file fixes one (`ipv4_address` on the network, which needs a subnet on the network); otherwise check the address after recreating Caddy, since a stale one makes every client look like the proxy. Trusting the whole network's CIDR instead means any container on it can set a client address, which is acceptable only if nothing else runs on it.
 
 ### The DeployCompose workflow
 
-`DeployCompose` runs on manual dispatch only (Actions, DeployCompose, Run workflow), in the `production` environment, so its protection rules apply first. One run deploys at a time; a second waits rather than cancelling the first. It has two inputs: `image-tag`, blank for the version of the commit the run is on, and `migrate`, on by default.
+`DeployCompose` runs on manual dispatch only (Actions, DeployCompose, Run workflow). It has three inputs:
 
-The `DeployCompose` target checks the tag, checks that the registry has all three images at that tag, and connects to the server as `DEPLOY_USER`, checking its host key against `DEPLOY_KNOWN_HOSTS`. It sends `deploy <tag>` (with `--no-migrate` when `migrate` is off) and the job's token on standard input. The gate on the server signs in to the registry with the token in a temporary Docker configuration, which it deletes when it exits, so no credential stays on the server; a Compose plugin installed for the deploy user alone (`~/.docker/cli-plugins`) is linked into it, so it is still found. It takes the server's deploy lock (`/opt/passel/.deploy.lock`), so a second deploy, from the workflow or by hand, stops with `another deploy is running` before it touches anything, and holds it until `deploy.sh` ends. It pulls `passel-deploy:<tag>`, copies its files to `/opt/passel/releases/<tag>/`, and runs that release's `deploy.sh`, which:
+| Input | What it does |
+|---|---|
+| `target` | Required: `preprod` or `production`, the stack to deploy to. The job runs in the GitHub environment of that name, so that environment's protection rules apply first, and `DEPLOY_HOST`, `DEPLOY_USER`, `DEPLOY_KNOWN_HOSTS` and `DEPLOY_SSH_KEY` are that environment's: a `preprod` run can only reach the pre-prod gate, with the pre-prod key. The input has no default, but GitHub's run dialog always preselects the first choice, which is `preprod`, so production is only ever deployed by picking it |
+| `image-tag` | Blank for the version of the commit the run is on; an older tag, with `migrate` off, rolls back |
+| `migrate` | On by default; off for a rollback |
+
+One run per stack deploys at a time: runs share the concurrency group `deploy-compose-<target>`, so a second deploy to the same stack waits rather than cancelling the first, and a pre-prod deploy never waits for a production one. The target accepts those two values only, checked again before anything signs in.
+
+The `DeployCompose` target checks the target and the tag, checks that the registry has all three images at that tag, and connects to the server as `DEPLOY_USER`, checking its host key against `DEPLOY_KNOWN_HOSTS`. It sends `deploy <tag>` (with `--no-migrate` when `migrate` is off) and the job's token on standard input. The gate on the server signs in to the registry with the token in a temporary Docker configuration, which it deletes when it exits, so no credential stays on the server; a Compose plugin installed for the deploy user alone (`~/.docker/cli-plugins`) is linked into it, so it is still found. It takes the stack's deploy lock (`/opt/passel/.deploy.lock`; each stack has its own in its own directory), so a second deploy of the same stack, from the workflow or by hand, stops with `another deploy is running` before it touches anything, and holds it until `deploy.sh` ends. It pulls `passel-deploy:<tag>`, copies its files to `/opt/passel/releases/<tag>/`, and runs that release's `deploy.sh`, which:
 
 1. Pulls the images. Passel's own are pulled only when the server lacks them, since a version tag never moves. PostgreSQL's, busybox's, Caddy's and the dashboard's are pulled on every deploy, which brings their patches in, except with `--no-migrate`, when the server's own copies are used too. When Docker Hub or MCR can't be reached, the deploy goes on with the images the server has; only one it has never pulled fails it.
 2. Starts PostgreSQL and waits for it to be healthy.
@@ -145,13 +272,13 @@ Each release deploys with its own compose files, because they come from the depl
 
 ### Rolling back to an earlier release
 
-Run `DeployCompose` with `image-tag` set to the release to go back to and `migrate` off. `releases.log` on the server names the earlier tags (`release.env.previous` holds only the last one, which is the same tag after a repeat deploy or a restore); any tag the registry still has works. That release's images start with that release's compose files, on the database as the newer migration left it.
+Run `DeployCompose` with the stack's `target`, `image-tag` set to the release to go back to and `migrate` off; the other stack is not touched. `releases.log` on the server names the earlier tags (`release.env.previous` holds only the last one, which is the same tag after a repeat deploy or a restore); any tag the registry still has works, except that a second stack can't go below the first release that reads its per-stack settings ([Pre-prod and production on one server](#pre-prod-and-production-on-one-server)). That release's images start with that release's compose files, on the database as the newer migration left it.
 
 That only works because of one rule for every change to the schema: a release may add tables and columns, but a new column must be nullable or have a default, so that the release before it, which doesn't know the column, can still insert rows. `db-migrate` never drops a column, an index or a foreign key, and the API's startup check accepts what a newer migration added. With `migrate` off, the older migration doesn't run either; run it (`migrate` on) only if the older release needs Marten functions put back, which its startup check would say.
 
 ### Deploying by hand
 
-On the server, as the deploy user, the gate does the same as the workflow. A tag the server has deployed before, with `--no-migrate`, needs no registry, neither GHCR nor Docker Hub nor MCR:
+On the server, as the deploy user, the gate does the same as the workflow; `/opt/passel-preprod/deploy-gate.sh` deploys pre-prod in the same way. A tag the server has deployed before, with `--no-migrate`, needs no registry, neither GHCR nor Docker Hub nor MCR:
 
 ```
 SSH_ORIGINAL_COMMAND="deploy 0.2.0-rc.11 --no-migrate" /opt/passel/deploy-gate.sh </dev/null
@@ -163,16 +290,18 @@ For a tag it has never pulled, give the gate a GitHub token that can read the pa
 read -rs TOKEN && printf '%s\n' "$TOKEN" | SSH_ORIGINAL_COMMAND="deploy 0.2.0-rc.12" /opt/passel/deploy-gate.sh
 ```
 
-To run compose yourself, work from the running release and give it both settings files:
+To run compose yourself, work from the running release and give it both settings files by their full paths (`/opt/passel-preprod/...` for pre-prod):
 
 ```
 cd /opt/passel/current
-docker compose --env-file ../../.env --env-file ../../release.env ps
+docker compose --env-file /opt/passel/.env --env-file /opt/passel/release.env ps
 ```
+
+Relative paths such as `../../.env` don't work from `current`: it is a link, and compose resolves them against the path you changed to, `/opt/passel/current`, not the release directory it points at, so `../../.env` would be `/opt/.env`.
 
 ### Logs and telemetry on the server
 
-`docker compose --env-file ../../.env --env-file ../../release.env logs -f api` (from `/opt/passel/current`) follows the API's log; `docker compose ... logs db-migrate` has nothing, because the one-off services run with `--rm` and their output went to the deploy's log, which is the workflow run's. Docker keeps 50 MB of each service's log. The API logs a warning at startup that its data protection keys are not persisted: nothing in Production uses them, since the API takes bearer tokens only.
+`docker compose --env-file /opt/passel/.env --env-file /opt/passel/release.env logs -f api` (from `/opt/passel/current`) follows the API's log; `docker compose ... logs db-migrate` has nothing, because the one-off services run with `--rm` and their output went to the deploy's log, which is the workflow run's. Docker keeps 50 MB of each service's log. The API logs a warning at startup that its data protection keys are not persisted: nothing in Production uses them, since the API takes bearer tokens only.
 
 The API exports logs, traces and metrics over OTLP when `OTEL_EXPORTER_OTLP_ENDPOINT` is set, to any OTLP backend (`OTEL_EXPORTER_OTLP_PROTOCOL` and `OTEL_EXPORTER_OTLP_HEADERS` as the backend needs). For a look without one, add `telemetry` to `COMPOSE_PROFILES`, set the endpoint to `http://dashboard:18889` and deploy: the Aspire dashboard listens on the server's `127.0.0.1:18888`, reached with `ssh -L 18888:127.0.0.1:18888 <you>@<server>` from your own account (the deploy key can't forward), and its log has the login link. It keeps telemetry in memory only. The privacy rules in [Logs and telemetry](#logs-and-telemetry) apply to whatever backend receives it.
 
@@ -186,7 +315,7 @@ The API exports logs, traces and metrics over OTLP when `OTEL_EXPORTER_OTLP_ENDP
 
 The directory and the log's directory must exist and belong to the deploy user. Shipping the files off the server and pruning old ones is for an offsite tool such as restic or rclone, run after it. The database and the parcels are consistent only as a pair from the same run. The backups leave out `/opt/passel/.env`, which holds the passwords and `ENCODING_ALPHABET`: keep a copy of it off the server, apart from the backup files (step 5 of [Server setup](#server-setup)). The passwords can be set anew, but every packet, parcel and device id a client holds, and every shared link, depends on the alphabet, and a restore with another one brings the data back with none of them decoding.
 
-To restore, or to rehearse a restore on a spare server, from `/opt/passel/current` with `dc` standing for `docker compose --env-file ../../.env --env-file ../../release.env` and `$backups` for the directory the backup files are in (`/var/backups/passel` with the cron line above, `/opt/passel/backups` by default):
+To restore, or to rehearse a restore on a spare server, from `/opt/passel/current` with `dc` standing for `docker compose --env-file /opt/passel/.env --env-file /opt/passel/release.env` and `$backups` for the directory the backup files are in (`/var/backups/passel` with the cron line above, `/opt/passel/backups` by default):
 
 0. On a new server, set it up as in [Server setup](#server-setup), but put the kept copy of `.env` at `/opt/passel/.env` instead of a new one, with the same `ENCODING_ALPHABET`, and deploy the release the backup came from once, so that `current` and `release.env` exist.
 1. `dc down`, and for a full restore remove the old volumes too (`dc down -v`).
@@ -219,7 +348,13 @@ To restore, or to rehearse a restore on a spare server, from `/opt/passel/curren
 | With the bundled edge, the API logs `172.30.0.1` for every IPv6 client, and they share one rate limit | The `edge` network has no IPv6, so Docker carries IPv6 clients to it from the gateway; see [IPv6 and the bundled edge](#server-setup) |
 | Clients can set their own address | The forwarded headers are applied twice: `ASPNETCORE_FORWARDEDHEADERS_ENABLED` must stay unset, or the API is reachable other than through the proxy |
 | `edge` fails with "address already in use" | Something else holds port 80 or 443 on the host |
-| A network fails to be created, saying its pool overlaps | Another Docker network on the server uses `172.30.0.0/24` or `172.30.1.0/24` |
+| A network fails to be created, saying its pool overlaps | Another Docker network on the server, perhaps the other stack's, uses the stack's subnets (`172.30.0.0/24` and `172.30.1.0/24` by default); give one of them other `PASSEL_EDGE_*` and `PASSEL_BACKEND_*` subnets |
+| `deploy-gate: PASSEL_ROOT is not used` | Something sets `PASSEL_ROOT`, which the gate no longer reads: it deploys the directory it is installed in. Remove the variable, and install the gate in the stack's directory |
+| `deploy-gate: <tag> predates stacks beside production` | A stack other than `passel` was asked for a release from before the per-stack settings, whose compose files would use production's aliases and subnets; deploy a later tag |
+| `deploy-gate: /opt/<dir>/.env must set COMPOSE_PROJECT_NAME` | A stack outside `/opt/passel` has no project name of its own, so it would deploy over production's containers and volumes; set `COMPOSE_PROJECT_NAME` (for example `passel-preprod`) in that stack's `.env` |
+| `deploy-gate: ... .env does not exist` | The gate is not installed in a stack's directory, or that stack's `.env` is missing |
+| Requests reach the other stack now and then, or a deploy of one stack seems to change the other's site | Both stacks are on one proxy network with the same `PASSEL_API_ALIAS` or `PASSEL_WEB_ALIAS`, or the proxy points at `api` or `web` |
+| `Bind for 127.0.0.1:18080 failed: port is already allocated` | Both stacks use `compose.ports.yaml` with the same `API_PORT` or `WEB_PORT` (or `DASHBOARD_PORT` with the telemetry profile) |
 | A deploy fails because a network "has active endpoints" | The release changed a network's settings, which Docker can only apply to a new network. `dc down` (the volumes stay), then deploy the release again |
 
 ### Verified locally
@@ -234,8 +369,10 @@ Without the owner's server, the stack was run on a development machine as a sepa
 - The web image configured at start from `.env`: `/app/config.json` naming `https://<API_HOST>/api/packets` and `GOOGLE_WEB_CLIENT_ID`, and the app's policy allowing `https://<API_HOST>`. Run on its own twice with other values, the same image served the other values; it refused to start with either value missing or not valid.
 - In `compose.ports.yaml` mode, the forwarded headers believed from a request through the published port (HSTS sent for `X-Forwarded-Proto: https`) and ignored from another container on the `edge` network.
 - The bundled edge on a spare port, proxying both hosts at its fixed address with `NET_BIND_SERVICE` its only capability (with none, `caddy` cannot even start), across a restart with its certificates already stored; the IPv6 override above, with the edge at its fixed IPv6 address and the API trusting it; and the `telemetry` profile, with the dashboard running without capabilities.
+- Two stacks at once, each from its own root with its own copy of the gate, run as a forced command would run it (`SSH_ORIGINAL_COMMAND` set, nothing else): `passel-verify-a` in `compose.ports.yaml` mode with the default subnets on 18080 and 18081, and `passel-verify-b` with pre-prod's settings above (other subnets, aliases and ports, 18082 and 18083), deployed at the same moment and both healthy, with their own volumes, networks and `/app/config.json`, and each API trusting only its own two gateways. A second release on `a` and a rollback to the first with `--no-migrate` left `b`'s containers, `release.env`, `releases.log` and `current` as they were. `backup.sh` from `b`'s `current` wrote `b`'s three files into `b`'s directory. The gate refused a `PASSEL_ROOT` naming the other stack, refused to run from a directory with no `.env`, and stopped with `another deploy is running` while its own stack's lock was held.
+- A stack behind its own Caddy container (`caddy:2.10-alpine`, on a separate Docker network at a fixed address, with a site per host like the Caddyfile above and an internal certificate) through `compose.external-proxy.yaml` with aliases other than the defaults: `/health`, `/app/` and `/app/config.json` through Caddy, and the forwarded headers believed with `PROXY_TRUSTED_CIDR` set to Caddy's address (HSTS sent for a request over Caddy's HTTPS), ignored with any other address, and ignored from another container on the proxy network. The bundled edge's Caddyfile resolves to the aliases it is given, and the Caddyfile above validates.
 
-What only the server can show: the first pull from GHCR with the job's token, Let's Encrypt certificates for the real hosts, the deploy over SSH with the forced command, and the external-proxy setups.
+What only the server can show: the first pull from GHCR with the job's token, Let's Encrypt certificates for the real hosts, the deploy over SSH with the forced command, the owner's own Caddy, and the `preprod` and `production` environments on GitHub.
 
 ## Azure (legacy, ADR 0003)
 

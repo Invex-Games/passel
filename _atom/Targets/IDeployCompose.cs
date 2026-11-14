@@ -3,10 +3,11 @@ using Invex.Atom.Build.Reports;
 namespace Atom.Targets;
 
 /// <summary>
-///     Deploys a release to the owner's server over SSH (ADR 0004, docs/guides/deploying.md). The deploy key may only
-///     run the server's deploy gate, which accepts <c>deploy &lt;tag&gt; [--no-migrate]</c> and a registry token on
-///     stdin, pulls the release's compose bundle and runs its deploy script. Deploying an older tag with
-///     <see cref="Migrate" /> off is a rollback.
+///     Deploys a release to one of the owner's stacks, pre-prod or production, over SSH (ADR 0004,
+///     docs/guides/deploying.md). Each target is a GitHub environment of the same name with its own server, user, host
+///     keys and deploy key, and the key may only run that stack's deploy gate, which accepts
+///     <c>deploy &lt;tag&gt; [--no-migrate]</c> and a registry token on stdin, pulls the release's compose bundle and
+///     runs its deploy script. Deploying an older tag with <see cref="Migrate" /> off is a rollback.
 /// </summary>
 internal interface IDeployCompose : ISetupBuildInfo, IContainerRegistryHelper, IReportsHelper
 {
@@ -26,6 +27,15 @@ internal interface IDeployCompose : ISetupBuildInfo, IContainerRegistryHelper, I
     /// </summary>
     const string PullTokenVariable = "GHCR_PULL_TOKEN";
 
+    /// <summary>
+    ///     The stacks a release can be deployed to, each a GitHub environment of the same name. Pre-prod comes first,
+    ///     since GitHub's run dialog preselects the first choice.
+    /// </summary>
+    static readonly string[] DeployTargets = ["preprod", "production"];
+
+    [ParamDefinition("target", "The stack to deploy to, preprod or production, and the run's GitHub environment")]
+    string? DeployTarget => GetParam(() => DeployTarget);
+
     [ParamDefinition("image-tag",
         "The image tag to deploy; empty for this build's version. An older tag, with migrate off, rolls back")]
     string? DeployImageTag => GetParam(() => DeployImageTag);
@@ -41,7 +51,8 @@ internal interface IDeployCompose : ISetupBuildInfo, IContainerRegistryHelper, I
 
     Target DeployCompose =>
         t => t
-            .DescribedAs("Deploys a release to the self-hosted server over SSH through its deploy gate")
+            .DescribedAs("Deploys a release to a self-hosted stack, preprod or production, over SSH through its gate")
+            .RequiresParam(nameof(DeployTarget))
             .UsesParam(nameof(DeployImageTag))
             .UsesParam(nameof(Migrate))
             .RequiresParam(nameof(DeployHost))
@@ -51,6 +62,14 @@ internal interface IDeployCompose : ISetupBuildInfo, IContainerRegistryHelper, I
             .ConsumesVariable(nameof(SetupBuildInfo), nameof(BuildVersion))
             .Executes(async cancellationToken =>
             {
+                // The target named the run's environment, and with it the server and the key; any other value is
+                // refused before the run signs in anywhere
+                var target = DeployTarget?.Trim() ?? string.Empty;
+
+                if (!DeployTargets.Contains(target, StringComparer.Ordinal))
+                    throw new StepFailedException($"'{target}' is not a deploy target; use one of: " +
+                                                  string.Join(", ", DeployTargets));
+
                 var tag = string.IsNullOrWhiteSpace(DeployImageTag)
                     ? ImageTag
                     : DeployImageTag.Trim();
@@ -84,8 +103,9 @@ internal interface IDeployCompose : ISetupBuildInfo, IContainerRegistryHelper, I
                         ? ["deploy", tag]
                         : ["deploy", tag, "--no-migrate"];
 
-                    Logger.LogInformation("Deploying {Tag} to {Host} ({Migration})",
+                    Logger.LogInformation("Deploying {Tag} to {Target} on {Host} ({Migration})",
                         tag,
+                        target,
                         DeployHost,
                         Migrate
                             ? "with db-migrate"
@@ -128,7 +148,7 @@ internal interface IDeployCompose : ISetupBuildInfo, IContainerRegistryHelper, I
                     RootedFileSystem.Directory.Delete(sshDirectory, true);
                 }
 
-                AddReportData(new TextReportData($"Deployed {tag} to {DeployHost}" + (Migrate
+                AddReportData(new TextReportData($"Deployed {tag} to {target} on {DeployHost}" + (Migrate
                     ? string.Empty
                     : " without db-migrate"))
                 {

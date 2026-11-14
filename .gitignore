@@ -38,6 +38,7 @@ api/.manifest
 *.sln.docstates
 *.env
 !deploy/compose/ci.env
+!deploy/compose/ci.preprod.env
 
 # User-specific files (MonoDevelop/Xamarin Studio)
 *.userprefs
