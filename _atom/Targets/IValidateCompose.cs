@@ -165,7 +165,7 @@ internal interface IValidateCompose : IBuildAccessor
                 problems.Add($"{what} is '{actual}', expected '{expected}'");
         }
 
-        using (var document = await ComposeConfig(stack.EnvFile, ["compose.yaml"], ["edge"], cancellationToken))
+        using (var document = await ComposeConfig(stack.EnvFile, ["compose.yaml"], ["edge", "telemetry"], cancellationToken))
         {
             var root = document.RootElement;
             var services = root.GetProperty("services");
@@ -203,6 +203,14 @@ internal interface IValidateCompose : IBuildAccessor
             var edgeEnvironment = edge.GetProperty("environment");
             Expect("The edge's PASSEL_API_ALIAS", StringProperty(edgeEnvironment, "PASSEL_API_ALIAS"), stack.ApiAlias);
             Expect("The edge's PASSEL_WEB_ALIAS", StringProperty(edgeEnvironment, "PASSEL_WEB_ALIAS"), stack.WebAlias);
+
+            // Only deploy.sh changes the stack's containers, never a container updater running on the same server
+            foreach (var service in services.EnumerateObject())
+                Expect($"The {service.Name} service's Watchtower label",
+                    service.Value.TryGetProperty("labels", out var labels)
+                        ? StringProperty(labels, "com.centurylinklabs.watchtower.enable")
+                        : null,
+                    "false");
         }
 
         using (var document = await ComposeConfig(stack.EnvFile,

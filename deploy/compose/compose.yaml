@@ -32,6 +32,12 @@ x-hardening: &hardening
   cap_drop:
     - ALL
 
+# Every service carries this label: Passel's containers change only through deploy.sh, never through a container
+# updater such as Watchtower running on the same server, which would otherwise move postgres:18 to a new minor release
+# outside a deploy and fail every night on the private images
+x-labels: &labels
+  com.centurylinklabs.watchtower.enable: "false"
+
 # The API's OpenTelemetry export; with no endpoint nothing is exported, and docker compose logs still has every log
 x-otel: &otel
   OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
@@ -58,6 +64,7 @@ services:
     shm_size: 256mb
     networks:
       - backend
+    labels: *labels
     logging: *logging
 
   # Creates or updates the two logins, idempotently: passel_owner owns the database and runs db-migrate, and passel_api
@@ -81,6 +88,7 @@ services:
         condition: service_healthy
     networks:
       - backend
+    labels: *labels
     logging: *logging
 
   # A new named volume belongs to root; the API runs as app (1654) and keeps its files in a directory only it can read
@@ -92,6 +100,7 @@ services:
     command: ["sh", "-c", "mkdir -p /v/parcels && chown 1654:1654 /v /v/parcels && chmod 700 /v/parcels"]
     volumes:
       - parcels:/v
+    labels: *labels
     logging: *logging
 
   # Applies the schema and the grants, always as passel_owner: the default privileges it sets apply only to objects
@@ -114,6 +123,7 @@ services:
     networks:
       - backend
     <<: *hardening
+    labels: *labels
     logging: *logging
 
   api:
@@ -170,6 +180,7 @@ services:
         aliases:
           - ${PASSEL_API_ALIAS:-passel-api}
     <<: *hardening
+    labels: *labels
     logging: *logging
 
   # The image is the same in every environment: its entrypoint writes the app's /app/config.json and puts the API's
@@ -191,6 +202,7 @@ services:
         aliases:
           - ${PASSEL_WEB_ALIAS:-passel-web}
     <<: *hardening
+    labels: *labels
     logging: *logging
 
   # The bundled TLS edge (COMPOSE_PROFILES=edge): Caddy gets certificates from Let's Encrypt for API_HOST and WEB_HOST.
@@ -227,6 +239,7 @@ services:
       - ALL
     cap_add:
       - NET_BIND_SERVICE
+    labels: *labels
     logging: *logging
 
   # A local telemetry viewer (COMPOSE_PROFILES=telemetry), on the server's loopback only. Point the API at it with
@@ -240,6 +253,7 @@ services:
     networks:
       - backend
     <<: *hardening
+    labels: *labels
     logging: *logging
 
 # Each stack on a server needs subnets of its own: PASSEL_BACKEND_* and PASSEL_EDGE_* in .env, which default to
