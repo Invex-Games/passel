@@ -1,0 +1,456 @@
+{
+  "docfx_version": "2.81.0+ba844df625370a6bd7c1ecab0d0ec4d1d9128ac4",
+  "source_base_path": "/home/runner/work/passel/passel",
+  "xrefmap": "xrefmap.yml",
+  "files": [
+    {
+      "type": "Resource",
+      "output": {
+        "resource": {
+          "relative_path": "index.json"
+        }
+      }
+    },
+    {
+      "type": "Conceptual",
+      "source_relative_path": "docs/components/chrome-extension.md",
+      "output": {
+        ".html": {
+          "relative_path": "docs/components/chrome-extension.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "Conceptual",
+      "source_relative_path": "docs/components/mobile-app.md",
+      "output": {
+        ".html": {
+          "relative_path": "docs/components/mobile-app.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "Conceptual",
+      "source_relative_path": "docs/components/web-api.md",
+      "output": {
+        ".html": {
+          "relative_path": "docs/components/web-api.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "Conceptual",
+      "source_relative_path": "docs/components/web-app.md",
+      "output": {
+        ".html": {
+          "relative_path": "docs/components/web-app.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "Conceptual",
+      "source_relative_path": "docs/decisions/0001-packets-as-documents.md",
+      "output": {
+        ".html": {
+          "relative_path": "docs/decisions/0001-packets-as-documents.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "Conceptual",
+      "source_relative_path": "docs/decisions/0002-product-decisions.md",
+      "output": {
+        ".html": {
+          "relative_path": "docs/decisions/0002-product-decisions.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "Conceptual",
+      "source_relative_path": "docs/decisions/0003-hosting-on-azure.md",
+      "output": {
+        ".html": {
+          "relative_path": "docs/decisions/0003-hosting-on-azure.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "Conceptual",
+      "source_relative_path": "docs/decisions/0004-hosting-on-docker-compose.md",
+      "output": {
+        ".html": {
+          "relative_path": "docs/decisions/0004-hosting-on-docker-compose.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "Conceptual",
+      "source_relative_path": "docs/evaluation/codebase-health.md",
+      "output": {
+        ".html": {
+          "relative_path": "docs/evaluation/codebase-health.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "Conceptual",
+      "source_relative_path": "docs/evaluation/developer-experience.md",
+      "output": {
+        ".html": {
+          "relative_path": "docs/evaluation/developer-experience.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "Conceptual",
+      "source_relative_path": "docs/evaluation/features.md",
+      "output": {
+        ".html": {
+          "relative_path": "docs/evaluation/features.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "Resource",
+      "source_relative_path": "docs/evaluation/images/extension-copy-menu.jpg",
+      "output": {
+        "resource": {
+          "relative_path": "docs/evaluation/images/extension-copy-menu.jpg"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "Resource",
+      "source_relative_path": "docs/evaluation/images/extension-empty.jpg",
+      "output": {
+        "resource": {
+          "relative_path": "docs/evaluation/images/extension-empty.jpg"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "Resource",
+      "source_relative_path": "docs/evaluation/images/extension-feed-dark.jpg",
+      "output": {
+        "resource": {
+          "relative_path": "docs/evaluation/images/extension-feed-dark.jpg"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "Resource",
+      "source_relative_path": "docs/evaluation/images/extension-feed-light-scrolled.jpg",
+      "output": {
+        "resource": {
+          "relative_path": "docs/evaluation/images/extension-feed-light-scrolled.jpg"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "Resource",
+      "source_relative_path": "docs/evaluation/images/extension-feed-light.jpg",
+      "output": {
+        "resource": {
+          "relative_path": "docs/evaluation/images/extension-feed-light.jpg"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "Resource",
+      "source_relative_path": "docs/evaluation/images/extension-send-status.jpg",
+      "output": {
+        "resource": {
+          "relative_path": "docs/evaluation/images/extension-send-status.jpg"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "Resource",
+      "source_relative_path": "docs/evaluation/images/extension-signed-out.jpg",
+      "output": {
+        "resource": {
+          "relative_path": "docs/evaluation/images/extension-signed-out.jpg"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "Conceptual",
+      "source_relative_path": "docs/evaluation/index.md",
+      "output": {
+        ".html": {
+          "relative_path": "docs/evaluation/index.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "Conceptual",
+      "source_relative_path": "docs/evaluation/performance.md",
+      "output": {
+        ".html": {
+          "relative_path": "docs/evaluation/performance.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "Conceptual",
+      "source_relative_path": "docs/evaluation/roadmap.md",
+      "output": {
+        ".html": {
+          "relative_path": "docs/evaluation/roadmap.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "Conceptual",
+      "source_relative_path": "docs/evaluation/security.md",
+      "output": {
+        ".html": {
+          "relative_path": "docs/evaluation/security.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "Conceptual",
+      "source_relative_path": "docs/evaluation/ui-design.md",
+      "output": {
+        ".html": {
+          "relative_path": "docs/evaluation/ui-design.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "Conceptual",
+      "source_relative_path": "docs/evaluation/ux.md",
+      "output": {
+        ".html": {
+          "relative_path": "docs/evaluation/ux.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "Conceptual",
+      "source_relative_path": "docs/evaluation/web-app.md",
+      "output": {
+        ".html": {
+          "relative_path": "docs/evaluation/web-app.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "Conceptual",
+      "source_relative_path": "docs/getting-started/google-oauth.md",
+      "output": {
+        ".html": {
+          "relative_path": "docs/getting-started/google-oauth.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "Conceptual",
+      "source_relative_path": "docs/getting-started/prerequisites.md",
+      "output": {
+        ".html": {
+          "relative_path": "docs/getting-started/prerequisites.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "Conceptual",
+      "source_relative_path": "docs/getting-started/running-locally.md",
+      "output": {
+        ".html": {
+          "relative_path": "docs/getting-started/running-locally.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "Conceptual",
+      "source_relative_path": "docs/guides/ci.md",
+      "output": {
+        ".html": {
+          "relative_path": "docs/guides/ci.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "Conceptual",
+      "source_relative_path": "docs/guides/deploying.md",
+      "output": {
+        ".html": {
+          "relative_path": "docs/guides/deploying.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "Conceptual",
+      "source_relative_path": "docs/guides/testing.md",
+      "output": {
+        ".html": {
+          "relative_path": "docs/guides/testing.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "Conceptual",
+      "source_relative_path": "docs/guides/writing-docs.md",
+      "output": {
+        ".html": {
+          "relative_path": "docs/guides/writing-docs.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "Conceptual",
+      "source_relative_path": "docs/reference/build-targets.md",
+      "output": {
+        ".html": {
+          "relative_path": "docs/reference/build-targets.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "Conceptual",
+      "source_relative_path": "docs/reference/configuration.md",
+      "output": {
+        ".html": {
+          "relative_path": "docs/reference/configuration.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "Conceptual",
+      "source_relative_path": "docs/reference/http-api.md",
+      "output": {
+        ".html": {
+          "relative_path": "docs/reference/http-api.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "Toc",
+      "source_relative_path": "docs/toc.yml",
+      "output": {
+        ".json": {
+          "relative_path": "docs/toc.json"
+        },
+        ".html": {
+          "relative_path": "docs/toc.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "Conceptual",
+      "source_relative_path": "index.md",
+      "output": {
+        ".html": {
+          "relative_path": "index.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "Resource",
+      "source_relative_path": "resources/icon-128.png",
+      "output": {
+        "resource": {
+          "relative_path": "resources/icon-128.png"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "Resource",
+      "source_relative_path": "resources/icon-16.png",
+      "output": {
+        "resource": {
+          "relative_path": "resources/icon-16.png"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "Resource",
+      "source_relative_path": "resources/icon-256.png",
+      "output": {
+        "resource": {
+          "relative_path": "resources/icon-256.png"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "Resource",
+      "source_relative_path": "resources/icon-48.png",
+      "output": {
+        "resource": {
+          "relative_path": "resources/icon-48.png"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "Resource",
+      "source_relative_path": "resources/icon-512.png",
+      "output": {
+        "resource": {
+          "relative_path": "resources/icon-512.png"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "Toc",
+      "source_relative_path": "toc.yml",
+      "output": {
+        ".json": {
+          "relative_path": "toc.json"
+        },
+        ".html": {
+          "relative_path": "toc.html"
+        }
+      },
+      "version": ""
+    }
+  ],
+  "groups": [
+    {
+      "xrefmap": "xrefmap.yml"
+    }
+  ]
+}

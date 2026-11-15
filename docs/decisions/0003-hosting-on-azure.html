@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+      <title>ADR 0003: Hosting the API on Azure | Passel </title>
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <meta name="title" content="ADR 0003: Hosting the API on Azure | Passel ">
+      
+      
+      <link rel="icon" href="../../resources/icon-48.png">
+      <link rel="stylesheet" href="../../public/docfx.min.css">
+      <link rel="stylesheet" href="../../public/main.css">
+      <meta name="docfx:navrel" content="../../toc.html">
+      <meta name="docfx:tocrel" content="../toc.html">
+      
+      <meta name="docfx:rel" content="../../">
+      
+      
+      <meta name="docfx:docurl" content="https://github.com/Invex-Games/passel/blob/main/docs/decisions/0003-hosting-on-azure.md/#L1">
+      <meta name="loc:inThisArticle" content="In this article">
+      <meta name="loc:searchResultsCount" content="{count} results for &quot;{query}&quot;">
+      <meta name="loc:searchNoResults" content="No results for &quot;{query}&quot;">
+      <meta name="loc:tocFilter" content="Filter by title">
+      <meta name="loc:nextArticle" content="Next">
+      <meta name="loc:prevArticle" content="Previous">
+      <meta name="loc:themeLight" content="Light">
+      <meta name="loc:themeDark" content="Dark">
+      <meta name="loc:themeAuto" content="Auto">
+      <meta name="loc:changeTheme" content="Change theme">
+      <meta name="loc:copy" content="Copy">
+      <meta name="loc:downloadPdf" content="Download PDF">
+
+      <script type="module" src="./../../public/docfx.min.js"></script>
+
+      <script>
+        const theme = localStorage.getItem('theme') || 'auto'
+        document.documentElement.setAttribute('data-bs-theme', theme === 'auto' ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : theme)
+      </script>
+
+  </head>
+
+  <body class="tex2jax_ignore" data-layout="" data-yaml-mime="">
+    <header class="bg-body border-bottom">
+      <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
+        <div class="container-xxl flex-nowrap">
+          <a class="navbar-brand" href="../../index.html">
+            <img id="logo" class="svg" src="../../resources/icon-128.png" alt="Passel">
+            Passel
+          </a>
+          <button class="btn btn-lg d-md-none border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navpanel" aria-controls="navpanel" aria-expanded="false" aria-label="Toggle navigation">
+            <i class="bi bi-three-dots"></i>
+          </button>
+          <div class="collapse navbar-collapse" id="navpanel">
+            <div id="navbar">
+              <form class="search" role="search" id="search">
+                <i class="bi bi-search"></i>
+                <input class="form-control" id="search-query" type="search" disabled placeholder="Search" autocomplete="off" aria-label="Search">
+              </form>
+            </div>
+          </div>
+        </div>
+      </nav>
+    </header>
+
+    <main class="container-xxl">
+      <div class="toc-offcanvas">
+        <div class="offcanvas-md offcanvas-start" tabindex="-1" id="tocOffcanvas" aria-labelledby="tocOffcanvasLabel">
+          <div class="offcanvas-header">
+            <h5 class="offcanvas-title" id="tocOffcanvasLabel">Table of Contents</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="offcanvas" data-bs-target="#tocOffcanvas" aria-label="Close"></button>
+          </div>
+          <div class="offcanvas-body">
+            <nav class="toc" id="toc"></nav>
+          </div>
+        </div>
+      </div>
+
+      <div class="content">
+        <div class="actionbar">
+          <button class="btn btn-lg border-0 d-md-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#tocOffcanvas" aria-controls="tocOffcanvas" aria-expanded="false" aria-label="Show table of contents">
+            <i class="bi bi-list"></i>
+          </button>
+
+          <nav id="breadcrumb"></nav>
+        </div>
+
+        <article data-uid="">
+<h1 id="adr-0003-hosting-the-api-on-azure">ADR 0003: Hosting the API on Azure</h1>
+
+<p><strong>Status:</strong> superseded by <a href="0004-hosting-on-docker-compose.html">ADR 0004</a>, November 2026: Passel runs on Docker Compose on the owner's server instead, and the Azure code and the Deploy workflow stay in place unused. Before that it was proposed, November 2026. The owner still has to confirm the subscription, the region and the services below, then do the one-off setup at the end; until then the Deploy workflow has nothing to run against. <strong>Decides:</strong> roadmap packages 0.A2 (deploying the API) and 0.A3 (the production schema and startup), within the Azure choice of <a href="0002-product-decisions.html">ADR 0002</a>.</p>
+<h2 id="context">Context</h2>
+<p>Nothing deployed the API (<a href="../evaluation/developer-experience.html">Developer Experience</a>, finding 1): no image, no infrastructure, no documented source for the production settings, and Marten created and changed the schema at startup with the API's own credentials, racing across replicas (<a href="../evaluation/security.html">Security</a>, finding 5). ADR 0002 chose Azure and left the compute and database services to 0.A2. The local loop had to stay as it was: <code>aspire run</code> with a PostgreSQL container, and tests that need nothing but Docker.</p>
+<h2 id="options">Options</h2>
+<table>
+<thead>
+<tr>
+<th>Compute</th>
+<th>For</th>
+<th>Against</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Azure Container Apps</strong>, consumption plan</td>
+<td>Aspire's main Azure target, so <code>aspire deploy</code> provisions and deploys it from the AppHost; revisions that only take traffic once their readiness probe passes; jobs for one-off work such as a migration; managed identity and Key Vault references; an idle rate when nothing is happening</td>
+<td>A replica kept running costs more than a basic App Service plan; the HTTP scaler counts every open event stream as load, so scaling has to be set by hand</td>
+</tr>
+<tr>
+<td>Azure App Service (Linux, containers)</td>
+<td>Simple, always on, B1 is cheap</td>
+<td>Nothing like a Container Apps job for one-off work such as a database migration; staging slots need the Standard tier</td>
+</tr>
+<tr>
+<td>AKS</td>
+<td>Full control</td>
+<td>A cluster to run and pay for, for one small API</td>
+</tr>
+<tr>
+<td>A VM with Docker Compose</td>
+<td>Cheapest</td>
+<td>Patching, TLS, backups and deployment all by hand</td>
+</tr>
+</tbody>
+</table>
+<table>
+<thead>
+<tr>
+<th>Database</th>
+<th>For</th>
+<th>Against</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Azure Database for PostgreSQL flexible server</strong></td>
+<td>Managed PostgreSQL 18 (what the AppHost and the tests run), automatic backups with point-in-time restore, Microsoft Entra authentication so no password exists, <code>LISTEN</code> and <code>NOTIFY</code> work</td>
+<td>The smallest server is still a fixed monthly cost</td>
+</tr>
+<tr>
+<td>PostgreSQL in a container app</td>
+<td>Cheap</td>
+<td>No backups or restore, and Container Apps storage is not meant for a database</td>
+</tr>
+</tbody>
+</table>
+<h2 id="decision">Decision</h2>
+<p><strong>Compute: Azure Container Apps</strong> on the consumption plan, one environment (<code>passel-env</code>) with its own Azure Container Registry and a Log Analytics workspace. The API runs as one container app with 0.5 vCPU and 1 GiB, and exactly one replica (minimum and maximum): the rate limits and the event-stream caps are counted per instance, and the HTTP scale rule would treat every open event stream as load. Scaling out comes with shared rate limiting. Readiness is <code>/health</code> (every check, the database included) and liveness is <code>/alive</code>, both sent with <code>Host: localhost</code>, which the API's <code>AllowedHosts</code> includes so host filtering doesn't refuse the probes. The environment's own Aspire dashboard is turned off; telemetry goes to Application Insights instead.</p>
+<p><strong>Database: Azure Database for PostgreSQL flexible server</strong>, Burstable B1ms, PostgreSQL 18, 32 GB with storage auto-grow, high availability off. Backups are kept for 14 days, set explicitly rather than left to Aspire's default of 7, and any point in that window can be restored to a new server. Geo-redundant backup is off. It can only be chosen when the server is created, so turning it on later means restoring to a new server; the owner should decide before the first deployment. Password authentication is disabled: everything signs in with Microsoft Entra tokens for its managed identity. The server is on a public endpoint whose firewall only admits Azure services (Aspire's default rule). A private endpoint is the next step when the cost is justified.</p>
+<p><strong>Secrets: Key Vault</strong>, holding the API's one production secret, the Sqids alphabet (<code>Encoding:Alphabet</code>), which the container app reads as a Key Vault reference through its identity. Nothing else needs a secret: the database has no password, the Google client ids are public, and the Google client secret is only used by the development-only Scalar login, so it is not deployed at all. The Application Insights connection string is an ingestion endpoint and key rather than a credential, and is set as a plain environment variable, as Aspire does.</p>
+<p><strong>Telemetry: Application Insights</strong>, workspace-based on the same Log Analytics workspace. <code>ServiceDefaults</code> sends logs, traces and metrics with the Azure Monitor OpenTelemetry distro whenever <code>APPLICATIONINSIGHTS_CONNECTION_STRING</code> is set, and to the OTLP endpoint otherwise, as before. Npgsql's per-command logs are kept to warnings in Production (<code>appsettings.Production.json</code>), so the workspace doesn't receive every SQL statement. Telemetry must not hold what users send, because it outlives a delete: the workspace keeps it for its default of 30 days. Requests are traced by route and status with the query redacted, and SQL is traced as statements without parameter values. The link preview fetcher is the one component that requests a URL a user sent, so its requests are left out of the traces (<code>ExcludeFromTelemetry</code>), outgoing HTTP and DNS metrics drop the host and address dimensions, and the reason a link got no preview, which can name the host, is logged at Debug, below what Production keeps.</p>
+<p><strong>Identities.</strong> Every resource signs in as a user-assigned managed identity. The API has its own (<code>passel-api-identity</code>), which can read the Key Vault secret and log in to PostgreSQL as an ordinary role. The migration job has another, which Aspire makes a Microsoft Entra administrator of the server. The environment's identity pulls images from the registry.</p>
+<p><strong>Infrastructure as code: generated by Aspire.</strong> The Azure resources are modelled in the AppHost (<code>AzureHosting.cs</code>) with the Aspire Azure hosting integrations, and only when it is published or deployed. Locally, <code>AddAzurePostgresFlexibleServer(...).RunAsContainer(...)</code> gives the same <code>passel-pg</code> container as before, and the Azure-only resources are never added, so <code>aspire run</code> and the tests need nothing from Azure. No Bicep is written by hand or committed. <code>aspire publish</code> writes it from the model, every pull request runs that through <code>PublishAzureInfrastructure</code> and attaches the files to the run for review, and <code>aspire deploy</code> provisions it.</p>
+<p><strong>Images: the .NET SDK's container support.</strong> <code>aspire deploy</code> builds the API's image with <code>dotnet publish</code> (<code>PublishContainer</code>), tags it with GitVersion's version for the commit, pushes it to the environment's registry and points the container app at it.</p>
+<p><strong>Pipeline: a manual Deploy workflow.</strong> <code>DeployWebApi</code> runs only on <code>workflow_dispatch</code>, in the <code>production</code> GitHub environment, and signs in with <code>azure/login</code> through a federated credential (OIDC): no Azure secret is stored in GitHub. Deployments queue rather than cancel each other. Merging this changes nothing until the owner has done the setup below.</p>
+<p><strong>Schema: applied by the deployment, never by the API.</strong> Outside Development the store uses <code>AutoCreate.None</code>. The API never changes the schema, and its role can't: the migration job grants it DML only. A migration job (<code>passel-migrate</code>, the same image started as <code>db-migrate</code>) applies the schema as the Entra administrator, creates the DML-only role <code>passel_app</code>, and makes the API's identity a member of it. <code>aspire deploy</code> runs the job between updating it to the new image and updating the API's container app, through a step added to Aspire's deployment pipeline, so a migration that fails stops the deployment with the running revision untouched. The job runs inside the Container Apps environment, so neither the runner nor the deployment identity ever needs access to the database.</p>
+<p><strong><code>ApplyAllDatabaseChangesOnStartup</code>.</strong> The roadmap listed it for production, so replicas don't race the schema check. With the migration in the pipeline, production has nothing to apply, so Development keeps it, which keeps the local loop and the tests unchanged. Production checks the schema at startup instead (<code>DatabaseSchemaCheck</code>): a replica that finds a table, column or function it needs missing fails to start, never becomes ready and never takes traffic. The race is gone too, because nothing applies the schema concurrently. Marten's <code>AssertDatabaseMatchesConfigurationOnStartup</code> was the first choice, but it refuses any difference, a newer release's extra index included. The migration runs before the new revision starts, so if the deployment failed after it, the previous revision would fail at its next restart and, with one replica, the API would be down until someone fixed it. The check accepts what it doesn't need and logs it.</p>
+<p><strong>Migrations are add-only.</strong> Plain <code>CreateOrUpdate</code> drops every column, index and foreign key the configuration no longer declares. Rolling back to an older release would then delete the columns a newer release added, and their data: soft-delete flags, for example, once the trash exists. <code>db-migrate</code> marks every table add-only (Weasel's <code>AddOnlyMigrations</code>) and logs what it leaves in place. Removing a column for good is a deliberate statement run by hand, which <code>db-patch</code> writes.</p>
+<p><strong>Static code generation: not needed.</strong> The evaluation asked for <code>TypeLoadMode.Static</code> and <code>codegen write</code> because Marten used to generate and compile code with Roslyn on first use. Marten 9, which the API runs on, removed runtime code generation entirely: document storage is fixed code, <code>codegen write</code> finds nothing to generate, and <code>TypeLoadMode</code> no longer exists on <code>StoreOptions</code>. Nothing is committed and nothing needs regenerating after a merge, a new document type included. A unit test fails if a package ever registers code that would need generating ahead of time (Wolverine, for example), at which point the build needs that step and a check for stale output.</p>
+<h2 id="cost">Cost</h2>
+<p>A ballpark in US dollars at East US list prices, before tax; the region chosen and the pricing calculator give the real figure.</p>
+<table>
+<thead>
+<tr>
+<th>Resource</th>
+<th>Monthly</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Container Apps: one 0.5 vCPU / 1 GiB replica, always running, after the monthly free grant</td>
+<td>About 10 when mostly idle, up to about 35 when busy all month</td>
+</tr>
+<tr>
+<td>PostgreSQL flexible server: B1ms, 32 GB, backups up to the storage size included</td>
+<td>About 16</td>
+</tr>
+<tr>
+<td>Container Registry: Basic</td>
+<td>About 5</td>
+</tr>
+<tr>
+<td>Log Analytics and Application Insights: the first 5 GB a month free</td>
+<td>0 to a few</td>
+</tr>
+<tr>
+<td>Key Vault and managed identities</td>
+<td>Cents</td>
+</tr>
+<tr>
+<td><strong>Total</strong></td>
+<td><strong>About 30 to 60</strong></td>
+</tr>
+</tbody>
+</table>
+<p>Geo-redundant backup roughly doubles the backup storage, and high availability doubles the database compute.</p>
+<h2 id="consequences">Consequences</h2>
+<ul>
+<li>The API now signs in to PostgreSQL through <code>Aspire.Azure.Npgsql</code>. A connection string with a password (the AppHost, the tests) is used as it is; one without uses an Entra token for the managed identity.</li>
+<li><code>Program.cs</code> runs JasperFx commands when the first argument names one (<code>db-migrate</code>, <code>db-assert</code>, <code>db-patch</code>), and the API otherwise. A schema change is applied by the next deployment's migration job before the new revision starts, while the old revision is still serving. Changes must therefore be backwards compatible with the running code: add first, remove in a later release.</li>
+<li>The Deploy workflow only deploys <code>main</code>, so a rollback is a revert merged to <code>main</code> and deployed. Its migration puts back the older Marten functions and leaves what the newer release added, which the older code ignores. Until then, the container app can be pointed at an earlier image by hand, because the older code starts on the newer schema (<a href="../guides/deploying.html#rolling-back">Rolling back</a>).</li>
+<li>Columns and indexes nothing uses any more stay until someone drops them by hand.</li>
+<li>The AppHost uses two experimental Aspire APIs, the deployment pipeline step and the image push options (<code>ASPIREPIPELINES001</code>, <code>ASPIREPIPELINES003</code>). An Aspire upgrade may change them. The migration step finds the two provisioning steps it sits between by their container apps and their <code>provision-infra</code> tag, and fails the pipeline if it can't, so an upgrade that moves them breaks <code>aspire publish</code> on its pull request rather than deploying the API without its migration.</li>
+<li>Nothing here has been provisioned. The Bicep, the images, the migration and the API's startup against a DML-only role are verified locally (see <a href="../guides/deploying.html#what-was-verified-locally">Deploying</a>); the Entra mapping of the API's role and the first <code>aspire deploy</code> can only be checked in Azure.</li>
+</ul>
+<h2 id="one-off-setup-by-the-owner">One-off setup by the owner</h2>
+<p>Commands use the Azure CLI. <code>&lt;sub&gt;</code>, <code>&lt;rg&gt;</code>, <code>&lt;region&gt;</code> and the names are placeholders, and the repository is <code>Invex-Games/passel</code>. <a href="../guides/deploying.html">Deploying</a> explains each step.</p>
+<ul>
+<li>[ ] Choose the subscription and region, confirm the services and cost above, decide on geo-redundant backup, and change this ADR's status to accepted.</li>
+<li>[ ] Register the resource providers once in the subscription: <code>Microsoft.App</code>, <code>Microsoft.ContainerRegistry</code>, <code>Microsoft.DBforPostgreSQL</code>, <code>Microsoft.Insights</code>, <code>Microsoft.KeyVault</code>, <code>Microsoft.ManagedIdentity</code>, <code>Microsoft.OperationalInsights</code> (<code>az provider register --namespace &lt;name&gt;</code>).</li>
+<li>[ ] Create the resource group the API lives in: <code>az group create --name &lt;rg&gt; --location &lt;region&gt;</code>. The deployment never creates one.</li>
+<li>[ ] Create the deployment identity in a separate resource group, so it can't change its own credentials: <code>az identity create --name passel-github-deploy --resource-group &lt;ops-rg&gt;</code>.</li>
+<li>[ ] Give it a federated credential for the environment: <code>az identity federated-credential create --name github-production --identity-name passel-github-deploy --resource-group &lt;ops-rg&gt; --issuer https://token.actions.githubusercontent.com --subject repo:Invex-Games/passel:environment:production --audiences api://AzureADTokenExchange</code>.</li>
+<li>[ ] Assign it roles on <code>&lt;rg&gt;</code> only: <strong>Contributor</strong>, and <strong>Role Based Access Control Administrator</strong> limited to the two roles Aspire assigns (AcrPull and Key Vault Secrets User); the condition is in <a href="../guides/deploying.html#role-assignments">Deploying</a>.</li>
+<li>[ ] In GitHub, create the <code>production</code> environment, with required reviewers and deployments limited to <code>main</code>.</li>
+<li>[ ] Add the variables (to the environment or the repository): <code>AZURE_CLIENT_ID</code> (the identity's client id), <code>AZURE_TENANT_ID</code>, <code>AZURE_SUBSCRIPTION_ID</code>, <code>AZURE_RESOURCE_GROUP</code>, <code>AZURE_LOCATION</code>, <code>GOOGLE_WEB_CLIENT_ID</code>, and <code>CHROME_EXTENSION_CLIENT_ID</code> if it isn't set already.</li>
+<li>[ ] Generate the Sqids alphabet once and add it as the environment secret <code>ENCODING_ALPHABET</code>. It must never change once ids are in use.</li>
+<li>[ ] Run the Deploy workflow, then check <code>/health</code> on the URL in the run's summary.</li>
+<li>[ ] When the domain is ready: add its DNS records, set <code>API_DOMAIN</code>, deploy, create the managed certificate, set <code>API_CERTIFICATE_NAME</code> and deploy again (<a href="../guides/deploying.html#custom-domain">Custom domain</a>).</li>
+</ul>
+
+</article>
+
+        <div class="contribution d-print-none">
+          <a href="https://github.com/Invex-Games/passel/blob/main/docs/decisions/0003-hosting-on-azure.md/#L1" class="edit-link">Edit this page</a>
+        </div>
+
+        <div class="next-article d-print-none border-top" id="nextArticle"></div>
+
+      </div>
+
+      <div class="affix">
+        <nav id="affix"></nav>
+      </div>
+    </main>
+
+    <div class="container-xxl search-results" id="search-results"></div>
+
+    <footer class="border-top text-secondary">
+      <div class="container-xxl">
+        <div class="flex-fill">
+          Passel · Invex Games
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>

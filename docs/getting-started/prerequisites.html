@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+      <title>Prerequisites | Passel </title>
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <meta name="title" content="Prerequisites | Passel ">
+      
+      
+      <link rel="icon" href="../../resources/icon-48.png">
+      <link rel="stylesheet" href="../../public/docfx.min.css">
+      <link rel="stylesheet" href="../../public/main.css">
+      <meta name="docfx:navrel" content="../../toc.html">
+      <meta name="docfx:tocrel" content="../toc.html">
+      
+      <meta name="docfx:rel" content="../../">
+      
+      
+      <meta name="docfx:docurl" content="https://github.com/Invex-Games/passel/blob/main/docs/getting-started/prerequisites.md/#L1">
+      <meta name="loc:inThisArticle" content="In this article">
+      <meta name="loc:searchResultsCount" content="{count} results for &quot;{query}&quot;">
+      <meta name="loc:searchNoResults" content="No results for &quot;{query}&quot;">
+      <meta name="loc:tocFilter" content="Filter by title">
+      <meta name="loc:nextArticle" content="Next">
+      <meta name="loc:prevArticle" content="Previous">
+      <meta name="loc:themeLight" content="Light">
+      <meta name="loc:themeDark" content="Dark">
+      <meta name="loc:themeAuto" content="Auto">
+      <meta name="loc:changeTheme" content="Change theme">
+      <meta name="loc:copy" content="Copy">
+      <meta name="loc:downloadPdf" content="Download PDF">
+
+      <script type="module" src="./../../public/docfx.min.js"></script>
+
+      <script>
+        const theme = localStorage.getItem('theme') || 'auto'
+        document.documentElement.setAttribute('data-bs-theme', theme === 'auto' ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : theme)
+      </script>
+
+  </head>
+
+  <body class="tex2jax_ignore" data-layout="" data-yaml-mime="">
+    <header class="bg-body border-bottom">
+      <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
+        <div class="container-xxl flex-nowrap">
+          <a class="navbar-brand" href="../../index.html">
+            <img id="logo" class="svg" src="../../resources/icon-128.png" alt="Passel">
+            Passel
+          </a>
+          <button class="btn btn-lg d-md-none border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navpanel" aria-controls="navpanel" aria-expanded="false" aria-label="Toggle navigation">
+            <i class="bi bi-three-dots"></i>
+          </button>
+          <div class="collapse navbar-collapse" id="navpanel">
+            <div id="navbar">
+              <form class="search" role="search" id="search">
+                <i class="bi bi-search"></i>
+                <input class="form-control" id="search-query" type="search" disabled placeholder="Search" autocomplete="off" aria-label="Search">
+              </form>
+            </div>
+          </div>
+        </div>
+      </nav>
+    </header>
+
+    <main class="container-xxl">
+      <div class="toc-offcanvas">
+        <div class="offcanvas-md offcanvas-start" tabindex="-1" id="tocOffcanvas" aria-labelledby="tocOffcanvasLabel">
+          <div class="offcanvas-header">
+            <h5 class="offcanvas-title" id="tocOffcanvasLabel">Table of Contents</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="offcanvas" data-bs-target="#tocOffcanvas" aria-label="Close"></button>
+          </div>
+          <div class="offcanvas-body">
+            <nav class="toc" id="toc"></nav>
+          </div>
+        </div>
+      </div>
+
+      <div class="content">
+        <div class="actionbar">
+          <button class="btn btn-lg border-0 d-md-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#tocOffcanvas" aria-controls="tocOffcanvas" aria-expanded="false" aria-label="Show table of contents">
+            <i class="bi bi-list"></i>
+          </button>
+
+          <nav id="breadcrumb"></nav>
+        </div>
+
+        <article data-uid="">
+<h1 id="prerequisites">Prerequisites</h1>
+
+<h2 id="tools">Tools</h2>
+<table>
+<thead>
+<tr>
+<th>Tool</th>
+<th>Needed for</th>
+<th>Required</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://dotnet.microsoft.com/download">.NET 10 SDK</a></td>
+<td>The Web API, the Aspire AppHost and the Atom build</td>
+<td>Yes</td>
+</tr>
+<tr>
+<td><a href="https://github.com/Invex-Games/atom">Atom tool</a>, installed by <code>dotnet tool restore</code> from <code>dotnet-tools.json</code></td>
+<td>Running build, test, setup and docs targets</td>
+<td>Yes</td>
+</tr>
+<tr>
+<td><a href="https://docs.docker.com/get-started/get-docker/">Docker</a></td>
+<td>The PostgreSQL and Azurite containers the AppHost starts, and the integration tests</td>
+<td>Yes</td>
+</tr>
+<tr>
+<td><a href="https://nodejs.org/">Node.js</a> (with npm)</td>
+<td>The Chrome extension and the shared TypeScript packages</td>
+<td>Yes</td>
+</tr>
+<tr>
+<td><a href="https://aspire.dev/get-started/install-cli/">Aspire CLI</a></td>
+<td><code>aspire run</code> (<code>dotnet run --project src/webapi/Invex.Passel.AppHost</code> works without it). <code>dotnet tool restore</code> also installs the version the deployment uses, as <code>dotnet aspire</code></td>
+<td>No</td>
+</tr>
+<tr>
+<td><a href="https://docs.flutter.dev/get-started/install">Flutter</a> and the Android SDK</td>
+<td>The mobile app; the SDK's <code>adb</code> connects a phone on USB to your local API</td>
+<td>Mobile work only</td>
+</tr>
+<tr>
+<td><a href="https://learn.microsoft.com/azure/developer/dev-tunnels/get-started">Dev Tunnels CLI</a></td>
+<td>Reaching your local API from a phone that is not on USB</td>
+<td>Only for that</td>
+</tr>
+</tbody>
+</table>
+<p>The API's HTTPS endpoint also needs a trusted ASP.NET Core development certificate:</p>
+<pre><code>dotnet dev-certs https --trust
+</code></pre>
+<h2 id="check-your-machine">Check your machine</h2>
+<p>From the repository root, run:</p>
+<pre><code>dotnet tool restore
+dotnet atom SetupDevEnvironment
+</code></pre>
+<p>The target:</p>
+<ul>
+<li>Reports any tools that are missing. It fails only if Docker or npm is missing.</li>
+<li>Warns you if Docker isn't running or the HTTPS development certificate isn't trusted.</li>
+<li>Creates <code>src/mobile_app/.env</code> from <code>.env.example</code> if it doesn't exist.</li>
+<li>Installs the npm workspace in <code>src</code> (the shared TypeScript packages and the Chrome extension).</li>
+<li>Fetches the mobile app's Flutter packages.</li>
+</ul>
+<p>It's safe to run again at any time. Next, <a href="google-oauth.html">set up the Google OAuth clients</a>.</p>
+
+</article>
+
+        <div class="contribution d-print-none">
+          <a href="https://github.com/Invex-Games/passel/blob/main/docs/getting-started/prerequisites.md/#L1" class="edit-link">Edit this page</a>
+        </div>
+
+        <div class="next-article d-print-none border-top" id="nextArticle"></div>
+
+      </div>
+
+      <div class="affix">
+        <nav id="affix"></nav>
+      </div>
+    </main>
+
+    <div class="container-xxl search-results" id="search-results"></div>
+
+    <footer class="border-top text-secondary">
+      <div class="container-xxl">
+        <div class="flex-fill">
+          Passel · Invex Games
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>

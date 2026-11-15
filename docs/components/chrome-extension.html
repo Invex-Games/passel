@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+      <title>Chrome Extension | Passel </title>
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <meta name="title" content="Chrome Extension | Passel ">
+      
+      
+      <link rel="icon" href="../../resources/icon-48.png">
+      <link rel="stylesheet" href="../../public/docfx.min.css">
+      <link rel="stylesheet" href="../../public/main.css">
+      <meta name="docfx:navrel" content="../../toc.html">
+      <meta name="docfx:tocrel" content="../toc.html">
+      
+      <meta name="docfx:rel" content="../../">
+      
+      
+      <meta name="docfx:docurl" content="https://github.com/Invex-Games/passel/blob/main/docs/components/chrome-extension.md/#L1">
+      <meta name="loc:inThisArticle" content="In this article">
+      <meta name="loc:searchResultsCount" content="{count} results for &quot;{query}&quot;">
+      <meta name="loc:searchNoResults" content="No results for &quot;{query}&quot;">
+      <meta name="loc:tocFilter" content="Filter by title">
+      <meta name="loc:nextArticle" content="Next">
+      <meta name="loc:prevArticle" content="Previous">
+      <meta name="loc:themeLight" content="Light">
+      <meta name="loc:themeDark" content="Dark">
+      <meta name="loc:themeAuto" content="Auto">
+      <meta name="loc:changeTheme" content="Change theme">
+      <meta name="loc:copy" content="Copy">
+      <meta name="loc:downloadPdf" content="Download PDF">
+
+      <script type="module" src="./../../public/docfx.min.js"></script>
+
+      <script>
+        const theme = localStorage.getItem('theme') || 'auto'
+        document.documentElement.setAttribute('data-bs-theme', theme === 'auto' ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : theme)
+      </script>
+
+  </head>
+
+  <body class="tex2jax_ignore" data-layout="" data-yaml-mime="">
+    <header class="bg-body border-bottom">
+      <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
+        <div class="container-xxl flex-nowrap">
+          <a class="navbar-brand" href="../../index.html">
+            <img id="logo" class="svg" src="../../resources/icon-128.png" alt="Passel">
+            Passel
+          </a>
+          <button class="btn btn-lg d-md-none border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navpanel" aria-controls="navpanel" aria-expanded="false" aria-label="Toggle navigation">
+            <i class="bi bi-three-dots"></i>
+          </button>
+          <div class="collapse navbar-collapse" id="navpanel">
+            <div id="navbar">
+              <form class="search" role="search" id="search">
+                <i class="bi bi-search"></i>
+                <input class="form-control" id="search-query" type="search" disabled placeholder="Search" autocomplete="off" aria-label="Search">
+              </form>
+            </div>
+          </div>
+        </div>
+      </nav>
+    </header>
+
+    <main class="container-xxl">
+      <div class="toc-offcanvas">
+        <div class="offcanvas-md offcanvas-start" tabindex="-1" id="tocOffcanvas" aria-labelledby="tocOffcanvasLabel">
+          <div class="offcanvas-header">
+            <h5 class="offcanvas-title" id="tocOffcanvasLabel">Table of Contents</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="offcanvas" data-bs-target="#tocOffcanvas" aria-label="Close"></button>
+          </div>
+          <div class="offcanvas-body">
+            <nav class="toc" id="toc"></nav>
+          </div>
+        </div>
+      </div>
+
+      <div class="content">
+        <div class="actionbar">
+          <button class="btn btn-lg border-0 d-md-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#tocOffcanvas" aria-controls="tocOffcanvas" aria-expanded="false" aria-label="Show table of contents">
+            <i class="bi bi-list"></i>
+          </button>
+
+          <nav id="breadcrumb"></nav>
+        </div>
+
+        <article data-uid="">
+<h1 id="chrome-extension">Chrome Extension</h1>
+
+<p><code>src/chrome-extension</code> is a Manifest V3 extension written in TypeScript and bundled with esbuild. It is a member of the npm workspace at <code>src/</code> (see <a href="#the-npm-workspace">The npm workspace</a>), and its platform-free logic lives in the shared <code>@passel/core</code> package.</p>
+<h2 id="what-it-does">What it does</h2>
+<ul>
+<li><strong>Popup:</strong> sign in and out, send the current page, send typed text or a link, and browse the live packet feed. Tiles can be opened, copied or deleted, and a delete can be undone for 4 seconds. All feedback (send and sign-in results, copies, deletes with their undo) goes through one snackbar that overlays the bottom of the popup, so nothing shifts the layout.</li>
+<li><strong>Side panel:</strong> the popup's page, laid out for a tall, narrow panel that stays open beside the page while you move between tabs and open links. Open it with the panel button in the popup's header, the <strong>Open Passel in the side panel</strong> shortcut, or Chrome's own side panel menu. The composer stays at the top while the feed scrolls under it, and notes show twice as many lines before &quot;Show more&quot;. The popup stays the quick way to send.</li>
+<li><strong>Keyboard shortcuts:</strong> open the popup, send the page you're on (or the text selected on it), and open the side panel. See <a href="#keyboard-shortcuts">Keyboard shortcuts</a>.</li>
+<li><strong>Address bar:</strong> type <code>passel</code>, a space and some text, then press Enter to send it: a link if it's a web address, otherwise a note. See <a href="#the-passel-keyword">The passel keyword</a>.</li>
+<li><strong>Context menus:</strong> send a link, the selected text, or an image's URL.</li>
+</ul>
+<p>Sends from a shortcut, the address bar or a context menu show their outcome on the toolbar icon: a green tick, or a red <code>!</code> when nothing could be sent.</p>
+<h2 id="modules">Modules</h2>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>Responsibility</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>background.ts</code></td>
+<td>The service worker. Handles context menus, routes messages from the popup, schedules deletes so they still happen after the popup closes, shows badge feedback, and tells every open page when someone signs in or out.</td>
+</tr>
+<tr>
+<td><code>commands.ts</code></td>
+<td>The keyboard commands the service worker handles: sending the page or its selection, and opening the side panel.</td>
+</tr>
+<tr>
+<td><code>omnibox.ts</code></td>
+<td>The <code>passel</code> address bar keyword: the suggestion that says what Enter will send, and sending it.</td>
+</tr>
+<tr>
+<td><code>popup.ts</code></td>
+<td>The entry point of the popup and the side panel, which are the same page; it starts <code>popup/controller.ts</code>. Every API call and sign-in request goes to the service worker.</td>
+</tr>
+<tr>
+<td><code>popup/controller.ts</code></td>
+<td>The popup's session: who is signed in, the live connection to the service worker, sign-in and sign-out, sending, and moving into the side panel, handing off to the parts below.</td>
+</tr>
+<tr>
+<td><code>popup/feed-view.ts</code></td>
+<td>The feed as the popup shows it: tiles, the row after the oldest packet, the sync label, paging, copying, and deleting with undo, on top of <code>FeedStore</code>.</td>
+</tr>
+<tr>
+<td><code>popup/composer.ts</code></td>
+<td>Sending the current page and typed text or links, and pasting into the composer.</td>
+</tr>
+<tr>
+<td><code>popup/toast.ts</code>, <code>popup/dom.ts</code></td>
+<td>The one snackbar all feedback goes through; the popup's fixed elements, whether the page is the side panel, the message channel to the service worker, and the element and icon builders.</td>
+</tr>
+<tr>
+<td><code>popup.css</code></td>
+<td>The styles of the popup and, under <code>body.side-panel</code>, of the side panel. It imports the design tokens from <code>@passel/ui</code>, and esbuild inlines them into <code>dist/popup.css</code>.</td>
+</tr>
+<tr>
+<td><code>auth.ts</code></td>
+<td>Google sign-in through <code>chrome.identity.launchWebAuthFlow</code>, using the implicit flow with <code>response_type=id_token</code>; in a development build with <code>DEV_SIGN_IN</code>, also signing in as a development user through the API's <code>Dev</code> scheme.</td>
+</tr>
+<tr>
+<td><code>api.ts</code></td>
+<td>Authenticated fetches. On a 401 it refreshes the token and retries once. Also the packet endpoints and the server-sent events (SSE) stream.</td>
+</tr>
+<tr>
+<td><code>live.ts</code></td>
+<td>Keeps one SSE connection open while a popup or the side panel is open, reconnects with backoff, and opens it again with the new session after a sign-in or sign-out.</td>
+</tr>
+<tr>
+<td><code>cache.ts</code></td>
+<td>The feed cache in <code>chrome.storage.local</code>.</td>
+</tr>
+</tbody>
+</table>
+<p>From <code>@passel/core</code> (<code>src/packages/core</code>), shared with the <a href="web-app.html">web app</a>: <code>feed.ts</code> (<code>FeedStore</code>: the feed's state, including paging, merging live events and undo), <code>packets.ts</code> (parsing the wire format), <code>sse.ts</code> (the SSE parser), <code>authorization.ts</code> (<code>Bearer</code> for a Google ID token, <code>Dev &lt;user&gt;</code> for a development user) and <code>types.ts</code> (the wire, message and cache types). None of them touches <code>chrome.*</code> or the DOM, and their tests run there.</p>
+<p>The ID token is kept in <code>chrome.storage.session</code>, which is cleared when the browser closes. Only a login hint goes in local storage, so the extension can sign the user back in silently. A development user (<a href="../getting-started/running-locally.html#run-without-google">Run without Google</a>) is kept in local storage until sign-out, along with the name last used, which the popup offers again.</p>
+<p>The feed cache holds only the first page (50 packets) and the cursor after it, so it never grows as the user scrolls through older pages; the in-memory list keeps every page loaded while the popup is open.</p>
+<h2 id="the-side-panel">The side panel</h2>
+<p><code>build.mjs</code> writes <code>dist/sidepanel.html</code> from <code>static/popup.html</code>, with a <code>side-panel</code> class on the body, so the side panel runs the popup's own script and markup and the two can't drift apart. The class is all that differs: <code>popup.css</code> sizes the page to the panel and keeps the composer in view, the popup's button for opening the side panel is hidden, and the composer asks for the <code>tabs</code> permission before sending the page (see <a href="#permissions">Permissions</a>). The side panel holds a live connection to the service worker like the popup, so the feed stays live for as long as the panel is open.</p>
+<p>Because the panel stays open, a sign-in or sign-out can happen elsewhere while it shows a feed: in a popup opened beside it, or through a shortcut, the <code>passel</code> keyword or a context menu that needed a sign-in. <code>auth.ts</code> reports every sign-out, and every sign-in that the user saw or that brought another account (a silent refresh of the same account is not reported). The service worker then starts the event stream again with the new session, since the stream it had open was opened with the previous token and the API would keep it open until that token expires. It also sends a <code>sessionChanged</code> message to every open page, signed in or not. Each page asks for the auth state again. If the account it shows has changed, it forgets its feed, shows the new session and fetches that account's feed, so one account's packets are never shown or cached under another.</p>
+<h2 id="keyboard-shortcuts">Keyboard shortcuts</h2>
+<table>
+<thead>
+<tr>
+<th>Command</th>
+<th>Suggested key</th>
+<th>Mac</th>
+<th>What it does</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Open the popup (<code>_execute_action</code>)</td>
+<td>Alt+Shift+P</td>
+<td>Control+Shift+P</td>
+<td>Opens the popup, as the toolbar button does</td>
+</tr>
+<tr>
+<td>Send this page, or the selected text (<code>send-current-page</code>)</td>
+<td>Alt+Shift+S (Alt+Shift+Y on ChromeOS)</td>
+<td>Control+Shift+S</td>
+<td>Sends the text selected on the page as a note if there is any, otherwise the page as a link, without opening anything</td>
+</tr>
+<tr>
+<td>Open Passel in the side panel (<code>open-side-panel</code>)</td>
+<td>Alt+Shift+O</td>
+<td>Control+Shift+O</td>
+<td>Opens the side panel in the current window</td>
+</tr>
+</tbody>
+</table>
+<p>The keys avoid Chrome's own shortcuts: Chrome uses Alt+Shift with T, I, A and N on Windows and Linux, ChromeOS uses Alt+Shift+S for its quick settings, and on a Mac the suggestions use the Control key, which Chrome's own shortcuts leave alone. Chrome only assigns a suggested key when the extension is first installed and the key is free, so one can be missing; anyone can change them at <code>chrome://extensions/shortcuts</code>. A command that reads the page works on the tab it was pressed on, through the <code>activeTab</code> grant the shortcut gives.</p>
+<h2 id="the-passel-keyword">The passel keyword</h2>
+<p>The manifest's <code>omnibox</code> keyword is <code>passel</code>. Typing <code>passel</code> and a space in the address bar hands the rest of the line to the extension. Its suggestion says what Enter will send (&quot;Send link: …&quot; or &quot;Send note: …&quot;), or how to use it while nothing is typed yet, and Enter sends it through the service worker: a link if it's an <code>http</code> or <code>https</code> address and a note otherwise, the same rule as the popup's text field. An empty line sends nothing and shows the red <code>!</code>.</p>
+<h2 id="permissions">Permissions</h2>
+<table>
+<thead>
+<tr>
+<th>Permission</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>activeTab</code></td>
+<td>Reading the address and title of the page the user asked to send, from the popup, a shortcut or a context menu. Granted only for that tab, only by that action.</td>
+</tr>
+<tr>
+<td><code>contextMenus</code></td>
+<td>The three send entries in the page's context menu</td>
+</tr>
+<tr>
+<td><code>identity</code></td>
+<td>Google sign-in through <code>chrome.identity.launchWebAuthFlow</code></td>
+</tr>
+<tr>
+<td><code>storage</code></td>
+<td>The ID token (session storage), the login hint, the feed cache and whether the <code>tabs</code> permission was declined (local storage)</td>
+</tr>
+<tr>
+<td><code>sidePanel</code></td>
+<td>The side panel. No install warning.</td>
+</tr>
+<tr>
+<td><code>scripting</code></td>
+<td>Reading the text selected on the page for the send shortcut, by running one function in the tab. It only works where <code>activeTab</code> has been granted, so it reaches no page the user didn't act on. No install warning.</td>
+</tr>
+<tr>
+<td><code>tabs</code>, optional</td>
+<td>Asked for by the side panel the first time it sends the page: the panel stays open across tabs, and the <code>activeTab</code> grant doesn't follow it to the next one. Chrome shows its &quot;Read your browsing history&quot; prompt then, never at install. Chrome doesn't remember a refusal, so the panel does: once the prompt is declined, the panel doesn't ask by itself again, even in a panel opened later. It can still send a page Passel was opened from. For other pages it says why it can't send them and offers <strong>Allow</strong>, which shows the prompt again and sends the page once the permission is granted.</td>
+</tr>
+</tbody>
+</table>
+<p>The only host permission is the API's origin (see <a href="#build">Build</a>). The side panel and <code>sidePanel.open</code> need Chrome 116, so the manifest's <code>minimum_chrome_version</code> is 116.</p>
+<h2 id="build">Build</h2>
+<p><code>build.mjs</code> bundles <code>src/background.ts</code>, <code>src/popup.ts</code> and <code>src/popup.css</code> into <code>dist/</code>, following the workspace packages into the bundle, copies <code>static/</code> alongside them, and writes <code>sidepanel.html</code> from <code>popup.html</code>. It needs two values and takes a third. Values already in the environment take precedence over a local <code>.env</code>:</p>
+<table>
+<thead>
+<tr>
+<th>Variable</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>API_URL</code></td>
+<td>The <strong>packets endpoint</strong> (for example <code>https://localhost:7030/api/packets</code>), not the API root. The extension appends <code>/events</code> and <code>/{id}</code> to it.</td>
+</tr>
+<tr>
+<td><code>GOOGLE_CLIENT_ID</code></td>
+<td>The extension's OAuth client id</td>
+</tr>
+<tr>
+<td><code>DEV_SIGN_IN</code></td>
+<td><code>true</code> lets a development build sign in as a development user through the API's Development-only <code>Dev</code> scheme, without Google; <code>GOOGLE_CLIENT_ID</code> may then be left empty, and the popup offers only the development sign-in. A minified build never has it. The AppHost sets it.</td>
+</tr>
+</tbody>
+</table>
+<p>The manifest's <code>host_permissions</code> are generated from the <code>API_URL</code> origin, so the extension can only call its own API.</p>
+<p>Run <code>npm install</code> once in <code>src/</code> (the workspace root, not the extension folder), then, in <code>src/chrome-extension</code>:</p>
+<table>
+<thead>
+<tr>
+<th>Command</th>
+<th>What it does</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>npm run dev</code> / <code>npm run dev:watch</code></td>
+<td>Unminified build with source maps (the AppHost runs <code>dev:watch</code>)</td>
+</tr>
+<tr>
+<td><code>npm run build</code></td>
+<td>Type-check, then a minified build</td>
+</tr>
+<tr>
+<td><code>npm run typecheck</code></td>
+<td>The TypeScript check of the extension</td>
+</tr>
+<tr>
+<td><code>npm run harness</code></td>
+<td>Serves the built popup with <code>chrome.*</code> stubbed; see <a href="#the-popup-harness">The popup harness</a></td>
+</tr>
+<tr>
+<td><code>dotnet atom BuildChromeExtension</code></td>
+<td>Release build, zipped into <code>atom-publish/ChromeExtension</code></td>
+</tr>
+</tbody>
+</table>
+<p>The tests of the platform-free logic live with it in <code>@passel/core</code>; the extension's own modules, the ones that call <code>chrome.*</code>, are tested in <code>test/</code> against a stubbed <code>chrome</code> (see <a href="../guides/testing.html">Testing</a>). <code>npm test</code> in <code>src/</code> runs every package's tests, <code>npm run test:coverage</code> adds the coverage reports, and <code>dotnet atom TestChromeExtension</code> runs the type-checks and the tests of the whole workspace with coverage.</p>
+<p>Load <code>dist/</code> unpacked; see <a href="../getting-started/running-locally.html#chrome-extension">Running Locally</a>. The source folder deliberately has no manifest, so it can't be loaded by mistake.</p>
+<h2 id="the-popup-harness">The popup harness</h2>
+<p><code>harness/</code> serves the built popup in an ordinary browser tab, with a stand-in for the <code>chrome.*</code> APIs (<code>harness/chrome-stub.js</code>) and canned packets, so the popup can be looked at and clicked through without loading the extension or running the API. Build first with <code>npm run dev</code>, then run <code>npm run harness</code> and open <code>http://127.0.0.1:8765/</code> for the popup or <code>http://127.0.0.1:8765/sidepanel.html</code> for the side panel, framed at Chrome's default panel width and the height of the tab. On either page, <code>?state=signedout</code> shows the signed-out popup, <code>?state=empty</code> an empty feed, and <code>&amp;lastDevUser=alice</code> offers that development user. The stub behaves like the service worker where the popup can tell: sends echo the packet, deletions wait out the undo window and a cancel stops them, and <code>passel.created({...})</code> in the console makes a packet arrive live.</p>
+<h2 id="the-npm-workspace">The npm workspace</h2>
+<p><code>src/package.json</code> declares an npm workspace with one lockfile, <code>src/package-lock.json</code>, for every TypeScript project:</p>
+<table>
+<thead>
+<tr>
+<th>Member</th>
+<th>What it holds</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>packages/core</code> (<code>@passel/core</code>)</td>
+<td>The client logic with no platform APIs, and its tests, including the contract checks against <code>contracts/</code></td>
+</tr>
+<tr>
+<td><code>packages/ui</code> (<code>@passel/ui</code>)</td>
+<td>The design tokens as CSS custom properties</td>
+</tr>
+<tr>
+<td><code>chrome-extension</code></td>
+<td>The extension, consuming both</td>
+</tr>
+<tr>
+<td><code>web</code></td>
+<td>The <a href="web-app.html">web app</a>, consuming both</td>
+</tr>
+</tbody>
+</table>
+<p>The packages are consumed from source: their <code>exports</code> point at the TypeScript and CSS files, and each app's bundler compiles them, so nothing is built in a package. <code>@passel/core</code> also holds a <code>fetch</code>-based API client (<code>api.ts</code>), a reconnecting event stream (<code>live.ts</code>) and JWT helpers (<code>jwt.ts</code>), which the web app uses; the extension still has its own in its service worker, and can move onto them later.</p>
+<p>The <code>key</code> in <code>static/manifest.json</code> pins the extension id to <code>aikjdmilnbdacmaeahelifppjjgppemj</code>. The OAuth redirect URI depends on that id.</p>
+
+</article>
+
+        <div class="contribution d-print-none">
+          <a href="https://github.com/Invex-Games/passel/blob/main/docs/components/chrome-extension.md/#L1" class="edit-link">Edit this page</a>
+        </div>
+
+        <div class="next-article d-print-none border-top" id="nextArticle"></div>
+
+      </div>
+
+      <div class="affix">
+        <nav id="affix"></nav>
+      </div>
+    </main>
+
+    <div class="container-xxl search-results" id="search-results"></div>
+
+    <footer class="border-top text-secondary">
+      <div class="container-xxl">
+        <div class="flex-fill">
+          Passel · Invex Games
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>

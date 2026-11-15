@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+      <title>User Experience | Passel </title>
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <meta name="title" content="User Experience | Passel ">
+      
+      
+      <link rel="icon" href="../../resources/icon-48.png">
+      <link rel="stylesheet" href="../../public/docfx.min.css">
+      <link rel="stylesheet" href="../../public/main.css">
+      <meta name="docfx:navrel" content="../../toc.html">
+      <meta name="docfx:tocrel" content="../toc.html">
+      
+      <meta name="docfx:rel" content="../../">
+      
+      
+      <meta name="docfx:docurl" content="https://github.com/Invex-Games/passel/blob/main/docs/evaluation/ux.md/#L1">
+      <meta name="loc:inThisArticle" content="In this article">
+      <meta name="loc:searchResultsCount" content="{count} results for &quot;{query}&quot;">
+      <meta name="loc:searchNoResults" content="No results for &quot;{query}&quot;">
+      <meta name="loc:tocFilter" content="Filter by title">
+      <meta name="loc:nextArticle" content="Next">
+      <meta name="loc:prevArticle" content="Previous">
+      <meta name="loc:themeLight" content="Light">
+      <meta name="loc:themeDark" content="Dark">
+      <meta name="loc:themeAuto" content="Auto">
+      <meta name="loc:changeTheme" content="Change theme">
+      <meta name="loc:copy" content="Copy">
+      <meta name="loc:downloadPdf" content="Download PDF">
+
+      <script type="module" src="./../../public/docfx.min.js"></script>
+
+      <script>
+        const theme = localStorage.getItem('theme') || 'auto'
+        document.documentElement.setAttribute('data-bs-theme', theme === 'auto' ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : theme)
+      </script>
+
+  </head>
+
+  <body class="tex2jax_ignore" data-layout="" data-yaml-mime="">
+    <header class="bg-body border-bottom">
+      <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
+        <div class="container-xxl flex-nowrap">
+          <a class="navbar-brand" href="../../index.html">
+            <img id="logo" class="svg" src="../../resources/icon-128.png" alt="Passel">
+            Passel
+          </a>
+          <button class="btn btn-lg d-md-none border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navpanel" aria-controls="navpanel" aria-expanded="false" aria-label="Toggle navigation">
+            <i class="bi bi-three-dots"></i>
+          </button>
+          <div class="collapse navbar-collapse" id="navpanel">
+            <div id="navbar">
+              <form class="search" role="search" id="search">
+                <i class="bi bi-search"></i>
+                <input class="form-control" id="search-query" type="search" disabled placeholder="Search" autocomplete="off" aria-label="Search">
+              </form>
+            </div>
+          </div>
+        </div>
+      </nav>
+    </header>
+
+    <main class="container-xxl">
+      <div class="toc-offcanvas">
+        <div class="offcanvas-md offcanvas-start" tabindex="-1" id="tocOffcanvas" aria-labelledby="tocOffcanvasLabel">
+          <div class="offcanvas-header">
+            <h5 class="offcanvas-title" id="tocOffcanvasLabel">Table of Contents</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="offcanvas" data-bs-target="#tocOffcanvas" aria-label="Close"></button>
+          </div>
+          <div class="offcanvas-body">
+            <nav class="toc" id="toc"></nav>
+          </div>
+        </div>
+      </div>
+
+      <div class="content">
+        <div class="actionbar">
+          <button class="btn btn-lg border-0 d-md-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#tocOffcanvas" aria-controls="tocOffcanvas" aria-expanded="false" aria-label="Show table of contents">
+            <i class="bi bi-list"></i>
+          </button>
+
+          <nav id="breadcrumb"></nav>
+        </div>
+
+        <article data-uid="">
+<h1 id="user-experience">User Experience</h1>
+
+<p>Scope: the two shipped clients (the Chrome extension popup and the Android app) and the API where it limits what the clients can do. Evidence: the real <code>popup.js</code> bundle was run in a browser against a stubbed <code>chrome.*</code> API with sample data (screenshots in <code>images/</code>), the mobile app was reviewed from source, and both were checked against the <a href="../reference/http-api.html">HTTP API</a>.</p>
+<h2 id="verdict">Verdict</h2>
+<p>The core loop works and the hard parts are handled with unusual care: live updates, an offline cache, undoable deletes, silent token refresh and session expiry all behave sensibly. The gaps are in the moments around the loop: getting content into Passel from the phone (no share sheet), knowing that something arrived (no notifications), and finding things later (no timestamps, search or metadata). The two clients also disagree on ordering and vocabulary, so the product feels like two apps rather than one.</p>
+<p>Score: 3 / 5 for simple tasks, 2 / 5 for anything beyond them.</p>
+<h2 id="what-works-well">What works well</h2>
+<ul>
+<li>Three ways to send from the desktop: the popup's &quot;Send Current Page&quot;, typed or pasted text (links are detected automatically, Enter sends), and context menus for links, selections and images.</li>
+<li>The feed appears instantly from cache, then refreshes; a &quot;Live&quot; label and a &quot;Synced X ago&quot; label say how fresh it is.</li>
+<li>Deletes are optimistic with a 4-second undo on both clients, and the extension still commits the delete if the popup closes.</li>
+<li>Session expiry is graceful: the mobile app keeps the cached feed browsable and asks you to sign in from a bottom sheet instead of a dead end; the extension signs out and says why.</li>
+<li>Switching Google accounts clears the previous account's cached packets on both clients.</li>
+<li>Copy and share menus let you pick title, content or both.</li>
+<li>Keyboard: Enter sends, Shift+Enter adds a line, Escape closes menus, icon buttons have <code>aria-label</code>s and the copy menu uses <code>role=&quot;menu&quot;</code> with focus moved to the first item.</li>
+</ul>
+<h2 id="task-walkthroughs">Task walkthroughs</h2>
+<table>
+<thead>
+<tr>
+<th>Task</th>
+<th>Extension</th>
+<th>Mobile</th>
+<th>Friction</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Send the page I'm on to my phone</td>
+<td>Open popup, one click</td>
+<td>n/a</td>
+<td>Popup only: no keyboard shortcut, no omnibox, no &quot;send all tabs&quot;.</td>
+</tr>
+<tr>
+<td>Send a link from my phone to my desktop</td>
+<td>n/a</td>
+<td>Open app, FAB, paste, Push</td>
+<td>No Android share sheet entry: you have to copy the URL, switch apps and paste. This is the single biggest gap.</td>
+</tr>
+<tr>
+<td>Notice that something arrived</td>
+<td>Only while the popup is open (SSE in the worker, <code>live.ts</code>)</td>
+<td>Only while the app is in the foreground (<code>packetLiveUpdatesProvider</code>)</td>
+<td>No notifications, no badge count. You must go and look.</td>
+</tr>
+<tr>
+<td>Open a link I was sent</td>
+<td>Click title button or the URL; opens a new tab, which closes the popup</td>
+<td>Tap the URL; opens externally</td>
+<td>Fine, but the popup closing after every open is tiring. A side panel fixes it.</td>
+</tr>
+<tr>
+<td>Copy a phone number I was sent</td>
+<td>Copy button</td>
+<td>Copy button</td>
+<td>Fine. Untitled items copy directly; titled ones show a menu.</td>
+</tr>
+<tr>
+<td>Send a photo from my phone</td>
+<td>n/a</td>
+<td>Not possible</td>
+<td>File packets are rejected by the API (<code>PostPacket.cs</code>, the <code>File</code> branch returns 400).</td>
+</tr>
+<tr>
+<td>Send an image from a web page</td>
+<td>Context menu sends the image URL as a link</td>
+<td>n/a</td>
+<td>Misleading: it arrives as a link, and <code>data:</code> or <code>blob:</code> images can't be sent at all (<code>background.ts</code>, <code>packetFromContext</code>).</td>
+</tr>
+<tr>
+<td>Find the link I sent last Tuesday</td>
+<td>Scroll</td>
+<td>Scroll</td>
+<td>No timestamps, no search, no filter.</td>
+</tr>
+<tr>
+<td>Read a long note</td>
+<td>Clamped to 6 lines, &quot;Show more&quot;</td>
+<td>Entire body rendered (<code>standard_tile.dart</code>)</td>
+<td>A 64 KB note becomes a screen-long tile on mobile.</td>
+</tr>
+<tr>
+<td>Use two Google accounts</td>
+<td>Account picker on sign-in; cache cleared on switch</td>
+<td>Same</td>
+<td>Fine.</td>
+</tr>
+<tr>
+<td>Use it offline</td>
+<td>Cached feed shown; sends fail with a clear message</td>
+<td>Cached feed shown; sends fail</td>
+<td>No outgoing queue.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="findings">Findings</h2>
+<p>Severity: <strong>High</strong> blocks or seriously hurts the core job, <strong>Medium</strong> is noticeable friction, <strong>Low</strong> is polish.</p>
+<ol>
+<li><p><strong>No share-sheet entry on Android (High).</strong> <code>android/app/src/main/AndroidManifest.xml</code> has no <code>ACTION_SEND</code> intent filter and <code>pubspec.yaml</code> has no share-receiving plugin, so the only way in is open app, FAB, paste. On a phone, &quot;Share&quot; is how people send things. Fix: add <code>ACTION_SEND</code> filters for <code>text/plain</code> (and <code>image/*</code> once parcels exist), handle them with <code>receive_sharing_intent</code> or <code>share_handler</code>, and either send immediately with an undo snackbar or open the push sheet pre-filled. Also register as a <code>PROCESS_TEXT</code> target so selected text in any app can be sent.</p>
+</li>
+<li><p><strong>Nothing tells you a packet arrived (High).</strong> Both clients only receive while open and visible, by design of the SSE stream. For an app whose whole job is &quot;it shows up on the other device&quot;, this is the expectation gap users will hit first. Options:</p>
+<ul>
+<li><strong>Push notifications</strong> (Firebase Cloud Messaging for Android, Web Push for the extension and the future web app): the right answer. Needs a device registry (device id, platform, push token) and a sender in the API, triggered where <code>PacketStoreService</code> already sends <code>pg_notify</code>. Larger piece of work, see <a href="features.html">Features</a>.</li>
+<li><strong>Extension polling with <code>chrome.alarms</code></strong> every minute plus a badge count: cheap and server-free, but delayed and wakes the service worker constantly.</li>
+<li>Recommendation: build push with the device registry; use the badge count from the popup's own feed state in the meantime.</li>
+</ul>
+</li>
+<li><p><strong>No timestamps anywhere (High).</strong> The events carry <code>CreatedAt</code> (<code>Domain/Events/TextPacketCreated.cs</code>) but <code>PacketAggregate</code> drops it and neither <code>GetPacketsResponseBody.Packet</code> nor the SSE payload includes it, so clients can't show &quot;2 hours ago&quot; or group by day. Fix: add <code>CreatedAt</code> to the aggregate and the response records (an additive change, no API version bump), then show relative time on every tile and day headers in the feed.</p>
+</li>
+<li><p><strong>The clients disagree on ordering (Medium).</strong> The mobile list is reversed, newest at the bottom like a chat (<code>packet_list.dart</code>, <code>reverse: true</code>), with pull-to-refresh at the bottom and &quot;You've gone back to the beginning!&quot; at the top; the extension shows newest at the top. The same packet is in a different place on each device. Pick one. Newest-at-top is the convention for feeds and matches the extension and the web app to come; if the chat layout is deliberate on mobile, make it a setting.</p>
+</li>
+<li><p><strong>Internal vocabulary leaks into the UI (Medium).</strong> Mobile says &quot;Push packet&quot;, &quot;Push a packet&quot;, &quot;Packet deleted&quot;, &quot;No packets yet&quot;; the extension says &quot;Send Current Page&quot;, &quot;Text sent!&quot;, &quot;Packet deleted&quot;. Users think in links, notes and files, not packets. Decide on one verb (&quot;Send&quot;) and one set of nouns for the UI (link, note, file, or just &quot;item&quot;), keep &quot;packet&quot; and &quot;parcel&quot; as code and API terms, and apply the decision to the store listings too.</p>
+</li>
+<li><p><strong>Untitled items are labelled &quot;Packet&quot; (Medium).</strong> <code>popup.ts</code> <code>packetTitle()</code> and <code>tile_header.dart</code> fall back to &quot;Packet&quot;, which says nothing. Show the host for links (and its favicon), nothing or the first line for notes, and only draw a title row when there is a real title.</p>
+</li>
+<li><p><strong>Links are shown as raw URLs (Medium).</strong> The body of a link tile is the full URL; a Microsoft Learn URL wraps over four lines (see <code>images/extension-feed-light.jpg</code>). Show host and title, keep the URL to one truncated line, and fetch link previews server-side later (see <a href="features.html">Features</a>).</p>
+</li>
+<li><p><strong>No search or filtering (Medium).</strong> Infinite scroll is the only navigation. Start with a client-side filter over the loaded pages (both clients already hold them in memory), then add <code>?q=</code> to <code>GET /api/packets</code> backed by a Marten full-text index on the snapshot document.</p>
+</li>
+<li><p><strong>Mobile renders whole text bodies (Medium).</strong> <code>standard_tile.dart</code> draws <code>Text(packet.payload)</code> with no <code>maxLines</code>, while the API accepts bodies up to 65,536 characters. Clamp to a few lines with an expand action, or open a detail page on tap, as the extension already does with &quot;Show more&quot;.</p>
+</li>
+<li><p><strong>Raw exceptions reach users on mobile (Medium).</strong> <code>'Push failed: $e'</code> (<code>push_packet_sheet.dart</code>), <code>'Refresh failed: $e'</code> (<code>packet_list.dart</code>), <code>'Couldn't delete packet: $e'</code> (<code>delete_packet.dart</code>) and <code>'Auth error: ${authState.error}'</code> (<code>app.dart</code>) show strings like <code>Exception: Push packet failed with HTTP 500</code>. Map failures to short messages the way the extension's <code>api.ts</code> does (<code>OFFLINE_MESSAGE</code>, ProblemDetails titles).</p>
+</li>
+<li><p><strong>Desktop is popup-only (Medium).</strong> The popup is 380 by 600 pixels and closes whenever focus leaves it, including when you open a link from it. Chrome's side panel API (<code>sidePanel</code> permission, <code>chrome.sidePanel.setPanelBehavior</code>) can host the same <code>popup.html</code> bundle persistently beside the page. Keep the popup for quick sends.</p>
+</li>
+<li><p><strong>No keyboard shortcut or omnibox (Medium).</strong> <code>static/manifest.json</code> declares no <code>commands</code>. Add a <code>send-current-page</code> command with a suggested key and <code>_execute_action</code> to open the popup; an <code>omnibox</code> keyword (<code>passel &lt;text&gt;</code>) is a cheap extra.</p>
+</li>
+<li><p><strong>&quot;Send image link&quot; is a stand-in for sending the image (Low).</strong> Resolves with parcels. Until then, rename the menu item so it doesn't promise an image.</p>
+</li>
+<li><p><strong>Two feedback mechanisms in the popup (Low).</strong> Send and sign-in results use an in-flow status bar that pushes the whole layout down (<code>images/extension-send-status.jpg</code>); copy and delete use an overlay toast. Use one overlay snackbar and never shift the layout.</p>
+</li>
+<li><p><strong>The signed-out popup shows a disabled composer (Low).</strong> <code>images/extension-signed-out.jpg</code>: a greyed &quot;Send Current Page&quot; and text field sit under the sign-in button. Hide them and use the space for one line on what Passel does and a link to the phone app.</p>
+</li>
+<li><p><strong>Empty states are a single sentence (Low).</strong> &quot;No packets yet. Send one above, or from another device.&quot; and &quot;No packets yet. Pull down to refresh.&quot; Replace with three concrete tips (right-click a link, share from your phone, the keyboard shortcut) and an illustration.</p>
+</li>
+<li><p><strong>Titles exist in the model but can't be typed (Low).</strong> Neither composer has a title field; titles only come from the tab title or a selection. Either add an optional title to both composers or stop showing a title row for notes.</p>
+</li>
+<li><p><strong>No settings or account surface on mobile (Low).</strong> No version, no account switch, no theme override, no account deletion or data export. Google Play's account deletion policy requires an in-app deletion path for apps with sign-in, so this becomes a blocker for a store listing.</p>
+</li>
+<li><p><strong>Offline sends fail outright (Low).</strong> Queue them and send on reconnect (mobile: <code>workmanager</code>; extension: retry from the worker with <code>chrome.alarms</code>).</p>
+</li>
+<li><p><strong>Accessibility gaps (Low).</strong> The popup's <code>.md-btn</code> and <code>.md-btn-icon</code> have hover styles but no <code>:focus-visible</code> style in <code>popup.css</code>, so keyboard focus is only as visible as the browser default. The mobile theme defines medium and high contrast schemes in <code>theme.dart</code> but <code>app.dart</code> never selects them (<code>MediaQuery.highContrast</code> is not consulted). Swipe-to-delete has a button alternative, which is right.</p>
+</li>
+</ol>
+<h2 id="steps-forward">Steps forward</h2>
+<p>In rough value-for-effort order. Sizes: S under a day, M a few days, L a week or more.</p>
+<ol>
+<li><strong>Add <code>CreatedAt</code> to the API responses and show relative time and day headers</strong> (S, API plus both clients). Unlocks 3 and improves 7 and 8.</li>
+<li><strong>Android share target and <code>PROCESS_TEXT</code></strong> (S to M, mobile). Fixes 1, the largest gap.</li>
+<li><strong>One ordering, one vocabulary</strong> (S, both clients). Fixes 4 and 5; decide before the web app copies either.</li>
+<li><strong>Tile redesign</strong> per <a href="ui-design.html">UI Design</a>: host and favicon for links, clamp on mobile, no &quot;Packet&quot; placeholders (M, both clients). Fixes 6, 7, 9.</li>
+<li><strong>Extension side panel and commands</strong> (S to M). Fixes 11 and 12.</li>
+<li><strong>Error copy, empty states, signed-out state, single snackbar</strong> (S, both clients). Fixes 10, 14, 15, 16.</li>
+<li><strong>Client-side filter, then server search</strong> (M). Fixes 8.</li>
+<li><strong>Device registry and push notifications</strong> (L, API plus clients). Fixes 2. The registry is also the base for &quot;send to a specific device&quot;.</li>
+<li><strong>Settings and account page with deletion and export</strong> (M, mobile and web). Fixes 18 and is required for the Play Store.</li>
+<li><strong>Parcels end to end</strong> (L). Fixes 13 and the photo scenario; see <a href="features.html">Features</a>.</li>
+</ol>
+
+</article>
+
+        <div class="contribution d-print-none">
+          <a href="https://github.com/Invex-Games/passel/blob/main/docs/evaluation/ux.md/#L1" class="edit-link">Edit this page</a>
+        </div>
+
+        <div class="next-article d-print-none border-top" id="nextArticle"></div>
+
+      </div>
+
+      <div class="affix">
+        <nav id="affix"></nav>
+      </div>
+    </main>
+
+    <div class="container-xxl search-results" id="search-results"></div>
+
+    <footer class="border-top text-secondary">
+      <div class="container-xxl">
+        <div class="flex-fill">
+          Passel · Invex Games
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>

@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+      <title>Web App | Passel </title>
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <meta name="title" content="Web App | Passel ">
+      
+      
+      <link rel="icon" href="../../resources/icon-48.png">
+      <link rel="stylesheet" href="../../public/docfx.min.css">
+      <link rel="stylesheet" href="../../public/main.css">
+      <meta name="docfx:navrel" content="../../toc.html">
+      <meta name="docfx:tocrel" content="../toc.html">
+      
+      <meta name="docfx:rel" content="../../">
+      
+      
+      <meta name="docfx:docurl" content="https://github.com/Invex-Games/passel/blob/main/docs/components/web-app.md/#L1">
+      <meta name="loc:inThisArticle" content="In this article">
+      <meta name="loc:searchResultsCount" content="{count} results for &quot;{query}&quot;">
+      <meta name="loc:searchNoResults" content="No results for &quot;{query}&quot;">
+      <meta name="loc:tocFilter" content="Filter by title">
+      <meta name="loc:nextArticle" content="Next">
+      <meta name="loc:prevArticle" content="Previous">
+      <meta name="loc:themeLight" content="Light">
+      <meta name="loc:themeDark" content="Dark">
+      <meta name="loc:themeAuto" content="Auto">
+      <meta name="loc:changeTheme" content="Change theme">
+      <meta name="loc:copy" content="Copy">
+      <meta name="loc:downloadPdf" content="Download PDF">
+
+      <script type="module" src="./../../public/docfx.min.js"></script>
+
+      <script>
+        const theme = localStorage.getItem('theme') || 'auto'
+        document.documentElement.setAttribute('data-bs-theme', theme === 'auto' ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : theme)
+      </script>
+
+  </head>
+
+  <body class="tex2jax_ignore" data-layout="" data-yaml-mime="">
+    <header class="bg-body border-bottom">
+      <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
+        <div class="container-xxl flex-nowrap">
+          <a class="navbar-brand" href="../../index.html">
+            <img id="logo" class="svg" src="../../resources/icon-128.png" alt="Passel">
+            Passel
+          </a>
+          <button class="btn btn-lg d-md-none border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navpanel" aria-controls="navpanel" aria-expanded="false" aria-label="Toggle navigation">
+            <i class="bi bi-three-dots"></i>
+          </button>
+          <div class="collapse navbar-collapse" id="navpanel">
+            <div id="navbar">
+              <form class="search" role="search" id="search">
+                <i class="bi bi-search"></i>
+                <input class="form-control" id="search-query" type="search" disabled placeholder="Search" autocomplete="off" aria-label="Search">
+              </form>
+            </div>
+          </div>
+        </div>
+      </nav>
+    </header>
+
+    <main class="container-xxl">
+      <div class="toc-offcanvas">
+        <div class="offcanvas-md offcanvas-start" tabindex="-1" id="tocOffcanvas" aria-labelledby="tocOffcanvasLabel">
+          <div class="offcanvas-header">
+            <h5 class="offcanvas-title" id="tocOffcanvasLabel">Table of Contents</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="offcanvas" data-bs-target="#tocOffcanvas" aria-label="Close"></button>
+          </div>
+          <div class="offcanvas-body">
+            <nav class="toc" id="toc"></nav>
+          </div>
+        </div>
+      </div>
+
+      <div class="content">
+        <div class="actionbar">
+          <button class="btn btn-lg border-0 d-md-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#tocOffcanvas" aria-controls="tocOffcanvas" aria-expanded="false" aria-label="Show table of contents">
+            <i class="bi bi-list"></i>
+          </button>
+
+          <nav id="breadcrumb"></nav>
+        </div>
+
+        <article data-uid="">
+<h1 id="web-app">Web App</h1>
+
+<p><code>src/web</code> is Passel on the web: a landing page, the privacy and terms pages, and the app itself under <code>/app/</code>. It is a member of the npm workspace at <code>src/</code> beside the extension (see <a href="chrome-extension.html#the-npm-workspace">The npm workspace</a>), and its feed, API client and live connection come from <code>@passel/core</code>, its colours from <code>@passel/ui</code>. This is milestone 1 of the <a href="../evaluation/web-app.html">Web App Plan</a> (roadmap 1.E2), apart from its preview deployment (see <a href="#hosting">Hosting</a>), and the public pages (1.E3).</p>
+<h2 id="what-it-does">What it does</h2>
+<ul>
+<li><strong>Landing page</strong> (<code>/</code>): what Passel is, the three steps, and where to get the extension and the app (both &quot;coming soon&quot; until they are listed). Its footer, like the privacy and terms pages', links to the privacy policy, the terms and the documentation.</li>
+<li><strong>Privacy policy and terms</strong> (<code>/privacy/</code>, <code>/terms/</code>): drafts, pending legal review; see <a href="#the-privacy-and-terms-drafts">The privacy and terms drafts</a>.</li>
+<li><strong>The app</strong> (<code>/app/</code>): sign in with Google, or as a development user in a development build; then the feed, newest at the top, read-only for now. Older items load as the end of the list scrolls into view. While the tab is visible the feed stays live: items sent from other devices appear at once, deletions disappear, and a link's preview (its page's title, description and image) arrives with the <code>packet-updated</code> event. Each item shows as a link (with its preview), a note (long ones collapsed behind <strong>Show more</strong>) or a file, which can't be opened here yet. The top bar shows <strong>Live</strong>, or when the feed was last synced, a refresh button, the account and <strong>Sign out</strong>.</li>
+</ul>
+<p>Sending, deleting with undo, the offline cache, installing as an app, and the mobile and two-pane layouts are milestone 2 (roadmap 2.E1).</p>
+<h2 id="stack">Stack</h2>
+<p>The app is <a href="https://preactjs.com/">Preact</a> components bundled by esbuild, like the extension (<code>build.mjs</code>). One bundler serves the whole workspace, and it already compiles the shared packages from source. Preact gives the components and hooks the plan asks for, rather than the extension's hand-written DOM code, for about 4 KB gzipped; the minified app is about 40 KB before compression. The static pages need no framework: they are plain HTML with no script. SvelteKit or Vite would add routing and prerendering, which milestone 1 doesn't need; that choice can be revisited when the app grows routes (<code>/app/p/{id}</code>, <code>/app/settings</code>).</p>
+<h2 id="modules">Modules</h2>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>Responsibility</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>src/app/main.tsx</code></td>
+<td>The entry point: loads the configuration, then makes the session, the API client and Google sign-in, hands them to the controller, follows the page's visibility, and renders the views into <code>#app</code>; with no valid configuration it shows <code>ConfigErrorPage</code> instead and starts nothing</td>
+</tr>
+<tr>
+<td><code>src/app/config.ts</code></td>
+<td>Fetches <code>/app/config.json</code> and checks it: the API URL and the Google client id (see <a href="#configuration-at-startup">Configuration at startup</a>)</td>
+</tr>
+<tr>
+<td><code>src/app/flags.ts</code></td>
+<td>The two build flags compiled in by <code>build.mjs</code>: <code>DEV_SIGN_IN</code> and <code>LIVE_RELOAD</code>, both off in a production build</td>
+</tr>
+<tr>
+<td><code>src/app/controller.ts</code></td>
+<td><code>AppController</code>: who is signed in, the <code>FeedStore</code>, the <code>LiveConnection</code>, and the rules between them (see <a href="#live-updates">Live updates</a>). No DOM, so it is unit-tested</td>
+</tr>
+<tr>
+<td><code>src/app/session.ts</code></td>
+<td><code>Session</code>: the token for this tab, checking a Google credential before accepting it, the development user, and the hint that offers One Tap</td>
+</tr>
+<tr>
+<td><code>src/app/google.ts</code></td>
+<td>Loads Google Identity Services and wraps its button and One Tap</td>
+</tr>
+<tr>
+<td><code>src/app/labels.ts</code></td>
+<td>The wording: what to call an item, the sync label, what the end of the feed says, which notes collapse</td>
+</tr>
+<tr>
+<td><code>src/app/views/</code></td>
+<td>The Preact views: <code>App</code>, <code>SignInPage</code>, <code>FeedPage</code> (with the row after the oldest item), <code>Tile</code>, <code>ConfigErrorPage</code> and the icons</td>
+</tr>
+<tr>
+<td><code>src/app/app.css</code>, <code>src/site.css</code></td>
+<td>The app's styles and the static pages' styles; both import the tokens from <code>@passel/ui</code></td>
+</tr>
+<tr>
+<td><code>static/</code></td>
+<td>The static pages, the app's HTML shell and the icons, copied into <code>dist/</code></td>
+</tr>
+<tr>
+<td><code>policy.mjs</code></td>
+<td>The Content-Security-Policy headers the dev server sends, the same as the web image's <code>Caddyfile</code></td>
+</tr>
+</tbody>
+</table>
+<p>From <code>@passel/core</code>: <code>FeedStore</code>, <code>PacketsApi</code> (the packet endpoints over <code>fetch</code>, with the <code>Authorization</code> header and the problem messages), <code>LiveConnection</code> (the event stream, reconnecting with jittered backoff), the packet and event parsers, and the JWT helpers.</p>
+<h2 id="sign-in">Sign-in</h2>
+<p>Google sign-in uses <a href="https://developers.google.com/identity/gsi/web">Google Identity Services</a>: the <strong>Sign in with Google</strong> button, and One Tap for someone who signed in on this browser before and didn't sign out. The ID token it returns is issued for the <strong>web</strong> client id, which is the API's main audience, so the API takes it as it is. Before accepting it, the session checks that it was issued by Google for that client id, carries the nonce this tab asked for, and hasn't expired; the API checks the signature.</p>
+<p>The token lives in the tab's session storage: a reload keeps it, closing the tab drops it. A Google ID token lasts an hour and can't be renewed without the user, so when it runs out, or the API refuses it, the app returns to the sign-in page saying the session expired and offers One Tap, which signs a returning user straight back in where Google allows it. First-party sessions with refresh tokens (roadmap 1.B1) will remove that hourly step.</p>
+<p>A development build with <code>DEV_SIGN_IN=true</code> (the AppHost's) also offers a <strong>Development user</strong> field, which signs in through the API's Development-only <code>Dev</code> scheme, like the extension's; see <a href="../getting-started/running-locally.html#run-without-google">Run without Google</a>. The name is kept in the tab's session storage, like a Google token, so each tab can be a different user and signing in or out in one tab leaves the others alone; the last name used is kept in local storage and offered again, in a new tab too. A production build never has it. Built without a Google client id, which only a <code>DEV_SIGN_IN</code> build allows, the page offers only the development sign-in.</p>
+<h2 id="live-updates">Live updates</h2>
+<p>While the tab is signed in and visible, the controller keeps the API's event stream open through <code>LiveConnection</code>. A tab hidden for a minute closes it; one back in view before then carries on with the stream it had. Opening a stream counts against a per-user limit that the extension and the phone share (<code>RateLimits:StreamsPerMinute</code>, 10 by default), so a stream per glance at another tab would soon use it up for every device. If nothing has loaded yet, a failed first resync shows as a failed first load, with <strong>Retry</strong>. The stream counts as live from the server's first <code>resync</code>, and the controller then fetches the first page and merges it on top, so anything missed while the stream was closed shows up. The first resync after the stream opens is fetched at once; resyncs after a reconnect wait a random moment of up to three seconds, so tabs that all lost the stream together (a server restart) don't all fetch at once. A dropped stream reconnects after a jittered backoff from one second up to a minute. A stream refused for lack of a session signs the tab out instead.</p>
+<p><code>packet-created</code>, <code>packet-deleted</code> and <code>packet-updated</code> go to the <code>FeedStore</code>, which applies them with the rules the extension and the mobile app share (<code>contracts/feed-scenarios.json</code>): a <code>packet-updated</code> event replaces a listed item in place and never adds one.</p>
+<h2 id="configuration-at-startup">Configuration at startup</h2>
+<p>The built site holds no environment's values, so one build, and one web image, serves every environment. Before anything else the app fetches <code>/app/config.json</code> from its own origin, revalidating it every time:</p>
+<pre><code class="lang-json">{&quot;API_URL&quot;: &quot;https://api.passel.link/api/packets&quot;, &quot;GOOGLE_CLIENT_ID&quot;: &quot;&lt;id&gt;.apps.googleusercontent.com&quot;}
+</code></pre>
+<p><code>API_URL</code> is the <strong>packets endpoint</strong>, not the API root; the app appends <code>/events</code> to it. It must be an <code>https</code> URL, or <code>http</code> to <code>localhost</code>, <code>127.0.0.1</code> or <code>[::1]</code> only, with no credentials, query or fragment. <code>GOOGLE_CLIENT_ID</code> is the Google OAuth <strong>web</strong> client id and must end in <code>.apps.googleusercontent.com</code>; only a development build with <code>DEV_SIGN_IN</code> may leave it empty. A missing file, a file that is not JSON, or a value that breaks a rule stops the app before it makes a session, an API client or loads Google's script: the page says Passel can't start and why, rather than half-working against the wrong API.</p>
+<p>A JSON file rather than a script keeps the policy strict: it is data, so nothing in it can run, and the app's <code>connect-src 'self'</code> already allows the fetch. The web image writes it when its container starts (<a href="#the-web-image">The web image</a>); the dev server answers it from <code>.env</code> (<a href="#build">Build</a>).</p>
+<h2 id="build">Build</h2>
+<p><code>build.mjs</code> bundles <code>src/app/main.tsx</code>, <code>src/app/app.css</code> and <code>src/site.css</code> into <code>dist/</code>, following the workspace packages into the bundle, and copies <code>static/</code> alongside them. A production build (<code>npm run build</code>) needs no values at all. The dev server (<code>npm run dev</code>, <code>npm run serve</code>) needs two and takes two more; values already in the environment take precedence over a local <code>.env</code> (template: <code>.env.example</code>):</p>
+<table>
+<thead>
+<tr>
+<th>Variable</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>API_URL</code></td>
+<td>The <strong>packets endpoint</strong> (for example <code>https://localhost:7030/api/packets</code>), not the API root. The dev server serves it in <code>/app/config.json</code> and puts its origin into the app's policy.</td>
+</tr>
+<tr>
+<td><code>GOOGLE_CLIENT_ID</code></td>
+<td>The Google OAuth <strong>web</strong> client id, served in <code>/app/config.json</code>. Its Authorized JavaScript origins must include the app's origin; see <a href="../getting-started/google-oauth.html">Google OAuth Clients</a>.</td>
+</tr>
+<tr>
+<td><code>DEV_SIGN_IN</code></td>
+<td><code>true</code> compiles the development sign-in into a development build (<code>npm run dev</code>); <code>GOOGLE_CLIENT_ID</code> may then be left empty. A minified build never has it. The AppHost sets it.</td>
+</tr>
+<tr>
+<td><code>PORT</code></td>
+<td>The dev server's port, default 5245. The AppHost sets it.</td>
+</tr>
+<tr>
+<td><code>WEB_APP_OUT_DIR</code></td>
+<td>Where to build, instead of <code>dist/</code>; read from the environment only. <code>build.test.ts</code> uses it.</td>
+</tr>
+</tbody>
+</table>
+<p>The security policies are response headers, not <code>&lt;meta&gt;</code> tags, since the app's depends on the API's origin and a header can also forbid framing. Everything under <code>/app/</code> gets the app's Content-Security-Policy: scripts from its own origin and Google Identity Services only, requests to its own origin, the API's origin and Google, preview images from any <code>https</code> site, and no plugins, <code>&lt;base&gt;</code>, form targets or framing. Every other page, the 404 page included, gets one that allows no script at all. The web image's <code>Caddyfile</code> sends them in production and <code>policy.mjs</code> in the dev server, and <code>static-pages.test.ts</code> checks that the two agree. The dev server stands in front of esbuild's, which can't set headers, and also sends <code>Referrer-Policy: no-referrer-when-downgrade</code>, which Google's sign-in needs on plain <code>http://localhost</code>.</p>
+<p>Run <code>npm install</code> once in <code>src/</code>, then, in <code>src/web</code>:</p>
+<table>
+<thead>
+<tr>
+<th>Command</th>
+<th>What it does</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>npm run dev</code></td>
+<td>Unminified build with source maps, rebuilt on every change and served at <code>http://localhost:&lt;PORT&gt;/</code>, reloading the page after each rebuild (the AppHost runs it)</td>
+</tr>
+<tr>
+<td><code>npm run build</code></td>
+<td>Type-check, then a minified build into <code>dist/</code></td>
+</tr>
+<tr>
+<td><code>npm run serve</code></td>
+<td>A minified build, served the same way, to look at what will ship. It signs in with Google only, never as a development user; like <code>npm run dev</code> it serves <code>/app/config.json</code> and the policies from <code>.env</code>, and the referrer policy Google sign-in needs on <code>http://localhost</code></td>
+</tr>
+<tr>
+<td><code>npm run typecheck</code>, <code>npm test</code></td>
+<td>The TypeScript check, and the Vitest suite in <code>test/</code></td>
+</tr>
+<tr>
+<td><code>dotnet atom BuildWebApp</code></td>
+<td>Release build into <code>atom-publish/WebApp</code>, the same for every environment; it takes no parameters. See <a href="../reference/build-targets.html">Build Targets</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="hosting">Hosting</h2>
+<p><code>dist/</code> is a static site, but not for a host that only serves files: the host must also serve the app's configuration and send the security policies as headers. The web image does all of it, and its <code>deploy/web/Caddyfile</code> is the reference for any other host:</p>
+<table>
+<thead>
+<tr>
+<th>Path</th>
+<th>Serve</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>/</code></td>
+<td><code>index.html</code></td>
+</tr>
+<tr>
+<td><code>/privacy/</code>, <code>/terms/</code></td>
+<td><code>privacy/index.html</code>, <code>terms/index.html</code></td>
+</tr>
+<tr>
+<td><code>/app/</code></td>
+<td><code>app/index.html</code>, with <code>app/app.js</code> and <code>app/styles.css</code></td>
+</tr>
+<tr>
+<td><code>/app/config.json</code></td>
+<td>The environment's configuration (<a href="#configuration-at-startup">Configuration at startup</a>), revalidated on every load</td>
+</tr>
+<tr>
+<td><code>/privacy</code>, <code>/terms</code>, <code>/app</code></td>
+<td>A redirect to the same path with the trailing slash. The mobile app links to <code>https://passel.link/privacy</code> and <code>https://passel.link/terms</code> in this form</td>
+</tr>
+<tr>
+<td>Anything else</td>
+<td><code>404.html</code>, with status 404</td>
+</tr>
+</tbody>
+</table>
+<p>File names carry no content hash, so the host should have browsers revalidate (<code>Cache-Control: no-cache</code>) rather than cache them for long. It sends the two Content-Security-Policy headers (<a href="#build">Build</a>) and HSTS. The API must list the site's origin in <code>Cors:AllowedOrigins</code> (<a href="../reference/configuration.html#web-api">Configuration</a>), and the Google web client must list it as an Authorized JavaScript origin.</p>
+<h3 id="the-web-image">The web image</h3>
+<p>The self-hosted deployment (<a href="../decisions/0004-hosting-on-docker-compose.html">ADR 0004</a>) serves the site from the <code>passel-web</code> image: Caddy, from <code>deploy/web/Dockerfile</code>, <code>deploy/web/Caddyfile</code> and <code>deploy/web/entrypoint.sh</code>, with the site from <code>BuildWebApp</code> in <code>/srv</code>. Every build of <code>main</code> builds it after the site and pushes it to <code>ghcr.io/invex-games/passel-web</code> (<code>PublishImages</code>), tagged with the version and <code>sha-</code> and the commit. The image holds no environment's values, so the same image runs in every environment and is promoted unchanged from one to the next. It is configured when its container starts, from two environment variables:</p>
+<table>
+<thead>
+<tr>
+<th>Variable</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>API_ORIGIN</code></td>
+<td>The API's origin, such as <code>https://api.passel.link</code>: <code>https</code>, a host name and an optional port, nothing else (<code>http</code> only for <code>localhost</code> or <code>127.0.0.1</code>). One trailing slash is dropped</td>
+</tr>
+<tr>
+<td><code>GOOGLE_CLIENT_ID</code></td>
+<td>The Google OAuth web client id, <code>&lt;id&gt;.apps.googleusercontent.com</code></td>
+</tr>
+</tbody>
+</table>
+<p>Compose sets them from the server's <code>.env</code>: <code>API_ORIGIN</code> is <code>https://&lt;API_HOST&gt;</code> and <code>GOOGLE_CLIENT_ID</code> is <code>GOOGLE_WEB_CLIENT_ID</code>, the same client id the API accepts (<a href="../reference/configuration.html#compose-deployment">Configuration</a>). The entrypoint checks both and writes <code>/run/passel-web/config.json</code>, which Caddy serves as <code>/app/config.json</code>, then starts Caddy with the checked origin, which the <code>Caddyfile</code> puts into the app's <code>connect-src</code> (<code>{$API_ORIGIN}</code>). A value that is missing or breaks a rule stops the container with a message saying which and why (exit code 64), so a misconfigured server never serves a half-working app. The checks admit no quote, backslash, space or control character, which keeps the values from breaking out of the JSON or, since Caddy substitutes an environment value into its configuration as text, out of the header.</p>
+<p>The image keeps the rules above:</p>
+<ul>
+<li>It listens on plain HTTP on port 8080, as user 1000, with Caddy's admin endpoint, automatic HTTPS and saved configuration off. TLS ends at the proxy in front of it. The only directory it writes to is <code>/run/passel-web</code>, which the image gives to user 1000, so the entrypoint needs no capability; a container with a read-only root filesystem needs a tmpfs there (<code>--tmpfs /run/passel-web:uid=1000,gid=1000</code>).</li>
+<li><code>/privacy</code>, <code>/terms</code> and <code>/app</code> answer 308 with the trailing slash; anything that is not a file answers 404 with <code>404.html</code>.</li>
+<li>Every response, the redirects and the 404 page included, carries <code>Cache-Control: no-cache</code>, <code>Strict-Transport-Security: max-age=31536000; includeSubDomains</code>, a <code>Content-Security-Policy</code> with <code>frame-ancestors 'none'</code> (the app's under <code>/app/</code>, the no-script one elsewhere, a 404 under <code>/app/</code> included), <code>X-Frame-Options: DENY</code>, <code>X-Content-Type-Options: nosniff</code> and <code>Referrer-Policy: strict-origin-when-cross-origin</code>, and no <code>Server</code> header. Caddy's <code>ETag</code> and <code>Last-Modified</code> let browsers revalidate with a 304, <code>/app/config.json</code> included.</li>
+<li>Responses are compressed with zstd or gzip, and request bodies are capped at 1 MB.</li>
+<li>The Caddy binary has its capability to bind low ports removed, so the container runs with every capability dropped.</li>
+</ul>
+<p>To build and look at it locally (nothing is pushed off <code>main</code>), run <code>dotnet atom SetupBuildInfo</code> (with <code>--skip</code>, <code>PublishImages</code> uses the version that last stored), then <code>dotnet atom BuildWebApp</code>, then <code>dotnet atom PublishImages --skip</code>, and <code>docker run --rm -p 127.0.0.1:18081:8080 --cap-drop ALL -e API_ORIGIN=https://api.example.test -e GOOGLE_CLIENT_ID=&lt;id&gt;.apps.googleusercontent.com invex-games/passel-web:&lt;version&gt;</code>. Locally the images are named without the registry, as <code>invex-games/passel-webapi</code> and <code>invex-games/passel-web</code>.</p>
+<p>The compose stack runs the image as <code>web</code>, behind the proxy, and the <code>DeployCompose</code> workflow deploys it with the API (<a href="../guides/deploying.html#self-hosted-docker-compose">Releasing and Deploying</a>); the preview deployment in roadmap 1.E2 is still to come. The production build is checked on every pull request: <code>build.test.ts</code> runs <code>build.mjs</code> as part of <code>npm test</code>. Before the site goes up:</p>
+<ul>
+<li><code>docs.passel.link</code>, which the static pages' footers link to as <strong>Documentation</strong>, must serve the DocFX site (<code>PublishDocs</code> pushes it to GitHub Pages).</li>
+<li>The mobile app's <strong>Privacy policy</strong> and <strong>Terms of service</strong> tiles stay disabled until the pages are hosted; turn on <code>legalPagesPublished</code> in <code>settings_page.dart</code> then.</li>
+</ul>
+<h2 id="tests">Tests</h2>
+<p><code>npm test</code> in <code>src</code> runs <code>src/web/test</code> with the other workspace members:</p>
+<ul>
+<li><code>controller.test.ts</code> drives <code>AppController</code> against a fake API: signing in and out, the reload of a signed-in tab, live events, the first and later resyncs, the tab being hidden briefly and for longer, an expired session, a refused stream, and failed loads, including a first resync that overtakes the first refresh and fails.</li>
+<li><code>session.test.ts</code> covers accepting and refusing Google credentials, expiry, the One Tap hint and development users, one per tab.</li>
+<li><code>views.test.tsx</code> renders the views to HTML with <code>preact-render-to-string</code>: tiles with and without previews, escaping, links that aren't <code>http(s)</code>, the feed's end row, the sign-in page in each build, and the page shown when the configuration is not valid.</li>
+<li><code>config.test.ts</code> covers loading <code>/app/config.json</code> and every rule it is checked against: <code>https</code> only, <code>http</code> to this machine only, no credentials, query or fragment, a real client id unless the development sign-in is built in, and a missing, unreadable or non-JSON file.</li>
+<li><code>build.test.ts</code> runs the production build into a temporary folder with no values set and checks its output: every page and bundle, no source maps, no configuration, no policy in the HTML and no API address or client id compiled in. It also starts the dev server on a free port and checks <code>/app/config.json</code> and the two policies it sends.</li>
+<li><code>labels.test.ts</code> covers the wording; <code>static-pages.test.ts</code> checks that every link on the static pages resolves, that they carry no script and no policy of their own and use the ADR 0002 vocabulary and link to the documentation, that the web image's <code>Caddyfile</code> sends the same two policies as the dev server, and that the privacy and terms drafts say they are drafts, quote the limits the API's options actually default to, and don't promise a single preview request.</li>
+</ul>
+<h2 id="the-privacy-and-terms-drafts">The privacy and terms drafts</h2>
+<p>The two pages describe what the code does today, and they are marked as drafts pending legal review. Facts the repository doesn't hold (the operator, contact, hosting region, retention of logs and backups, the legal clauses) are highlighted placeholders such as <code>[CONTACT EMAIL]</code>; <code>static-pages.test.ts</code> fails if one isn't marked. Before publishing, fill them all in, have the pages reviewed, and remove the draft notice and the <code>noindex</code> tag. When the code changes what it stores or does, update the pages; their sources:</p>
+<table>
+<thead>
+<tr>
+<th>Statement</th>
+<th>Where it comes from</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>What is stored with an item, and that a delete erases it</td>
+<td><code>Domain/Packet.cs</code>, <code>PacketStoreService</code>, <a href="../decisions/0001-packets-as-documents.html">ADR 0001</a></td>
+</tr>
+<tr>
+<td>Only the Google <code>sub</code> is kept, as the user id</td>
+<td>The endpoints read <code>ClaimTypes.NameIdentifier</code>; nothing stores the email or name</td>
+</tr>
+<tr>
+<td>How a preview is fetched, its limits and its <code>User-Agent</code>; the image is never fetched by the server</td>
+<td><code>LinkPreviewFetcher</code>, <code>LinkPreviewOptions</code>, <code>LinkPreviewAddressPolicy</code>, <code>LinkPreviewResponse.ImageUrl</code></td>
+</tr>
+<tr>
+<td>Rate limits and quotas</td>
+<td><code>RateLimitOptions</code>, <code>QuotaOptions</code> (checked by the test)</td>
+</tr>
+<tr>
+<td>Logs, traces and metrics</td>
+<td><code>Invex.Passel.ServiceDefaults</code>: OpenTelemetry for ASP.NET Core and <code>HttpClient</code>; the log messages carry internal ids, not content</td>
+</tr>
+<tr>
+<td>What each client keeps</td>
+<td>The web app's <code>session.ts</code>, the extension's <code>auth.ts</code> and <code>cache.ts</code>, the mobile app's <code>auth_repository.dart</code> and <code>packet_cache.dart</code></td>
+</tr>
+</tbody>
+</table>
+
+</article>
+
+        <div class="contribution d-print-none">
+          <a href="https://github.com/Invex-Games/passel/blob/main/docs/components/web-app.md/#L1" class="edit-link">Edit this page</a>
+        </div>
+
+        <div class="next-article d-print-none border-top" id="nextArticle"></div>
+
+      </div>
+
+      <div class="affix">
+        <nav id="affix"></nav>
+      </div>
+    </main>
+
+    <div class="container-xxl search-results" id="search-results"></div>
+
+    <footer class="border-top text-secondary">
+      <div class="container-xxl">
+        <div class="flex-fill">
+          Passel · Invex Games
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>

@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+      <title>Passel | Passel </title>
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <meta name="title" content="Passel | Passel ">
+      
+      
+      <link rel="icon" href="resources/icon-48.png">
+      <link rel="stylesheet" href="public/docfx.min.css">
+      <link rel="stylesheet" href="public/main.css">
+      <meta name="docfx:navrel" content="toc.html">
+      <meta name="docfx:tocrel" content="toc.html">
+      
+      <meta name="docfx:rel" content="">
+      
+      
+      <meta name="docfx:docurl" content="https://github.com/Invex-Games/passel/blob/main/index.md/#L1">
+      <meta name="loc:inThisArticle" content="In this article">
+      <meta name="loc:searchResultsCount" content="{count} results for &quot;{query}&quot;">
+      <meta name="loc:searchNoResults" content="No results for &quot;{query}&quot;">
+      <meta name="loc:tocFilter" content="Filter by title">
+      <meta name="loc:nextArticle" content="Next">
+      <meta name="loc:prevArticle" content="Previous">
+      <meta name="loc:themeLight" content="Light">
+      <meta name="loc:themeDark" content="Dark">
+      <meta name="loc:themeAuto" content="Auto">
+      <meta name="loc:changeTheme" content="Change theme">
+      <meta name="loc:copy" content="Copy">
+      <meta name="loc:downloadPdf" content="Download PDF">
+
+      <script type="module" src="./public/docfx.min.js"></script>
+
+      <script>
+        const theme = localStorage.getItem('theme') || 'auto'
+        document.documentElement.setAttribute('data-bs-theme', theme === 'auto' ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : theme)
+      </script>
+
+  </head>
+
+  <body class="tex2jax_ignore" data-layout="landing" data-yaml-mime="">
+    <header class="bg-body border-bottom">
+      <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
+        <div class="container-xxl flex-nowrap">
+          <a class="navbar-brand" href="index.html">
+            <img id="logo" class="svg" src="resources/icon-128.png" alt="Passel">
+            Passel
+          </a>
+          <button class="btn btn-lg d-md-none border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navpanel" aria-controls="navpanel" aria-expanded="false" aria-label="Toggle navigation">
+            <i class="bi bi-three-dots"></i>
+          </button>
+          <div class="collapse navbar-collapse" id="navpanel">
+            <div id="navbar">
+              <form class="search" role="search" id="search">
+                <i class="bi bi-search"></i>
+                <input class="form-control" id="search-query" type="search" disabled placeholder="Search" autocomplete="off" aria-label="Search">
+              </form>
+            </div>
+          </div>
+        </div>
+      </nav>
+    </header>
+
+    <main class="container-xxl">
+
+      <div class="content">
+        <div class="actionbar">
+
+          <nav id="breadcrumb"></nav>
+        </div>
+
+        <article data-uid="">
+<h1 id="passel">Passel</h1>
+
+<p>Passel sends links and text between your devices. Push something from your browser and it shows up on your phone, live.</p>
+<p>The repository holds the apps that share one API:</p>
+<table>
+<thead>
+<tr>
+<th>Component</th>
+<th>Stack</th>
+<th>Source</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="docs/components/web-api.html">Web API</a></td>
+<td>ASP.NET Core (.NET 10), Marten on PostgreSQL, hosted locally by .NET Aspire</td>
+<td><code>src/webapi</code></td>
+</tr>
+<tr>
+<td><a href="docs/components/chrome-extension.html">Chrome Extension</a></td>
+<td>TypeScript, Manifest V3, esbuild</td>
+<td><code>src/chrome-extension</code></td>
+</tr>
+<tr>
+<td><a href="docs/components/web-app.html">Web App</a></td>
+<td>TypeScript, Preact, esbuild; also the landing, privacy and terms pages</td>
+<td><code>src/web</code></td>
+</tr>
+<tr>
+<td><a href="docs/components/mobile-app.html">Mobile App</a></td>
+<td>Flutter (Android), Riverpod</td>
+<td><code>src/mobile_app</code></td>
+</tr>
+</tbody>
+</table>
+<p>Builds, tests and docs are driven by <a href="https://github.com/Invex-Games/atom">Atom</a>; see <a href="docs/reference/build-targets.html">Build Targets</a>.</p>
+<h2 id="start-here">Start here</h2>
+<ol>
+<li><a href="docs/getting-started/prerequisites.html">Install the prerequisites</a>, then run <code>dotnet tool restore</code> and <code>dotnet atom SetupDevEnvironment</code> to check them.</li>
+<li><a href="docs/getting-started/google-oauth.html">Set up the Google OAuth clients</a> the apps sign in with.</li>
+<li><a href="docs/getting-started/running-locally.html">Run everything locally</a> with the Aspire AppHost.</li>
+</ol>
+
+</article>
+
+        <div class="contribution d-print-none">
+          <a href="https://github.com/Invex-Games/passel/blob/main/index.md/#L1" class="edit-link">Edit this page</a>
+        </div>
+
+        <div class="next-article d-print-none border-top" id="nextArticle"></div>
+
+      </div>
+
+      <div class="affix">
+        <nav id="affix"></nav>
+      </div>
+    </main>
+
+    <div class="container-xxl search-results" id="search-results"></div>
+
+    <footer class="border-top text-secondary">
+      <div class="container-xxl">
+        <div class="flex-fill">
+          Passel · Invex Games
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>

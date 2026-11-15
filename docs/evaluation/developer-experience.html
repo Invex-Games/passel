@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+      <title>Developer Experience | Passel </title>
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <meta name="title" content="Developer Experience | Passel ">
+      
+      
+      <link rel="icon" href="../../resources/icon-48.png">
+      <link rel="stylesheet" href="../../public/docfx.min.css">
+      <link rel="stylesheet" href="../../public/main.css">
+      <meta name="docfx:navrel" content="../../toc.html">
+      <meta name="docfx:tocrel" content="../toc.html">
+      
+      <meta name="docfx:rel" content="../../">
+      
+      
+      <meta name="docfx:docurl" content="https://github.com/Invex-Games/passel/blob/main/docs/evaluation/developer-experience.md/#L1">
+      <meta name="loc:inThisArticle" content="In this article">
+      <meta name="loc:searchResultsCount" content="{count} results for &quot;{query}&quot;">
+      <meta name="loc:searchNoResults" content="No results for &quot;{query}&quot;">
+      <meta name="loc:tocFilter" content="Filter by title">
+      <meta name="loc:nextArticle" content="Next">
+      <meta name="loc:prevArticle" content="Previous">
+      <meta name="loc:themeLight" content="Light">
+      <meta name="loc:themeDark" content="Dark">
+      <meta name="loc:themeAuto" content="Auto">
+      <meta name="loc:changeTheme" content="Change theme">
+      <meta name="loc:copy" content="Copy">
+      <meta name="loc:downloadPdf" content="Download PDF">
+
+      <script type="module" src="./../../public/docfx.min.js"></script>
+
+      <script>
+        const theme = localStorage.getItem('theme') || 'auto'
+        document.documentElement.setAttribute('data-bs-theme', theme === 'auto' ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : theme)
+      </script>
+
+  </head>
+
+  <body class="tex2jax_ignore" data-layout="" data-yaml-mime="">
+    <header class="bg-body border-bottom">
+      <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
+        <div class="container-xxl flex-nowrap">
+          <a class="navbar-brand" href="../../index.html">
+            <img id="logo" class="svg" src="../../resources/icon-128.png" alt="Passel">
+            Passel
+          </a>
+          <button class="btn btn-lg d-md-none border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navpanel" aria-controls="navpanel" aria-expanded="false" aria-label="Toggle navigation">
+            <i class="bi bi-three-dots"></i>
+          </button>
+          <div class="collapse navbar-collapse" id="navpanel">
+            <div id="navbar">
+              <form class="search" role="search" id="search">
+                <i class="bi bi-search"></i>
+                <input class="form-control" id="search-query" type="search" disabled placeholder="Search" autocomplete="off" aria-label="Search">
+              </form>
+            </div>
+          </div>
+        </div>
+      </nav>
+    </header>
+
+    <main class="container-xxl">
+      <div class="toc-offcanvas">
+        <div class="offcanvas-md offcanvas-start" tabindex="-1" id="tocOffcanvas" aria-labelledby="tocOffcanvasLabel">
+          <div class="offcanvas-header">
+            <h5 class="offcanvas-title" id="tocOffcanvasLabel">Table of Contents</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="offcanvas" data-bs-target="#tocOffcanvas" aria-label="Close"></button>
+          </div>
+          <div class="offcanvas-body">
+            <nav class="toc" id="toc"></nav>
+          </div>
+        </div>
+      </div>
+
+      <div class="content">
+        <div class="actionbar">
+          <button class="btn btn-lg border-0 d-md-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#tocOffcanvas" aria-controls="tocOffcanvas" aria-expanded="false" aria-label="Show table of contents">
+            <i class="bi bi-list"></i>
+          </button>
+
+          <nav id="breadcrumb"></nav>
+        </div>
+
+        <article data-uid="">
+<h1 id="developer-experience">Developer Experience</h1>
+
+<p>Scope: what it takes to go from clone to a running system, to a passing test run, and to a release, on the machine a developer actually has. Method: every documented command was run from the repository root with warm caches, the onboarding docs were checked claim by claim against the repository, and the Atom build, the ignore rules and line endings were inspected. The AppHost itself and the <code>atom Build*</code> targets were read rather than run.</p>
+<h2 id="verdict">Verdict</h2>
+<p>The inner loop is excellent: one build, three test suites, zero warnings, all green in seconds, with docs that are structured, honest and precise, an AppHost that provisions the database, the extension's watch build and a phone-reachable tunnel, and a <code>ConfigErrorPage</code> that tells a mobile developer exactly which value is missing. The outer loop is missing: there is no CI, no deployment path, no release automation and no contribution conventions. And the first ten minutes for a stranger end at a Google Cloud console, because nothing in the system can authenticate without three real OAuth clients.</p>
+<p>Score: 4 / 5 for the inner loop, 1 / 5 for the outer loop.</p>
+<h2 id="the-developer-loop-as-measured">The developer loop as measured</h2>
+<table>
+<thead>
+<tr>
+<th>Command</th>
+<th>Result</th>
+<th>Time (warm)</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>dotnet build Invex.Passel.slnx -c Debug</code></td>
+<td>5 projects, 0 warnings, 0 errors</td>
+<td>7.2 s</td>
+<td><code>TreatWarningsAsErrors</code> holds</td>
+</tr>
+<tr>
+<td><code>dotnet test --project src/webapi/Invex.Passel.WebApi.Tests/…</code></td>
+<td>42 passed</td>
+<td>4.0 s</td>
+<td>Needs <code>--project</code> under Microsoft.Testing.Platform; docs say so</td>
+</tr>
+<tr>
+<td><code>npm run typecheck</code> (extension)</td>
+<td>clean</td>
+<td>0.85 s</td>
+<td></td>
+</tr>
+<tr>
+<td><code>npm test</code> (extension)</td>
+<td>39 passed</td>
+<td>1.0 s</td>
+<td></td>
+</tr>
+<tr>
+<td><code>flutter analyze</code></td>
+<td>no issues</td>
+<td>22.4 s</td>
+<td>The slowest step</td>
+</tr>
+<tr>
+<td><code>flutter test</code></td>
+<td>170 passed</td>
+<td>4.2 s</td>
+<td></td>
+</tr>
+<tr>
+<td><code>dotnet list package --vulnerable --include-transitive</code> (5 projects)</td>
+<td>none vulnerable</td>
+<td>1 to 9 s each</td>
+<td></td>
+</tr>
+<tr>
+<td><code>npm audit</code></td>
+<td>4 advisories, all dev-only (vitest 3 chain, esbuild)</td>
+<td>2 s</td>
+<td><code>vitest@5</code> and <code>npm audit fix</code> clear them</td>
+</tr>
+<tr>
+<td><code>flutter pub outdated</code></td>
+<td>7 direct outdated, 3 majors (<code>flutter_riverpod</code> 3, <code>share_plus</code> 13, <code>dynamic_color</code> 2)</td>
+<td>1.8 s</td>
+<td><code>google_sign_in</code> current</td>
+</tr>
+<tr>
+<td><code>atom -h</code> (as the README says)</td>
+<td>prints the global tool wrapper's own usage, not the targets</td>
+<td></td>
+<td><code>dotnet run --project _atom -- --help</code> lists all ten targets</td>
+</tr>
+<tr>
+<td><code>dotnet run --project src/webapi/Invex.Passel.WebApi</code> (API alone)</td>
+<td>fails: <code>ConnectionString is missing</code></td>
+<td></td>
+<td>Clear message; there is no way to run the API without PostgreSQL and Google settings</td>
+</tr>
+</tbody>
+</table>
+<p>Tool versions on this machine: .NET SDK 10.0.401, Node 24, Flutter 3.41.0, Docker 29, Aspire CLI 13.6.2, Dev Tunnels 1.0, Invex.Atom.Tool 4.2.0 globally against Invex.Atom.Build 3.7.0 in <code>_atom</code> (5.0.0 is current).</p>
+<h2 id="strengths">Strengths</h2>
+<ul>
+<li>Documentation far above the solo-project norm: getting started, components, guides and reference; honest about limits; precise about ports, precedence and SSE semantics; already a searchable DocFX site. Every port, endpoint, limit and precedence rule the docs state was checked and is correct.</li>
+<li>The AppHost removes most setup pain: PostgreSQL with pgweb, the extension's watch build with injected configuration, a stable tunnel for phones, parameter prompting persisted to user secrets, telemetry to the dashboard.</li>
+<li><code>SetupDevEnvironment</code> is idempotent and prints an install hint for each missing tool; <code>ConfigErrorPage</code> names the missing dart-define and the exact command to run.</li>
+<li>Fast, green, warning-free verification, so a newcomer's first change is judged by the same bar as the existing code.</li>
+<li><code>.env.example</code> files with real comments for both clients.</li>
+</ul>
+<h2 id="findings">Findings</h2>
+<ol>
+<li><p><strong>There is no deployment or release path (High).</strong> <code>_atom/appsettings.json</code> names <code>https://api.passel.link</code>, but <code>BuildWebApi</code> only publishes to a folder; there is no container image, compose file, Bicep, Terraform or <code>azd</code> definition; Marten applies schema at startup with the application's credentials; the production values for the connection string, the Google settings, the Sqids alphabet and the telemetry endpoint have no documented source; the extension's <code>version</code> is a hard-coded &quot;1.0.0&quot; while .NET versions come from GitVersion; <code>BuildChromeExtension</code> makes a zip with no Web Store step; <code>BuildMobileAppAndroid</code> makes a bundle with no Play step. Fix, the minimum repeatable path: <code>dotnet publish /t:PublishContainer</code> with tags from GitVersion pushed to a registry; one host (a container app or a small VM with compose) with managed PostgreSQL; <code>AutoCreate.None</code> in production and schema applied at deploy with the JasperFx command line or a one-shot job; secrets from the host's store as environment variables with the keys documented; a <code>DeployWebApi</code> Atom target and workflow; <code>version</code> stamped into <code>dist/manifest.json</code> from GitVersion and published with <code>chrome-webstore-upload-cli</code>; Gradle Play Publisher or <code>fastlane supply</code> for the bundle and <code>mapping.txt</code>.</p>
+</li>
+<li><p><strong>No CI, no contribution conventions, no governance files (High).</strong> No <code>.github/</code>, no pull-request or issue templates, no CODEOWNERS, CONTRIBUTING, CHANGELOG or LICENSE (nothing says whether the code may be used at all), yet <code>GitVersion.yml</code> encodes conventional-commit bump rules and <code>feat/</code>, <code>fix/</code>, <code>chore/</code> branch names that the history already follows. Fix: generate the workflows with Atom's GitHub workflows module (<code>Test</code> on pull requests, <code>Build*</code> and docs publish on <code>main</code>, a Dependabot definition), add CONTRIBUTING.md (branch and commit conventions and their version effect, <code>atom Test</code> before a pull request, how the <code>.env</code> files work), a LICENSE, a one-line CODEOWNERS, a pull-request template, and a CHANGELOG generated from conventional commits.</p>
+</li>
+<li><p><strong>The first ten minutes end at a Google Cloud console (High).</strong> Every packet endpoint requires a Google ID token, the AppHost prompts for three OAuth values, Scalar's login needs the web client secret, and there is no development scheme, seeded user or fake issuer. A contributor without access to the maintainer's Cloud project must create a project and three clients (web with secret, extension, Android with their debug SHA-1) before a single request succeeds. Fix: a Development-only authentication scheme selected by the existing policy scheme (<code>Authorization: Dev &lt;user-id&gt;</code>, or tokens from <code>dotnet user-jwts</code>) so Scalar, curl and the integration tests work with the Google parameters empty; make the three AppHost parameters optional in Development; add a &quot;run without Google&quot; section to the running-locally page and keep the OAuth page for real sign-in.</p>
+</li>
+<li><p><strong>Line endings, BOMs and no <code>.gitattributes</code> (Medium).</strong> The index is 100 percent LF, the worktree is 42 percent CRLF because <code>core.autocrlf=true</code>, <code>.editorconfig</code> demands CRLF for every file, one file has mixed endings, 46 tracked files start with a BOM and the rest don't, and git warns on every status and diff. Fix with zero churn: <code>.gitattributes</code> with <code>* text=auto eol=lf</code> plus binary rules for <code>*.png</code> and <code>*.psd</code>, <code>.editorconfig</code> <code>end_of_line = lf</code>, <code>git add --renormalize .</code> (a no-op for the index), and let the IDE strip the BOMs.</p>
+</li>
+<li><p><strong>The documented target discovery doesn't work, and tool versions float (Medium).</strong> <code>atom -h</code> with the installed 4.2.0 global tool prints the wrapper's usage; <code>atom -- -h</code> errors; the tool is not resolvable from Git Bash at all because the shim is <code>atom.cmd</code>. <code>_atom</code> is on 3.7.0, the global tool is 4.2.0, 5.0.0 is current, and there is no tool manifest. Fix: a <code>dotnet-tools.json</code> manifest so <code>dotnet tool restore</code> and <code>dotnet atom &lt;Target&gt;</code> give everyone the same version in every shell; fix the README and the build-targets page; upgrade <code>_atom</code> to the current Atom in its own change.</p>
+</li>
+<li><p><strong>Google OAuth setup is incomplete for a stranger (Medium).</strong> The OAuth page has no consent-screen or test-users step, no <code>keytool</code> command for the debug SHA-1, doesn't say that each developer's debug keystore SHA-1 must be added to the one Android client, names no one to &quot;ask for the existing ids&quot;, and doesn't explain why <code>APP_CLIENT_ID</code> is optional when the Android client must still exist. Fix: a numbered from-zero walkthrough with the <code>keytool</code> command, the consent screen, the per-developer SHA-1 note, and a short &quot;if sign-in fails with X, check Y&quot; table (redirect URI mismatch for the extension id, missing SHA-1 giving <code>DEVELOPER_ERROR</code> on Android, audience not in <code>AdditionalAudiences</code> giving 401).</p>
+</li>
+<li><p><strong>Cross-platform friction (Medium).</strong> <code>atom.cmd</code> is invisible to bash; the npm <code>clean</code> and <code>package</code> scripts require PowerShell; the uncommitted launch configuration uses a backslash path; Atom helpers branch on Windows with <code>where</code>/<code>which</code> and <code>PATH</code>-string heuristics; the loop has never been recorded on macOS or Linux. Fix: the tool manifest (finding 5), Node-only npm scripts, a note about the <code>.cmd</code> shim in prerequisites, and one run of the loop on macOS or Linux written into the docs.</p>
+</li>
+<li><p><strong><code>SetupDevEnvironment</code> under-checks and under-automates (Low).</strong> It probes five tools, Docker running and the dev certificate, but not the .NET SDK version, Node version, JDK or Android SDK, <code>git</code>, or whether <code>devtunnel</code> is logged in; it creates <code>src/mobile_app/.env</code> from the example and leaves every value to be typed by hand. Fix: version checks, a <code>devtunnel user show</code> hint, the configuration sync from <a href="codebase-health.html">Codebase Health</a> finding 6, and a printed next-steps checklist.</p>
+</li>
+<li><p><strong>Documentation gaps (Low, specific).</strong> No architecture diagram (one Mermaid sequence diagram for create, <code>pg_notify</code>, <code>LISTEN</code>, hub, SSE, client reconcile would do; the modern DocFX template renders Mermaid), no page on how the feed state machine works (its invariants exist only as comments in <code>feed.ts</code> and <code>packets_provider.dart</code>), no ADRs (event sourcing for a two-event aggregate, Sqids ids, the implicit <code>id_token</code> flow, LISTEN/NOTIFY over SignalR or Redis, tunnel over emulator), no troubleshooting page (Docker not running, dev certificate untrusted, <code>devtunnel</code> not logged in, extension id and redirect mismatch, port 7030 busy, <code>atom</code> not found in bash), no release or deploy page, and the HTTP API page restates what a committed OpenAPI document could carry.</p>
+</li>
+<li><p><strong>A debug build through Atom appears to need Key Vault secrets (Low, unverified by execution).</strong> <code>BuildMobileAppAndroid</code> declares the keystore alias and password as required parameters although they are only used for the production flavor, so a development APK through Atom needs Key Vault access while the docs say the secrets are for production. Fix: require them only when the flavor is production, and document <code>flutter run --flavor development --dart-define-from-file=.env</code> as the day-to-day path.</p>
+</li>
+<li><p><strong>Repository noise and sharing (Low).</strong> A real signing keystore sits in the repository root (ignored, never committed, still one <code>git add -f</code> from history; Key Vault already holds it); <code>devtools_options.yaml</code> is untracked and un-ignored; the generated <code>.flutter-plugins</code> is tracked, stale and machine-specific; the 14 KB <code>.gitignore</code> concatenates the Visual Studio, JetBrains and Flutter-SDK templates (so <code>version</code> and <code>*.lock</code> are ignored everywhere and <code>pubspec.lock</code> survives only through a nested re-include); <code>.idea/</code> is fully ignored so Rider run configurations can't be shared; <code>.vscode/launch.json</code> has a personal device id pending. Fix: move the keystore out, commit <code>devtools_options.yaml</code>, untrack <code>.flutter-plugins</code>, trim the ignore file to what the repo needs, add shared launchers (<code>tasks.json</code> for <code>atom Test</code> and <code>aspire run</code>, allow the Rider run-configuration folder through the ignore rules), and don't commit the device id.</p>
+</li>
+<li><p><strong>Version pinning is partial (Low).</strong> Flutter 3.41.0 is pinned for release builds only and the build may switch a developer's own SDK; <code>TestMobileApp</code> uses whatever Flutter is on <code>PATH</code>; no SDK pin in <code>global.json</code>; no Node pin. Fix: <code>global.json</code> with <code>rollForward: latestFeature</code>, <code>engines</code> in <code>package.json</code>, FVM or a warning when the <code>PATH</code> Flutter differs from the pinned version.</p>
+</li>
+</ol>
+<h2 id="a-small-tool-that-fell-out-of-this-review">A small tool that fell out of this review</h2>
+<p>The extension popup was reviewed by running the real <code>popup.js</code> bundle in a plain browser tab with a 60-line stub of the <code>chrome.*</code> APIs (<code>runtime.sendMessage</code> and <code>connect</code>, <code>storage</code>, <code>tabs</code>) returning canned packets. It renders every state (signed out, empty, feed, copy menu, undo toast, dark mode) without loading the extension or signing in, reloads instantly, and would make a fine <code>npm run harness</code> for popup work and for screenshot tests. It lives in this session's scratch folder; it is worth adding to <code>src/chrome-extension/harness/</code>.</p>
+<h2 id="steps-forward">Steps forward</h2>
+<ol>
+<li><strong>CI through Atom's workflow generator, with Dependabot and the governance files</strong> (M). Findings 2 and 12.</li>
+<li><strong>Deploy the API repeatably and stamp versions into every artifact</strong> (L). Finding 1.</li>
+<li><strong>Development auth scheme and optional AppHost parameters</strong> (S). Finding 3; also what the integration tests need.</li>
+<li><strong>Tool manifest, <code>.gitattributes</code>, LF, no BOMs, fix the README</strong> (S). Findings 4, 5, 7.</li>
+<li><strong>OAuth walkthrough, troubleshooting page, architecture diagram, feed state-machine page, ADRs</strong> (M). Findings 6 and 9.</li>
+<li><strong><code>SetupDevEnvironment</code> version checks and config sync; keystore out of the tree; ignore-file trim</strong> (S to M). Findings 8, 10, 11.</li>
+<li><strong>Popup harness in the repo</strong> (S). Useful for the redesign work in <a href="ui-design.html">UI Design</a>.</li>
+</ol>
+
+</article>
+
+        <div class="contribution d-print-none">
+          <a href="https://github.com/Invex-Games/passel/blob/main/docs/evaluation/developer-experience.md/#L1" class="edit-link">Edit this page</a>
+        </div>
+
+        <div class="next-article d-print-none border-top" id="nextArticle"></div>
+
+      </div>
+
+      <div class="affix">
+        <nav id="affix"></nav>
+      </div>
+    </main>
+
+    <div class="container-xxl search-results" id="search-results"></div>
+
+    <footer class="border-top text-secondary">
+      <div class="container-xxl">
+        <div class="flex-fill">
+          Passel · Invex Games
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>

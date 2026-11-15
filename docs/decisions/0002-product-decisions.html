@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+      <title>ADR 0002: Ordering, vocabulary, web app stack, parcel storage and hosting | Passel </title>
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <meta name="title" content="ADR 0002: Ordering, vocabulary, web app stack, parcel storage and hosting | Passel ">
+      
+      
+      <link rel="icon" href="../../resources/icon-48.png">
+      <link rel="stylesheet" href="../../public/docfx.min.css">
+      <link rel="stylesheet" href="../../public/main.css">
+      <meta name="docfx:navrel" content="../../toc.html">
+      <meta name="docfx:tocrel" content="../toc.html">
+      
+      <meta name="docfx:rel" content="../../">
+      
+      
+      <meta name="docfx:docurl" content="https://github.com/Invex-Games/passel/blob/main/docs/decisions/0002-product-decisions.md/#L1">
+      <meta name="loc:inThisArticle" content="In this article">
+      <meta name="loc:searchResultsCount" content="{count} results for &quot;{query}&quot;">
+      <meta name="loc:searchNoResults" content="No results for &quot;{query}&quot;">
+      <meta name="loc:tocFilter" content="Filter by title">
+      <meta name="loc:nextArticle" content="Next">
+      <meta name="loc:prevArticle" content="Previous">
+      <meta name="loc:themeLight" content="Light">
+      <meta name="loc:themeDark" content="Dark">
+      <meta name="loc:themeAuto" content="Auto">
+      <meta name="loc:changeTheme" content="Change theme">
+      <meta name="loc:copy" content="Copy">
+      <meta name="loc:downloadPdf" content="Download PDF">
+
+      <script type="module" src="./../../public/docfx.min.js"></script>
+
+      <script>
+        const theme = localStorage.getItem('theme') || 'auto'
+        document.documentElement.setAttribute('data-bs-theme', theme === 'auto' ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : theme)
+      </script>
+
+  </head>
+
+  <body class="tex2jax_ignore" data-layout="" data-yaml-mime="">
+    <header class="bg-body border-bottom">
+      <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
+        <div class="container-xxl flex-nowrap">
+          <a class="navbar-brand" href="../../index.html">
+            <img id="logo" class="svg" src="../../resources/icon-128.png" alt="Passel">
+            Passel
+          </a>
+          <button class="btn btn-lg d-md-none border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navpanel" aria-controls="navpanel" aria-expanded="false" aria-label="Toggle navigation">
+            <i class="bi bi-three-dots"></i>
+          </button>
+          <div class="collapse navbar-collapse" id="navpanel">
+            <div id="navbar">
+              <form class="search" role="search" id="search">
+                <i class="bi bi-search"></i>
+                <input class="form-control" id="search-query" type="search" disabled placeholder="Search" autocomplete="off" aria-label="Search">
+              </form>
+            </div>
+          </div>
+        </div>
+      </nav>
+    </header>
+
+    <main class="container-xxl">
+      <div class="toc-offcanvas">
+        <div class="offcanvas-md offcanvas-start" tabindex="-1" id="tocOffcanvas" aria-labelledby="tocOffcanvasLabel">
+          <div class="offcanvas-header">
+            <h5 class="offcanvas-title" id="tocOffcanvasLabel">Table of Contents</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="offcanvas" data-bs-target="#tocOffcanvas" aria-label="Close"></button>
+          </div>
+          <div class="offcanvas-body">
+            <nav class="toc" id="toc"></nav>
+          </div>
+        </div>
+      </div>
+
+      <div class="content">
+        <div class="actionbar">
+          <button class="btn btn-lg border-0 d-md-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#tocOffcanvas" aria-controls="tocOffcanvas" aria-expanded="false" aria-label="Show table of contents">
+            <i class="bi bi-list"></i>
+          </button>
+
+          <nav id="breadcrumb"></nav>
+        </div>
+
+        <article data-uid="">
+<h1 id="adr-0002-ordering-vocabulary-web-app-stack-parcel-storage-and-hosting">ADR 0002: Ordering, vocabulary, web app stack, parcel storage and hosting</h1>
+
+<p><strong>Status:</strong> accepted, October 2026. <strong>Decides:</strong> roadmap package 0.F1, the product decisions the evaluation left open, plus the hosting choice that package 0.A2 needs.</p>
+<h2 id="context">Context</h2>
+<p>The evaluation found the clients disagreeing on the order of the feed (<a href="../evaluation/ux.html">UX</a>, finding 4) and leaking internal vocabulary into the screens (finding 5), compared stacks for the web app (<a href="../evaluation/web-app.html">Web App Plan</a>) and storage backends for parcels (<a href="../evaluation/features.html">Feature Ideas</a>), and noted that nothing deploys the API yet (<a href="../evaluation/developer-experience.html">Developer Experience</a>, finding 1). Each of those gates later work: the share target, the landing, privacy and terms pages, parcels, the tile redesigns, the web app and the deployment pipeline. The recommendations of those chapters are adopted as they stand.</p>
+<h2 id="decisions">Decisions</h2>
+<ul>
+<li><strong>Ordering: newest at the top, everywhere.</strong> The feed is a feed, not a chat. The extension already shows newest first; the mobile app flips to match, so the same item sits in the same place on every device, pull-to-refresh is the usual pull down at the top, and older items load at the bottom. The web app follows.</li>
+<li><strong>Vocabulary: one verb, &quot;Send&quot;; the nouns are link, note and file.</strong> Screens, notifications and store listings use those words; &quot;item&quot; or &quot;items&quot; where the type is not known. &quot;Packet&quot; and &quot;parcel&quot; stay as code and API terms, and the API contract does not change.</li>
+<li><strong>Web app: a TypeScript progressive web app sharing a core package with the extension.</strong> The extension's chrome-free modules (feed state, parsing, server-sent events, types) become that package first (roadmap package 1.E1), the web app consumes it (1.E2), and the extension becomes another consumer. Flutter Web and Blazor were compared and set aside: the web platform's own strengths (selection, search engines, share target, push, installability) matter for this app, and the shared code with the extension is the larger saving.</li>
+<li><strong>Parcels: Azure Blob Storage behind an <code>IParcelStore</code> interface</strong>, with Azurite running locally under the AppHost. The interface (put, get as a stream, delete, later a signed URL) keeps an S3-compatible implementation to about a day's work if hosting ever moves.</li>
+<li><strong>Hosting: Azure.</strong> The build already uses Azure (Key Vault), the parcel store is Azure Blob, and Aspire's Azure integrations cover the local run. Package 0.A2 chooses the concrete compute and database services and documents the secrets. Superseded by <a href="0004-hosting-on-docker-compose.html">ADR 0004</a>: Passel moves to Docker Compose on the owner's server, with the files on its disk.</li>
+</ul>
+<h2 id="consequences">Consequences</h2>
+<ul>
+<li>The mobile feed changes direction, which also changes the pull-to-refresh gesture; the hint text and the app bar behaviour follow.</li>
+<li>Visible strings in both clients change; later packages keep to the vocabulary, and the privacy and terms pages and the store listings (1.E3, 2.A1) use it from the start.</li>
+<li>The web app work can start with the core extraction; nothing in the extension's behaviour changes until it consumes the package.</li>
+<li>Parcels and the deployment pipeline can be designed against Azure services without a further decision.</li>
+<li>Should hosting leave Azure, the parcel store swaps behind its interface and the deployment target changes; nothing in the clients depends on either.</li>
+</ul>
+
+</article>
+
+        <div class="contribution d-print-none">
+          <a href="https://github.com/Invex-Games/passel/blob/main/docs/decisions/0002-product-decisions.md/#L1" class="edit-link">Edit this page</a>
+        </div>
+
+        <div class="next-article d-print-none border-top" id="nextArticle"></div>
+
+      </div>
+
+      <div class="affix">
+        <nav id="affix"></nav>
+      </div>
+    </main>
+
+    <div class="container-xxl search-results" id="search-results"></div>
+
+    <footer class="border-top text-secondary">
+      <div class="container-xxl">
+        <div class="flex-fill">
+          Passel · Invex Games
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>

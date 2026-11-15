@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+      <title>Performance | Passel </title>
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <meta name="title" content="Performance | Passel ">
+      
+      
+      <link rel="icon" href="../../resources/icon-48.png">
+      <link rel="stylesheet" href="../../public/docfx.min.css">
+      <link rel="stylesheet" href="../../public/main.css">
+      <meta name="docfx:navrel" content="../../toc.html">
+      <meta name="docfx:tocrel" content="../toc.html">
+      
+      <meta name="docfx:rel" content="../../">
+      
+      
+      <meta name="docfx:docurl" content="https://github.com/Invex-Games/passel/blob/main/docs/evaluation/performance.md/#L1">
+      <meta name="loc:inThisArticle" content="In this article">
+      <meta name="loc:searchResultsCount" content="{count} results for &quot;{query}&quot;">
+      <meta name="loc:searchNoResults" content="No results for &quot;{query}&quot;">
+      <meta name="loc:tocFilter" content="Filter by title">
+      <meta name="loc:nextArticle" content="Next">
+      <meta name="loc:prevArticle" content="Previous">
+      <meta name="loc:themeLight" content="Light">
+      <meta name="loc:themeDark" content="Dark">
+      <meta name="loc:themeAuto" content="Auto">
+      <meta name="loc:changeTheme" content="Change theme">
+      <meta name="loc:copy" content="Copy">
+      <meta name="loc:downloadPdf" content="Download PDF">
+
+      <script type="module" src="./../../public/docfx.min.js"></script>
+
+      <script>
+        const theme = localStorage.getItem('theme') || 'auto'
+        document.documentElement.setAttribute('data-bs-theme', theme === 'auto' ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : theme)
+      </script>
+
+  </head>
+
+  <body class="tex2jax_ignore" data-layout="" data-yaml-mime="">
+    <header class="bg-body border-bottom">
+      <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
+        <div class="container-xxl flex-nowrap">
+          <a class="navbar-brand" href="../../index.html">
+            <img id="logo" class="svg" src="../../resources/icon-128.png" alt="Passel">
+            Passel
+          </a>
+          <button class="btn btn-lg d-md-none border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navpanel" aria-controls="navpanel" aria-expanded="false" aria-label="Toggle navigation">
+            <i class="bi bi-three-dots"></i>
+          </button>
+          <div class="collapse navbar-collapse" id="navpanel">
+            <div id="navbar">
+              <form class="search" role="search" id="search">
+                <i class="bi bi-search"></i>
+                <input class="form-control" id="search-query" type="search" disabled placeholder="Search" autocomplete="off" aria-label="Search">
+              </form>
+            </div>
+          </div>
+        </div>
+      </nav>
+    </header>
+
+    <main class="container-xxl">
+      <div class="toc-offcanvas">
+        <div class="offcanvas-md offcanvas-start" tabindex="-1" id="tocOffcanvas" aria-labelledby="tocOffcanvasLabel">
+          <div class="offcanvas-header">
+            <h5 class="offcanvas-title" id="tocOffcanvasLabel">Table of Contents</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="offcanvas" data-bs-target="#tocOffcanvas" aria-label="Close"></button>
+          </div>
+          <div class="offcanvas-body">
+            <nav class="toc" id="toc"></nav>
+          </div>
+        </div>
+      </div>
+
+      <div class="content">
+        <div class="actionbar">
+          <button class="btn btn-lg border-0 d-md-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#tocOffcanvas" aria-controls="tocOffcanvas" aria-expanded="false" aria-label="Show table of contents">
+            <i class="bi bi-list"></i>
+          </button>
+
+          <nav id="breadcrumb"></nav>
+        </div>
+
+        <article data-uid="">
+<h1 id="performance">Performance</h1>
+
+<p>Scope: the API and its database access, the live-update path, the extension popup and service worker, and the mobile app. Method: static review of every hot path against Marten, Npgsql, Chrome and Flutter behaviour, plus measurements where they could be taken without a running database (extension bundle sizes and test timings). Database numbers are estimates until an <code>EXPLAIN ANALYZE</code> on a seeded table confirms them; they are marked as such.</p>
+<h2 id="verdict">Verdict</h2>
+<p>Nothing is slow today, and the design choices that matter at scale are mostly right: UUIDv7 ids make the feed an append-only index, cursor paging never uses <code>OFFSET</code>, the inline snapshot means reads never replay events, the NOTIFY payload carries only ids, the fan-out channels are bounded, and the extension bundles are tiny. The problems are the ones that only show up with volume: both clients persist their entire loaded feed on every change, the mobile app re-parses that cache on every event, the list query has no index that matches it, and the event store grows forever. All are cheap to fix now and expensive to fix after there is data.</p>
+<p>Score: 3 / 5 today, trending to 2 / 5 at a few thousand packets per user without the fixes below.</p>
+<h2 id="measurements">Measurements</h2>
+<table>
+<thead>
+<tr>
+<th>Item</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Extension production build (<code>node build.mjs</code>, minified)</td>
+<td><code>background.js</code> 10.1 KB (4.1 KB gzip), <code>popup.js</code> 14.6 KB (5.3 KB gzip), <code>popup.css</code> 20.7 KB, built in 0.10 s</td>
+</tr>
+<tr>
+<td>Extension dev build</td>
+<td><code>background.js</code> 18.1 KB plus 51.8 KB map, <code>popup.js</code> 27.6 KB plus 67.6 KB map</td>
+</tr>
+<tr>
+<td>Extension tests (<code>vitest run</code>)</td>
+<td>3 files, 39 tests, all pass in 347 ms (1.47 s wall with <code>npx</code> start-up)</td>
+</tr>
+<tr>
+<td>NOTIFY payload</td>
+<td>About 100 bytes, bounded, covered by a test against the 8000-byte limit</td>
+</tr>
+<tr>
+<td>Popup start-up I/O</td>
+<td>One <code>storage.local</code> read before the cached feed renders, then one message to the worker, one port, one list fetch and one SSE stream</td>
+</tr>
+<tr>
+<td>Source size</td>
+<td>Dart 3,743 lines (<code>packets_provider.dart</code> 552), extension 1,971 lines (<code>popup.ts</code> 710), API tests 511 lines</td>
+</tr>
+</tbody>
+</table>
+<p>Not measured: query plans, Marten DDL, cold-start code generation, mobile frame times. The next step for the database findings is a seeded table and <code>EXPLAIN (ANALYZE, BUFFERS)</code>.</p>
+<h2 id="findings">Findings</h2>
+<p>Ordered by impact. &quot;When it bites&quot; gives the data volume or concurrency at which the problem becomes visible.</p>
+<ol>
+<li><p><strong>Mobile re-serialises and re-parses the whole feed on every change (High).</strong> <code>_persist</code> in <code>packets_provider.dart</code> runs after every state change (nine call sites: build, refresh, load more, push, live create, live delete, hide, unhide, sync) and does two things: <code>PacketCache.save</code> encodes every loaded packet, all pages ever loaded, into one <code>shared_preferences</code> string, then <code>ref.invalidate(hasCachedPacketsProvider)</code> re-reads and fully re-parses that string only to answer <code>isNotEmpty</code>. All of it runs on the UI isolate, and on Android the platform rewrites the whole preferences XML file per commit, with every quote escaped. One local delete is two full cycles (hide, then the echoed delete event). When it bites: fine at one page; roughly 10 to 30 ms of jank per event at 1,000 packets; 100 ms and ANR risk on pause with 64 KB bodies. Fix: cache only the first page and its cursor (the cache exists to show something instantly; older pages are refetched by load-more anyway), replace the invalidation with an in-memory flag, and debounce writes by about 300 ms so bursts write once. <code>Isolate.run</code> for the encode would hide the jank but not the file churn; a database would be right only if large bodies had to be cached.</p>
+</li>
+<li><p><strong>The extension cache is unbounded and the popup rebuilds, animates and layout-thrashes every cached tile on every open (High).</strong> <code>FeedStore.commit</code> in <code>feed.ts</code> saves the full list to <code>chrome.storage.local</code> on every commit and <code>loadMore</code> keeps appending, so the cache grows by 50 per scroll-to-end and is never trimmed. On every open <code>renderFeed</code> builds a tile for every cached packet, <code>.packet</code> has a slide-in animation so all of them animate at once, and <code>measureClampedTiles</code> interleaves a layout read (<code>scrollHeight</code>) with a write (<code>classList.remove</code>, <code>body.after</code>) per text tile, forcing one synchronous layout per tile. Without <code>unlimitedStorage</code> the cache hits the 10 MB quota at about 30,000 average packets or 160 maximum-size ones, after which every save fails silently and the stale cache is shown forever. When it bites: one page is a few milliseconds; 1,000 cached packets is 10,000 DOM nodes, 1,000 forced layouts and 1,000 simultaneous animations, hundreds of milliseconds to seconds on every open. Fix: cap the cache at the first page; split <code>measureClampedTiles</code> into a read loop then a write loop; animate only packets that arrive live; consider <code>content-visibility: auto</code> on <code>.packet</code>.</p>
+</li>
+<li><p><strong>No index serves the list query (High).</strong> <code>Program.cs</code> declares <code>.Index(p =&gt; p.UserId)</code>, which Marten creates as an expression index on <code>(data -&gt;&gt; 'UserId')</code>, and <code>GetPackets.cs</code> runs <code>where data -&gt;&gt; 'UserId' = $1 and id &lt; $2 order by id desc limit 51</code>. PostgreSQL has two single-column paths and no composite one: scan the user's expression index and sort every one of their rows per page, or walk the primary key backwards filtering every user's rows until 51 of this user's turn up. The planner chooses by statistics, so a heavy user pays a full scan of their rows on every page and a misestimate with many users visits roughly 51 times the user count. When it bites: below about 5,000 packets per user both plans are a few milliseconds; a user with 100,000 packets pays 100 to 300 ms warm per page. Fix: one composite computed index, <code>.Index([p =&gt; p.UserId, p =&gt; p.Id])</code>, which turns the query into a bounded backward range scan of 51 entries regardless of table size. Verify the DDL Marten emits uses the <code>id</code> column for the identity member; if it emits <code>(data -&gt;&gt; 'Id')</code> instead, use <code>.Duplicate(p =&gt; p.UserId)</code> and a Weasel index over <code>user_id, id</code>. The single-column index becomes redundant.</p>
+</li>
+<li><p><strong>Live-update dispatch is serial, one query per notification (Medium).</strong> <code>PacketNotificationListener.DispatchAsync</code> opens a query session and loads one aggregate per <code>Created</code> notification, sequentially, so every queued notification waits for the ones before it and a slow query stalls live updates for everyone on the instance. When it bites: throughput caps at one database round trip per notification per instance (hundreds per second), far above human send rates, so in practice it is latency under bursts. Fix: per wake-up, collect the ids whose users have subscribers and load them with one <code>LoadManyAsync</code>, then publish per user in arrival order.</p>
+</li>
+<li><p><strong>Reconnect and resync storms (Medium).</strong> Both clients use <code>base × (0.75 + random × 0.25)</code> backoff, so after a server restart (every stream ends on <code>ApplicationStopping</code>) all clients reconnect within a 250 ms window, and every connection's first <code>resync</code> triggers an immediate <code>GET /api/packets</code>. When the LISTEN connection drops, <code>PublishToAll(Resync)</code> makes every open stream on the instance refetch at once, against the database that just recovered. When it bites: around 1,000 concurrent streams per instance, that is 1,000 list queries, JWT validations and TLS handshakes inside one second. Fix in both clients: full jitter (<code>random × base</code>) and a random 0 to 3 s delay before the resync fetch. Optionally send an SSE <code>retry:</code> value and spread <code>PublishToAll</code> over a few seconds.</p>
+</li>
+<li><p><strong>The event store grows forever (Medium).</strong> Deleting appends <code>PacketDeleted</code> and the inline projection removes the snapshot, but <code>mt_events</code> keeps both events and <code>mt_streams</code> keeps the stream; nothing archives, and <code>UseArchivedStreamPartitioning</code> is off. A 64 KB text body is stored twice while live and once forever after deletion. Rebuilding the snapshot replays every event ever written, deleted packets included. When it bites: 10,000 users sending 10 a day is about 36 million events and 20 to 40 GB a year plus indexes, vacuum and backups; at hundreds of users it is a non-issue for years. Fix: <code>ArchiveStream</code> in the delete handler in the same save, turn on archived-stream partitioning so queries and rebuilds skip them, and purge the archived partition after some days. The larger alternative is that packets don't need event sourcing at all (one document store and delete), which halves write volume; that is an architecture decision rather than a tuning fix and is discussed in <a href="codebase-health.html">Codebase Health</a>.</p>
+</li>
+<li><p><strong>Four to six round trips per create and delete, and runtime code generation on first use (Medium).</strong> Create does <code>FetchForWriting</code> on a brand-new id (a batched select that can't find anything), <code>SaveChangesAsync</code> (begin, batch, commit), a <code>pg_notify</code> on a second connection, then <code>FetchLatest</code> to re-read an aggregate whose content the code already knows. Delete is <code>LoadAsync</code>, then a save in which the inline projection has to look up the stream itself, then notify. When it bites: latency only, 2 to 3 ms at 1 ms database round trip, 10 to 30 ms with a managed database in another zone. Fix: <code>StartStream&lt;PacketAggregate&gt;(id, event)</code> for create and return the aggregate built from the event; <code>FetchForWriting</code> plus <code>AppendOne</code> for delete, which also gives optimistic concurrency. Separately, Marten generates storage and projection code with Roslyn on first use after every start, typically one to three seconds of first-request latency per deploy and replica; mitigate with <code>OptimizeArtifactWorkflow(TypeLoadMode.Static)</code> and <code>codegen write</code> in the pipeline, and <code>ApplyAllDatabaseChangesOnStartup()</code> so replicas don't race the schema check.</p>
+</li>
+<li><p><strong>Mobile cold start waits for Google before showing the cached feed, and parses the cache twice (Medium).</strong> <code>StartupRouter</code> in <code>app.dart</code> shows a spinner until both the auth provider (Google Sign-In initialise plus a silent sign-in round trip) and the cache check complete, even though the feed page already handles &quot;signed out with cache&quot;. The cache is parsed once by <code>hasCachedPacketsProvider</code> and again by <code>PacketsNotifier.build</code>. When it bites: every cold start, by seconds on a slow network. Fix: route to the feed as soon as the cache check completes and treat auth-pending as signed out; expose one cached-state provider that both the router and the notifier read.</p>
+</li>
+<li><p><strong>The SSE loop throws a <code>TimeoutException</code> per heartbeat per stream (Low).</strong> <code>GetPacketEvents.WaitAsync</code> ends each 20-second idle wait with a thrown and caught exception. At 10,000 idle streams that is 500 exceptions a second, one to three percent of a core. Fix: <code>Task.WhenAny(waitToRead, Task.Delay(interval, ct))</code>. Also exclude <code>/api/packets/events</code> from tracing in <code>ServiceDefaults/Extensions.cs</code> next to the health endpoints, since each stream otherwise keeps an <code>Activity</code> alive until it disconnects.</p>
+</li>
+<li><p><strong>Mobile list details (Low).</strong> <code>packet_list.dart</code> keys children by packet id but passes no <code>findChildIndexCallback</code>, so every insert at the top of the reversed list discards and rebuilds every visible tile's state (controllers, <code>Dismissible</code>, cards); about a millisecond per event today. <code>AutomaticKeepAliveClientMixin</code> on <code>PacketList</code> does nothing because the list sits in a <code>Column</code>, not a lazy viewport. The 60-second <code>setState</code> in <code>PacketFeedPage</code> only rebuilds the app bar because <code>PacketList</code> is <code>const</code>. Fix: add the callback over a per-build id-to-index map and delete the mixin.</p>
+</li>
+<li><p><strong>Mobile SSE and HTTP: no problems found.</strong> The 45-second idle timeout against a 20-second heartbeat, the cancel path with <code>AbortableRequest</code>, the shared <code>http.Client</code>, the de-duplicated token refresh and the backoff reset on <code>resync</code> all check out.</p>
+</li>
+<li><p><strong>Extension service-worker lifetime: assumptions hold (Low).</strong> The popup's 20-second port pings keep the worker inside Chrome's 30-second idle limit while the popup is open; the streaming fetch body does not keep the worker alive by itself, so if Chrome ever kills it the popup's <code>onDisconnect</code> reconnects after a second and the resync refetches the first page. Scheduled deletes are 4-second timers, inside the idle window. Document these assumptions in the extension doc so a future change doesn't break them silently.</p>
+</li>
+</ol>
+<h2 id="already-good">Already good</h2>
+<ul>
+<li>UUIDv7 stream ids and <code>Id &lt; cursor</code> paging with <code>Take(51)</code>: O(page) per request once finding 3 is fixed.</li>
+<li>Lightweight sessions, inline snapshots, request limits (256 KB body, 64 KB text, 2 KB URL).</li>
+<li>NOTIFY carries ids only, <code>HasSubscribers</code> is checked before loading, one LISTEN connection per instance with a keep-alive, bounded per-subscriber channels that complete on overflow so the client resyncs instead of the server buffering, locks held only for dictionary operations, streams closed on shutdown.</li>
+<li>SSE transport: heartbeat under the client timeouts, <code>X-Accel-Buffering: no</code>, and response compression leaves <code>text/event-stream</code> alone.</li>
+<li>Extension: bundles under 15 KB, tiles cached by id and only re-inserted when the order changed, the stream exists only while a popup is open, deletes survive the popup closing.</li>
+<li>Mobile: lazy <code>ListView</code>, one <code>http.Client</code>, de-duplicated silent refresh, a <code>StreamTransformer</code> SSE decoder so cancelling closes the socket immediately.</li>
+</ul>
+<h2 id="steps-forward">Steps forward</h2>
+<ol>
+<li><strong>Bound both caches to the first page, debounce the mobile write, drop the cache re-parse</strong> (S, mobile and extension). Fixes 1 and 2 and removes the quota cliff.</li>
+<li><strong>Composite index and the round-trip fixes</strong> (S, API). Fixes 3 and 7; verify with <code>EXPLAIN ANALYZE</code> on a seeded table and keep the explain output in the repo as a test fixture or doc.</li>
+<li><strong>Archive deleted streams and partition</strong> (S, API). Fixes 6 before there is data to migrate.</li>
+<li><strong>Batch dispatch, full jitter, resync delay</strong> (S, API and clients). Fixes 4 and 5.</li>
+<li><strong>Static code generation and startup schema application</strong> (S, API and pipeline). Part of 7; belongs with the deploy work.</li>
+<li><strong>Mobile start-up routing and the list callback</strong> (S, mobile). Fixes 8 and 10.</li>
+<li><strong>A load test</strong> (M): a k6 or NBomber script that signs in a few hundred synthetic users, holds streams open, and sends packets, run against a staging deployment before the first public release; it will confirm or correct every estimate above.</li>
+</ol>
+
+</article>
+
+        <div class="contribution d-print-none">
+          <a href="https://github.com/Invex-Games/passel/blob/main/docs/evaluation/performance.md/#L1" class="edit-link">Edit this page</a>
+        </div>
+
+        <div class="next-article d-print-none border-top" id="nextArticle"></div>
+
+      </div>
+
+      <div class="affix">
+        <nav id="affix"></nav>
+      </div>
+    </main>
+
+    <div class="container-xxl search-results" id="search-results"></div>
+
+    <footer class="border-top text-secondary">
+      <div class="container-xxl">
+        <div class="flex-fill">
+          Passel · Invex Games
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>

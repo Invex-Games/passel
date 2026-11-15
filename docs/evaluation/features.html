@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+      <title>Feature Ideas | Passel </title>
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <meta name="title" content="Feature Ideas | Passel ">
+      
+      
+      <link rel="icon" href="../../resources/icon-48.png">
+      <link rel="stylesheet" href="../../public/docfx.min.css">
+      <link rel="stylesheet" href="../../public/main.css">
+      <meta name="docfx:navrel" content="../../toc.html">
+      <meta name="docfx:tocrel" content="../toc.html">
+      
+      <meta name="docfx:rel" content="../../">
+      
+      
+      <meta name="docfx:docurl" content="https://github.com/Invex-Games/passel/blob/main/docs/evaluation/features.md/#L1">
+      <meta name="loc:inThisArticle" content="In this article">
+      <meta name="loc:searchResultsCount" content="{count} results for &quot;{query}&quot;">
+      <meta name="loc:searchNoResults" content="No results for &quot;{query}&quot;">
+      <meta name="loc:tocFilter" content="Filter by title">
+      <meta name="loc:nextArticle" content="Next">
+      <meta name="loc:prevArticle" content="Previous">
+      <meta name="loc:themeLight" content="Light">
+      <meta name="loc:themeDark" content="Dark">
+      <meta name="loc:themeAuto" content="Auto">
+      <meta name="loc:changeTheme" content="Change theme">
+      <meta name="loc:copy" content="Copy">
+      <meta name="loc:downloadPdf" content="Download PDF">
+
+      <script type="module" src="./../../public/docfx.min.js"></script>
+
+      <script>
+        const theme = localStorage.getItem('theme') || 'auto'
+        document.documentElement.setAttribute('data-bs-theme', theme === 'auto' ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : theme)
+      </script>
+
+  </head>
+
+  <body class="tex2jax_ignore" data-layout="" data-yaml-mime="">
+    <header class="bg-body border-bottom">
+      <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
+        <div class="container-xxl flex-nowrap">
+          <a class="navbar-brand" href="../../index.html">
+            <img id="logo" class="svg" src="../../resources/icon-128.png" alt="Passel">
+            Passel
+          </a>
+          <button class="btn btn-lg d-md-none border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navpanel" aria-controls="navpanel" aria-expanded="false" aria-label="Toggle navigation">
+            <i class="bi bi-three-dots"></i>
+          </button>
+          <div class="collapse navbar-collapse" id="navpanel">
+            <div id="navbar">
+              <form class="search" role="search" id="search">
+                <i class="bi bi-search"></i>
+                <input class="form-control" id="search-query" type="search" disabled placeholder="Search" autocomplete="off" aria-label="Search">
+              </form>
+            </div>
+          </div>
+        </div>
+      </nav>
+    </header>
+
+    <main class="container-xxl">
+      <div class="toc-offcanvas">
+        <div class="offcanvas-md offcanvas-start" tabindex="-1" id="tocOffcanvas" aria-labelledby="tocOffcanvasLabel">
+          <div class="offcanvas-header">
+            <h5 class="offcanvas-title" id="tocOffcanvasLabel">Table of Contents</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="offcanvas" data-bs-target="#tocOffcanvas" aria-label="Close"></button>
+          </div>
+          <div class="offcanvas-body">
+            <nav class="toc" id="toc"></nav>
+          </div>
+        </div>
+      </div>
+
+      <div class="content">
+        <div class="actionbar">
+          <button class="btn btn-lg border-0 d-md-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#tocOffcanvas" aria-controls="tocOffcanvas" aria-expanded="false" aria-label="Show table of contents">
+            <i class="bi bi-list"></i>
+          </button>
+
+          <nav id="breadcrumb"></nav>
+        </div>
+
+        <article data-uid="">
+<h1 id="feature-ideas">Feature Ideas</h1>
+
+<p>A brainstorm of what Passel could do next, starting with the one the codebase is already half-built for: parcels. Each idea has a rough value and effort so the <a href="roadmap.html">Roadmap</a> can sequence them. Sizes: S under a day, M a few days, L a week or more, XL several weeks.</p>
+<h2 id="summary">Summary</h2>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Feature</th>
+<th>Value</th>
+<th>Effort</th>
+<th>Touches</th>
+<th>Depends on</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>Parcels: files and images</td>
+<td>High</td>
+<td>XL</td>
+<td>API, storage, all clients</td>
+<td>Storage choice</td>
+</tr>
+<tr>
+<td>2</td>
+<td>Device registry and push notifications</td>
+<td>High</td>
+<td>L</td>
+<td>API, all clients</td>
+<td>Nothing (registry first)</td>
+</tr>
+<tr>
+<td>3</td>
+<td>Android share target and process-text</td>
+<td>High</td>
+<td>S to M</td>
+<td>Mobile</td>
+<td>Nothing</td>
+</tr>
+<tr>
+<td>4</td>
+<td>Timestamps, day headers, relative time</td>
+<td>High</td>
+<td>S</td>
+<td>API, all clients</td>
+<td>Nothing</td>
+</tr>
+<tr>
+<td>5</td>
+<td>Link previews (title, description, image, favicon)</td>
+<td>High</td>
+<td>M</td>
+<td>API, all clients</td>
+<td>SSRF safeguards</td>
+</tr>
+<tr>
+<td>6</td>
+<td>Search and filters</td>
+<td>Medium</td>
+<td>M</td>
+<td>API, all clients</td>
+<td>Nothing</td>
+</tr>
+<tr>
+<td>7</td>
+<td>First-party sessions (token exchange, refresh tokens)</td>
+<td>High for web</td>
+<td>L</td>
+<td>API, all clients</td>
+<td>Nothing</td>
+</tr>
+<tr>
+<td>8</td>
+<td>Send to a specific device</td>
+<td>Medium</td>
+<td>M</td>
+<td>API, all clients</td>
+<td>2</td>
+</tr>
+<tr>
+<td>9</td>
+<td>Pin, archive, labels</td>
+<td>Medium</td>
+<td>M</td>
+<td>API, all clients</td>
+<td>Nothing</td>
+</tr>
+<tr>
+<td>10</td>
+<td>Retention and auto-expiry</td>
+<td>Medium</td>
+<td>S to M</td>
+<td>API, settings UI</td>
+<td>Nothing</td>
+</tr>
+<tr>
+<td>11</td>
+<td>Trash and restore</td>
+<td>Medium</td>
+<td>S</td>
+<td>API, clients</td>
+<td>Nothing (event-sourced already)</td>
+</tr>
+<tr>
+<td>12</td>
+<td>Extension: side panel, commands, omnibox, send all tabs, drag and drop</td>
+<td>High</td>
+<td>M</td>
+<td>Extension</td>
+<td>Nothing (parcels for files)</td>
+</tr>
+<tr>
+<td>13</td>
+<td>Mobile: widget, quick-settings tile, app shortcuts, deep links</td>
+<td>Medium</td>
+<td>M</td>
+<td>Mobile</td>
+<td>7 for deep links to work signed-in</td>
+</tr>
+<tr>
+<td>14</td>
+<td>Account: delete, export, usage</td>
+<td>High for store listing</td>
+<td>M</td>
+<td>API, mobile, web</td>
+<td>Nothing</td>
+</tr>
+<tr>
+<td>15</td>
+<td>Public API, API keys, CLI, webhooks</td>
+<td>Medium</td>
+<td>L</td>
+<td>API, new CLI</td>
+<td>7</td>
+</tr>
+<tr>
+<td>16</td>
+<td>Offline send queue</td>
+<td>Medium</td>
+<td>M</td>
+<td>Clients</td>
+<td>Nothing</td>
+</tr>
+<tr>
+<td>17</td>
+<td>Read and opened state</td>
+<td>Low</td>
+<td>M</td>
+<td>API, clients</td>
+<td>Nothing</td>
+</tr>
+<tr>
+<td>18</td>
+<td>Collections (send several items as one)</td>
+<td>Low</td>
+<td>L</td>
+<td>All</td>
+<td>1</td>
+</tr>
+<tr>
+<td>19</td>
+<td>Markdown and code notes</td>
+<td>Low</td>
+<td>M</td>
+<td>Clients</td>
+<td>Nothing</td>
+</tr>
+<tr>
+<td>20</td>
+<td>Desktop app (global hotkey, clipboard)</td>
+<td>Medium</td>
+<td>XL</td>
+<td>New client</td>
+<td>7</td>
+</tr>
+<tr>
+<td>21</td>
+<td>iOS app and share extension</td>
+<td>High for reach</td>
+<td>XL</td>
+<td>Mobile</td>
+<td>Apple sign-in, 7</td>
+</tr>
+<tr>
+<td>22</td>
+<td>End-to-end encryption (opt-in)</td>
+<td>Low now</td>
+<td>XL</td>
+<td>All</td>
+<td>Design decisions</td>
+</tr>
+</tbody>
+</table>
+<h2 id="1-parcels-bring-back-files-and-images">1. Parcels: bring back files and images</h2>
+<h3 id="where-it-stands">Where it stands</h3>
+<p>The first commit had the whole feature on the client side: <code>PARCELS_URL</code> in the extension build, <code>uploadParcel</code> in <code>api.ts</code>, a context-menu image upload in <code>background.ts</code>, <code>ParcelService</code> and <code>parcel_cache_manager.dart</code> (on <code>flutter_cache_manager</code>) in the app, an image <code>FileTile</code> with tap-to-fullscreen, and image copy and share sheets. It was removed in the hardening commits (<code>31c9b70</code>, <code>f0ec238</code>, <code>20e13a1</code>) because the server had nowhere to put the bytes. The domain model kept the shape: <code>FilePacketCreated</code> carries <code>ParcelId</code>, <code>ContentType</code>, <code>IsImage</code> and <code>FileName</code>, <code>PacketAggregate</code> projects it, and <code>GET /api/packets</code> already returns <code>File</code> items with <code>parcelId</code> and <code>isImage</code>. The clients still parse them and render a placeholder. So what's missing is storage, two endpoints, the <code>File</code> branch of <code>POST /api/packets</code>, and the client features coming back.</p>
+<h3 id="storage">Storage</h3>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Pros</th>
+<th>Cons</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Azure Blob Storage</strong></td>
+<td>The build already uses Azure (Key Vault <code>invex-passel</code>); SAS URLs for direct downloads later; lifecycle rules; Aspire has a first-party integration with Azurite for local runs</td>
+<td>Ties hosting to Azure</td>
+</tr>
+<tr>
+<td><strong>S3-compatible (Cloudflare R2, Backblaze B2, MinIO)</strong></td>
+<td>R2 has no egress fees; portable API; MinIO container locally</td>
+<td>Another vendor; the Aspire integration comes from the community toolkit</td>
+</tr>
+<tr>
+<td><strong>PostgreSQL (<code>bytea</code>)</strong></td>
+<td>No new infrastructure; transactional with the packet; trivial local dev</td>
+<td>Database and backup bloat; poor for files over a few MB; the API always proxies bytes</td>
+</tr>
+<tr>
+<td><strong>Local disk</strong></td>
+<td>Trivial</td>
+<td>Not durable, single instance only</td>
+</tr>
+</tbody>
+</table>
+<p>Recommendation: put an <code>IParcelStore</code> interface in front of it from day one (put, get stream, delete, maybe signed URL) and implement <strong>Azure Blob</strong> first, with the Aspire Azure Storage integration running Azurite locally. If hosting ends up elsewhere, an S3 implementation is a day's work behind the same interface. Keep Postgres as a fallback for tests only.</p>
+<h3 id="api">API</h3>
+<ul>
+<li><code>POST /api/parcels</code>: multipart or raw body with <code>Content-Type</code>, file name in a header or form field. Limits: 25 MB by default (configurable), per-user quota (for example 500 MB total, enforced with a <code>413</code> and surfaced in settings), a rate limit. Images are sniffed and decoded, dimensions recorded, and a thumbnail generated at upload (ImageSharp or SkiaSharp, 512 px WebP) which also strips metadata. Returns <code>{ parcelId, contentType, size, isImage, width, height }</code>.</li>
+<li><code>POST /api/packets</code> with <code>$type: File</code> and <code>parcelId</code>: the parcel must belong to the caller and not already be attached. Parcels not attached within an hour are swept.</li>
+<li><code>GET /api/parcels/{id}</code> and <code>GET /api/parcels/{id}/thumbnail</code>: owner check, streamed, <code>Range</code> support, <code>ETag</code>, <code>Cache-Control: private, max-age=31536000, immutable</code> (parcels never change). Non-image, non-PDF types are served with <code>Content-Disposition: attachment</code> and the whole endpoint sends <code>Content-Security-Policy: sandbox</code> so an uploaded HTML file can never run against the API origin.</li>
+<li>Deletion: when <code>PacketDeleted</code> is applied, the parcel is marked for deletion and a background sweep removes blobs and thumbnails (a Marten async projection or a small hosted service; a nightly orphan sweep catches the rest).</li>
+<li>Model: parcels are plain Marten documents (<code>Parcel { Id, UserId, ContentType, Size, FileName, IsImage, Width, Height, StorageKey, Sha256, CreatedAt, AttachedPacketId }</code>), not event streams. Only packets need history.</li>
+<li>Later: pre-signed direct-to-storage uploads so the API doesn't proxy bytes. Start with proxying: it enforces limits in one place and keeps a single origin.</li>
+</ul>
+<h3 id="extension">Extension</h3>
+<ul>
+<li>Paste an image into the popup or side panel (<code>ClipboardEvent.clipboardData.files</code>), show a preview, upload, send.</li>
+<li>Drag and drop files onto the panel.</li>
+<li>&quot;Send image&quot; from the context menu needs the image bytes. The manifest deliberately limits <code>host_permissions</code> to the API origin, so the service worker can't fetch arbitrary image URLs. Options: <code>optional_host_permissions: [&quot;&lt;all_urls&gt;&quot;]</code> requested on first use (the context-menu click is a user gesture, so <code>chrome.permissions.request</code> works there), or let the server fetch the URL (works for the web app too, but is a server-side request forgery risk that needs scheme and private-address blocking, size and time limits). Do the first; add the second only with those safeguards.</li>
+<li>Display: thumbnails in tiles, a viewer, download, copy image to clipboard (PNG only in Chrome), open in a tab.</li>
+</ul>
+<h3 id="mobile">Mobile</h3>
+<ul>
+<li>Share target for <code>image/*</code> and <code>*/*</code>, the image picker and the camera.</li>
+<li>Loading parcels needs a bearer token, so either bring back the authenticated <code>flutter_cache_manager</code> from the first commit, or have the API hand out short-lived signed URLs so standard image widgets can load them. The cache manager is less moving parts.</li>
+<li>Viewer with pinch zoom, share as a file, save to gallery.</li>
+</ul>
+<h3 id="rollout">Rollout</h3>
+<ol>
+<li>API, storage and tests (L).</li>
+<li>Extension paste and drop (M).</li>
+<li>Mobile share, picker and viewer (M).</li>
+<li>Web app drag, drop and paste (M, with the web app).</li>
+</ol>
+<h2 id="2-device-registry-and-push-notifications">2. Device registry and push notifications</h2>
+<p>Each client registers itself once: <code>POST /api/devices { name, platform, pushToken? }</code>, keyed by a client-generated id and the user. The API stores it as a Marten document and the clients let you rename or remove devices in settings. When <code>PacketStoreService</code> commits a packet it already notifies Postgres; add a second consumer that sends a push to the user's other devices: Firebase Cloud Messaging for Android, Web Push (VAPID) for the extension (MV3 service workers can receive <code>push</code> events) and the web app. Notifications carry the packet id and type so the tap opens the item; links get an &quot;Open&quot; action, notes a &quot;Copy&quot; action. The registry is also what makes feature 8 possible.</p>
+<h2 id="3-android-share-target">3. Android share target</h2>
+<p>See <a href="ux.html">UX</a> finding 1. <code>ACTION_SEND</code> for text and images, <code>PROCESS_TEXT</code> for selected text in any app, a share handler plugin, and a pre-filled sheet or an immediate send with undo.</p>
+<h2 id="4-timestamps">4. Timestamps</h2>
+<p><code>CreatedAt</code> into <code>PacketAggregate</code> and the responses, relative times on tiles, day headers in the feed. Small and unlocks most of the tile redesign.</p>
+<h2 id="5-link-previews">5. Link previews</h2>
+<p>At link creation, queue a fetch of the page: <code>og:title</code>, <code>og:description</code>, <code>og:image</code>, the favicon. Store the result as a <code>LinkPreviewFetched</code> event on the packet stream so the aggregate gains a <code>Preview</code>, and emit a <code>packet-updated</code> SSE event so clients refresh the tile. Fetch asynchronously (a Marten async projection or a channel-fed hosted service), with hard safeguards because the API is fetching user-supplied URLs: <code>http</code>/<code>https</code> only, resolve DNS and refuse private and link-local ranges, follow at most three redirects re-checking each hop, 5-second timeout, 1 MB body cap, decode only the <code>&lt;head&gt;</code>. Preview images go through the parcel thumbnail pipeline so clients never load third-party images directly.</p>
+<h2 id="6-search-and-filters">6. Search and filters</h2>
+<p>Client-side first: filter the loaded pages by text and type in both clients. Then <code>GET /api/packets?q=</code>: Marten's full-text index on the snapshot document (<code>Schema.For&lt;PacketAggregate&gt;().FullTextIndex(...)</code>) over title, body, URL and preview text, scoped to the user, same cursor paging.</p>
+<h2 id="7-first-party-sessions">7. First-party sessions</h2>
+<p>Today every client sends a Google ID token (one-hour lifetime) and refreshes it silently through Google. That works, but the web app can't refresh silently without One Tap prompts, there is no revocation or &quot;sign out everywhere&quot;, and API keys for a CLI are impossible.</p>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Pros</th>
+<th>Cons</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Keep Google ID tokens as the API credential</strong></td>
+<td>Stateless, no secrets, already done</td>
+<td>One-hour lifetime, silent refresh depends on the Google session, no revocation, no API keys, awkward on the web</td>
+</tr>
+<tr>
+<td><strong>Exchange the Google ID token for Passel tokens</strong> (<code>POST /api/auth/google</code> returns a short access token and a rotating refresh token, stored hashed, revocable per device)</td>
+<td>Long sessions on every client, revocation, device-bound sessions, API keys fall out of the same table, Google stays the identity provider</td>
+<td>Signing keys to manage, refresh storage, more code and tests</td>
+</tr>
+<tr>
+<td><strong>Cookie session for the web app only</strong></td>
+<td>Simplest for a same-site web app, browser handles storage</td>
+<td>Different auth model per client, CSRF handling, nothing for the extension or mobile</td>
+</tr>
+</tbody>
+</table>
+<p>Recommendation: the exchange. Access tokens of 15 minutes signed with a key in Key Vault, refresh tokens of 30 days rotated on use, a <code>devices</code> link so a session can be revoked from settings. The clients keep their existing Google flows for the initial sign-in and send the Passel access token afterwards. The API accepts both Google ID tokens and Passel tokens during the migration.</p>
+<h2 id="8-send-to-a-specific-device">8. Send to a specific device</h2>
+<p>With the registry in place, packets gain an optional <code>targetDeviceId</code>. Clients show &quot;Send to phone&quot; or &quot;Send to laptop&quot; as chips, the feed can filter by target, and push goes only to the target. Default stays &quot;all devices&quot;.</p>
+<h2 id="9-pin-archive-labels">9. Pin, archive, labels</h2>
+<p>Three more events on the packet stream (<code>PacketPinned</code>, <code>PacketArchived</code>, <code>PacketLabelled</code>), a projection change, and feed filters. Pinned items float to the top; archived items leave the default feed. Labels can wait until there is demand.</p>
+<h2 id="10-retention-and-auto-expiry">10. Retention and auto-expiry</h2>
+<p>A per-user setting (&quot;delete items after 30 days&quot;, off by default) plus a per-packet override (&quot;keep&quot;). A nightly job appends <code>PacketDeleted</code> to expired streams, which already removes the snapshot and notifies clients. Keeps the feed and storage small without the user doing anything.</p>
+<h2 id="11-trash-and-restore">11. Trash and restore</h2>
+<p>Event sourcing makes this nearly free: <code>PacketDeleted</code> already exists, so add <code>PacketRestored</code>, keep the snapshot for deleted packets with a <code>DeletedAt</code> instead of removing it, show a Trash view, and purge for real after 30 days. This also gives the undo window a server-side backstop.</p>
+<h2 id="12-extension-additions">12. Extension additions</h2>
+<ul>
+<li>Side panel hosting the same bundle, so the feed stays open beside the page.</li>
+<li><code>commands</code> for &quot;send current page&quot; and opening the panel; an <code>omnibox</code> keyword.</li>
+<li>&quot;Send all tabs in this window&quot; as a collection or as several links.</li>
+<li>Drag and drop links, text and files onto the panel.</li>
+<li>Badge count of unread items since the panel was last open; desktop notifications once push exists.</li>
+</ul>
+<h2 id="13-mobile-additions">13. Mobile additions</h2>
+<ul>
+<li>A home-screen widget showing the latest few items with copy and open actions.</li>
+<li>A Quick Settings tile that sends the clipboard.</li>
+<li>App shortcuts (&quot;Send clipboard&quot;, &quot;New note&quot;).</li>
+<li>Android App Links for <code>passel.link/p/{id}</code> so a shared or pushed link opens the item in the app.</li>
+</ul>
+<h2 id="14-account">14. Account</h2>
+<p>Settings screen with the signed-in account, devices, theme override, retention, storage usage, data export (a zip of JSON plus parcels, produced by a job and downloaded from a signed URL) and account deletion (a <code>UserDeleted</code> event, purge job, and confirmation). Account deletion is required by Google Play for apps with sign-in.</p>
+<h2 id="15-public-api-keys-cli-webhooks">15. Public API, keys, CLI, webhooks</h2>
+<p>Once sessions exist, API keys are a session type without expiry, shown once in settings. A small <code>passel</code> CLI (<code>passel send &quot;text&quot;</code>, <code>passel send --file photo.jpg</code>, <code>passel list</code>) in .NET or Go, and outgoing webhooks per user (&quot;POST this URL when a packet arrives&quot;) for Zapier and home automation. Publish the OpenAPI document that already exists in development.</p>
+<h2 id="16-offline-send-queue">16. Offline send queue</h2>
+<p>Both clients fail outright without a network. Queue sends locally and flush on reconnect: <code>workmanager</code> on Android, <code>chrome.alarms</code> plus storage in the extension, Background Sync in the web app.</p>
+<h2 id="17-read-and-opened-state">17. Read and opened state</h2>
+<p>A <code>PacketOpened</code> event when an item is opened on any device, shown as a subtle marker, which makes &quot;unread on this device&quot; possible for badges and widgets.</p>
+<h2 id="18-collections">18. Collections</h2>
+<p>Send several items as one bundle (all tabs, a set of photos). A <code>Collection</code> packet type holding child packet ids, or a <code>collectionId</code> on packets with grouping in the feed. Wait for parcels.</p>
+<h2 id="19-markdown-and-code-notes">19. Markdown and code notes</h2>
+<p>Detect code and fenced blocks, render Markdown in notes, syntax highlight in the detail view, copy as plain text. Client-only.</p>
+<h2 id="20-desktop-app">20. Desktop app</h2>
+<p>A Flutter desktop or Tauri app with a global hotkey to send the clipboard or the current selection, a tray icon with the latest items, and clipboard sync between desktops. Big, and overlaps with the extension and web app; only worth it if clipboard sync becomes the product.</p>
+<h2 id="21-ios">21. iOS</h2>
+<p>The <code>ios/</code> scaffolding exists but is unconfigured. An iOS app needs Sign in with Apple alongside Google (App Store rule when third-party sign-in is offered), a share extension for the share sheet, and an Apple developer account. Large but it doubles the reachable audience.</p>
+<h2 id="22-end-to-end-encryption">22. End-to-end encryption</h2>
+<p>Opt-in client-side encryption with a passphrase-derived key means the server never sees content. It breaks server-side search, previews and thumbnails and complicates recovery, so it should be a deliberate product decision, not a checkbox. Note it as a possible differentiator, design the storage so content fields could be opaque later, and leave it there for now.</p>
+
+</article>
+
+        <div class="contribution d-print-none">
+          <a href="https://github.com/Invex-Games/passel/blob/main/docs/evaluation/features.md/#L1" class="edit-link">Edit this page</a>
+        </div>
+
+        <div class="next-article d-print-none border-top" id="nextArticle"></div>
+
+      </div>
+
+      <div class="affix">
+        <nav id="affix"></nav>
+      </div>
+    </main>
+
+    <div class="container-xxl search-results" id="search-results"></div>
+
+    <footer class="border-top text-secondary">
+      <div class="container-xxl">
+        <div class="flex-fill">
+          Passel · Invex Games
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>

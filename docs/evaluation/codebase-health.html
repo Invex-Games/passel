@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+      <title>Codebase Health | Passel </title>
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <meta name="title" content="Codebase Health | Passel ">
+      
+      
+      <link rel="icon" href="../../resources/icon-48.png">
+      <link rel="stylesheet" href="../../public/docfx.min.css">
+      <link rel="stylesheet" href="../../public/main.css">
+      <meta name="docfx:navrel" content="../../toc.html">
+      <meta name="docfx:tocrel" content="../toc.html">
+      
+      <meta name="docfx:rel" content="../../">
+      
+      
+      <meta name="docfx:docurl" content="https://github.com/Invex-Games/passel/blob/main/docs/evaluation/codebase-health.md/#L1">
+      <meta name="loc:inThisArticle" content="In this article">
+      <meta name="loc:searchResultsCount" content="{count} results for &quot;{query}&quot;">
+      <meta name="loc:searchNoResults" content="No results for &quot;{query}&quot;">
+      <meta name="loc:tocFilter" content="Filter by title">
+      <meta name="loc:nextArticle" content="Next">
+      <meta name="loc:prevArticle" content="Previous">
+      <meta name="loc:themeLight" content="Light">
+      <meta name="loc:themeDark" content="Dark">
+      <meta name="loc:themeAuto" content="Auto">
+      <meta name="loc:changeTheme" content="Change theme">
+      <meta name="loc:copy" content="Copy">
+      <meta name="loc:downloadPdf" content="Download PDF">
+
+      <script type="module" src="./../../public/docfx.min.js"></script>
+
+      <script>
+        const theme = localStorage.getItem('theme') || 'auto'
+        document.documentElement.setAttribute('data-bs-theme', theme === 'auto' ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : theme)
+      </script>
+
+  </head>
+
+  <body class="tex2jax_ignore" data-layout="" data-yaml-mime="">
+    <header class="bg-body border-bottom">
+      <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
+        <div class="container-xxl flex-nowrap">
+          <a class="navbar-brand" href="../../index.html">
+            <img id="logo" class="svg" src="../../resources/icon-128.png" alt="Passel">
+            Passel
+          </a>
+          <button class="btn btn-lg d-md-none border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navpanel" aria-controls="navpanel" aria-expanded="false" aria-label="Toggle navigation">
+            <i class="bi bi-three-dots"></i>
+          </button>
+          <div class="collapse navbar-collapse" id="navpanel">
+            <div id="navbar">
+              <form class="search" role="search" id="search">
+                <i class="bi bi-search"></i>
+                <input class="form-control" id="search-query" type="search" disabled placeholder="Search" autocomplete="off" aria-label="Search">
+              </form>
+            </div>
+          </div>
+        </div>
+      </nav>
+    </header>
+
+    <main class="container-xxl">
+      <div class="toc-offcanvas">
+        <div class="offcanvas-md offcanvas-start" tabindex="-1" id="tocOffcanvas" aria-labelledby="tocOffcanvasLabel">
+          <div class="offcanvas-header">
+            <h5 class="offcanvas-title" id="tocOffcanvasLabel">Table of Contents</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="offcanvas" data-bs-target="#tocOffcanvas" aria-label="Close"></button>
+          </div>
+          <div class="offcanvas-body">
+            <nav class="toc" id="toc"></nav>
+          </div>
+        </div>
+      </div>
+
+      <div class="content">
+        <div class="actionbar">
+          <button class="btn btn-lg border-0 d-md-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#tocOffcanvas" aria-controls="tocOffcanvas" aria-expanded="false" aria-label="Show table of contents">
+            <i class="bi bi-list"></i>
+          </button>
+
+          <nav id="breadcrumb"></nav>
+        </div>
+
+        <article data-uid="">
+<h1 id="codebase-health">Codebase Health</h1>
+
+<p>Scope: structure, duplication, test coverage, error handling, configuration, dependencies, dead code and the deployment story across the API, the extension, the mobile app and the Atom build. Method: every component was read in full, every build and test command was run (results in <a href="developer-experience.html">Developer Experience</a>), and package freshness and vulnerability scans were taken.</p>
+<p>Size for reference: API 1,638 lines of C# plus 511 of tests; Atom build 1,049; extension 1,971 lines of TypeScript plus 389 of tests; mobile 3,743 lines of Dart plus 2,810 of tests. Largest files: <code>popup.ts</code> 710, <code>packets_provider.dart</code> 552, <code>theme.dart</code> 386, <code>packet_list.dart</code> 360.</p>
+<h2 id="verdict">Verdict</h2>
+<p>This is a small, strict and readable codebase with zero warning debt, fast green test suites, and the hard concurrency cases reasoned about in comments and tests. Its weaknesses are structural rather than local: the API's real behaviour (HTTP, auth, Marten, SQL, LISTEN/NOTIFY, SSE) has no automated coverage at all; the packet wire shape is declared four times in C# and hand-parsed twice in the clients with nothing detecting drift; the trickiest logic in the repository, the feed state machine, exists twice with only the author's memory keeping them in step; and there is no CI, no automated dependency updates and no deployment path. All of these are cheap while the codebase is this size.</p>
+<p>Score: 3 / 5.</p>
+<h2 id="strengths">Strengths</h2>
+<ul>
+<li>Concurrency and failure modes are written down and tested: NOTIFY only after commit, with the reason it can't be queued in the session; bounded subscriber channels that complete instead of dropping; the hub subscribes before the first <code>resync</code>; heartbeat and idle timeouts aligned across server and both clients.</li>
+<li>Security-aware details throughout (404 for foreign ids, canonical-only id decoding, <code>http(s)</code>-only links on both sides, nonce and state checks, single-flight token refresh).</li>
+<li>Both clients tolerate unknown packet types and malformed events instead of failing the page.</li>
+<li>Strictness everywhere: <code>TreatWarningsAsErrors</code>, nullable, C# 14 extension members used tastefully, TypeScript <code>strict</code> and <code>isolatedModules</code>, Dart strict modes. Zero warnings in every suite.</li>
+<li>The tests that exist are behaviour tests with hand-written fakes and good names, and the whole loop runs in under ten seconds warm.</li>
+<li>Non-obvious code carries explanatory comments (<code>feed.ts</code>, <code>packets_provider.dart</code>, <code>build.mjs</code>).</li>
+<li>Pinned and locked dependencies (<code>package-lock.json</code> honoured with <code>npm ci</code>, <code>pubspec.lock</code> tracked, exact NuGet versions), and nothing vulnerable in any .NET project including transitives.</li>
+</ul>
+<h2 id="findings">Findings</h2>
+<p>Ordered by importance.</p>
+<ol>
+<li><p><strong>The API's real behaviour has no automated coverage (High).</strong> The 42 tests cover <code>Validate</code>, <code>Paginate</code>, <code>StreamPacketEvents</code>, the hub, notification parsing and id encoding, all pure helpers; the test project references only <code>xunit.v3</code>. Untested: <code>PacketStoreService</code> (Marten <code>FetchForWriting</code>, the inline snapshot, <code>ShouldDelete</code>), the cursor query over UUIDv7 ids, NOTIFY after commit through <code>LISTEN</code> to the hub to SSE, JSON polymorphism with out-of-order metadata, the development policy scheme, the request size limit. The testing guide admits it: &quot;check those by running the AppHost&quot;. A Marten or Npgsql upgrade or a mapping change can break production silently, and the resync guarantee both clients rely on is unproven. Fix: an integration test project with <code>Testcontainers.PostgreSql</code> and <code>WebApplicationFactory&lt;Program&gt;</code> (<code>InternalsVisibleTo</code> is already declared), a test authentication scheme that reads the user id from a header, and tests for create-then-list and ownership isolation, paging over 51 packets with the returned cursor, delete semantics (204, then 404, other user 404), SSE end to end (open the stream with <code>ResponseHeadersRead</code>, create, assert <code>resync</code> then <code>packet-created</code>, which exercises <code>pg_notify</code> and the listener for real), and schema creation from an empty database. <code>Aspire.Hosting.Testing</code> is closest to production but starts the extension build and the tunnel too; keep it for one optional smoke test. Wire the new project into <code>atom TestWebApi</code>.</p>
+</li>
+<li><p><strong>The packet wire model is declared four times and hand-parsed twice, with nothing detecting drift (High).</strong> The domain union <code>Packet</code> in <code>PacketAggregate.cs</code>, <code>PostPacketRequestBody</code> and <code>PostPacketResponseBody</code> in <code>PostPacket.cs</code>, and <code>GetPacketsResponseBody.Packet</code> in <code>GetPackets.cs</code>; the last two are field-for-field identical and mapped twice. Each client re-encodes the <code>$type</code>, <code>name|title|fileName</code> and <code>url|body|parcelId</code> mapping on its own (<code>packets.ts</code>, <code>packet.dart</code>). OpenAPI exists only at runtime in Development and is never exported. Adding <code>CreatedAt</code> today means four C# edits, two client edits and three test suites, and no test fails if one is missed. Options:</p>
+<ul>
+<li>Shared contracts with generated clients (Kiota for TypeScript and Dart, or openapi-generator): best typing, but the <code>$type</code> union maps to <code>oneOf</code> plus <code>discriminator</code>, where Dart generators are weakest, and it adds a code-generation step to two toolchains for five endpoints.</li>
+<li>Hand-written clients plus contract fixtures: cheap, and catches drift in all three suites.</li>
+<li>Committed OpenAPI as documentation only: no enforcement.</li>
+<li>Recommendation: the fixtures now, generation if the API grows past a handful of endpoints. Collapse the C# declarations to one response DTO used by create, list and SSE with one mapper; export the OpenAPI document at build (<code>Microsoft.Extensions.ApiDescription.Server</code>) and commit it under <code>docs/reference/</code> with a test that fails when it is stale; write <code>contracts/fixtures/</code> (one JSON file per <code>$type</code>, a page, the three SSE payloads) from a C# test using the real <code>JsonOptions</code>, and make <code>packets.test.ts</code> and <code>packet_test.dart</code> parse those files.</li>
+</ul>
+</li>
+<li><p><strong>The feed state machine is implemented twice with identical invariants and nothing enforcing parity (High).</strong> <code>FeedStore</code> in <code>feed.ts</code> and <code>PacketsNotifier</code> in <code>packets_provider.dart</code> share generation, fetch sequence, arrivals, deleted ids, hidden map, the reconcile step and the <code>syncLatest</code> overlap rule; the Dart one adds an auth epoch and loading-state branches. The tests mirror by name (18 TypeScript cases, 37 Dart). A bug fixed in one is not necessarily fixed in the other, and this is the code most likely to regress under a small change. Sharing code across TypeScript and Dart is not sane. Fix: make parity executable with a language-neutral scenario file (<code>contracts/feed-scenarios.json</code>: a list of operations such as <code>showCached</code>, <code>refresh:start</code>, <code>refresh:resolve</code>, <code>applyCreated</code>, <code>applyDeleted</code>, <code>hide</code>, <code>unhide</code>, <code>loadMore:resolve</code>, each with the expected id list afterwards) and a 60-line interpreter in each suite; both suites already use a hand-resolved fake source and an in-memory cache. Separately, if the SSE stream carried event ids or the list endpoint took <code>?since=</code>, clients could replay instead of reconciling in-flight fetches, which shrinks both machines; consider it with the storage-model decision below. Document the invariants once (<a href="developer-experience.html">Developer Experience</a>, finding 9).</p>
+</li>
+<li><p><strong>Error handling is consistent on the server and lost on the mobile client (Medium).</strong> The API uses ProblemDetails and field-keyed validation problems; the extension's <code>readError</code> turns title, detail and errors into one sentence and maps network failures to a friendly message, with three remaining raw <code>Error: …</code> sites in <code>popup.ts</code>. The mobile <code>validateResponse</code> never reads the body (<code>throw Exception('$context failed with HTTP …')</code>), so a 400 the server carefully composed is discarded, and the UI shows <code>'Push failed: $e'</code>, <code>'Refresh failed: $e'</code>, <code>'Couldn't delete packet: $e'</code>, <code>asyncState.error.toString()</code>, <code>e.toString()</code> and <code>'Auth error: …'</code>. Fix: parse <code>application/problem+json</code> into an <code>ApiException</code> with status, title, detail and field errors (mirroring <code>api.ts</code>), wrap socket and timeout errors into a <code>NetworkException</code>, map both to copy in one <code>describeError</code> used by every snackbar, and add Dart tests mirroring the extension's <code>readError</code> cases.</p>
+</li>
+<li><p><strong>Dead and speculative code (Medium).</strong> <code>Domain/Commands/CreateFilePacket.cs</code> has no references. The <code>File</code> packet exists in six C# declarations and both clients while the API rejects creating one, which the docs then have to explain as &quot;returned only&quot;. <code>EndpointBuilderExtensions.cs</code> defines thirteen helpers of which only <code>AcceptsJson</code> is used. <code>IFlutterHelper.cs</code> contains two unexplained <code>Task.Delay(2000)</code> calls. Fix: delete the unused command and helpers; since no production data can contain a <code>File</code> packet, remove it end to end and reintroduce it with parcels; replace the sleeps with the condition they wait for.</p>
+</li>
+<li><p><strong>Google client ids live in six places under four naming schemes (Medium).</strong> AppHost parameters (<code>google-client-id</code>, <code>google-client-secret</code>, <code>google-extension-client-id</code>) in user secrets; the extension's <code>.env</code> (<code>GOOGLE_CLIENT_ID</code>); the mobile <code>.env</code> (<code>SERVER_CLIENT_ID</code>, <code>APP_CLIENT_ID</code>); <code>_atom/appsettings.json</code> (<code>server-client-id</code>, <code>mobile-app-client-id</code>, with Key Vault secret names as placeholder values); a git-ignored <code>_atom/appsettings.Development.json</code>; and the API's git-ignored <code>appsettings.Development.json</code>. The web client id alone has four names. The local extension <code>.env</code> on this machine has already drifted (it carries variables <code>build.mjs</code> never reads). Fix: make the AppHost user secrets the single development source, add a sync step to <code>SetupDevEnvironment</code> that writes both <code>.env</code> files from them (plus the stable tunnel URL), use one vocabulary everywhere (<code>GOOGLE_WEB_CLIENT_ID</code>, <code>GOOGLE_WEB_CLIENT_SECRET</code>, <code>GOOGLE_EXTENSION_CLIENT_ID</code>, <code>GOOGLE_ANDROID_CLIENT_ID</code>), rename the Atom parameters to match, and drop the placeholder strings so &quot;not configured&quot; is explicit.</p>
+</li>
+<li><p><strong>Dependency hygiene: well pinned, not automated, build tooling drifting (Medium).</strong> No <code>Directory.Packages.props</code> (OpenTelemetry and JetBrains versions repeated across projects), no SDK pin in <code>global.json</code>, no Node pin, no Renovate or Dependabot, no CI. <code>_atom</code> is on Invex.Atom 3.7.0 while the global tool is 4.2.0 and 5.0.0 is current. Pending majors: TypeScript 7, vitest 5 (which also clears the four dev-only advisories), <code>flutter_riverpod</code> 3, <code>share_plus</code> 13, <code>dynamic_color</code> 2; Aspire 13.6.3 is a patch away. Atom can generate the missing automation: the <code>Invex.Atom.Module.GithubWorkflows</code> package (present in the NuGet cache, not referenced) exposes workflow and Dependabot definitions, and <code>Invex.RepoUtils</code> has a DocFX publish step; exact usage unverified. Fix: central package management, <code>global.json</code> with <code>rollForward: latestFeature</code>, <code>engines</code> in <code>package.json</code>, the workflows module with <code>Test</code> on pull requests and <code>Build*</code> plus docs publish on <code>main</code>, a Dependabot definition for NuGet, npm, pub and actions, <code>npm audit fix</code> and vitest 5 now, and the Riverpod 3 migration as its own change (an automated migration exists).</p>
+</li>
+<li><p><strong>Structure and naming: mostly clean, with a mislabelled layer, one oversized module and three verbs for one action (Low).</strong> <code>PacketStoreService</code> lives in <code>Domain/</code> while doing Marten and Npgsql I/O; <code>Domain/Commands</code> are endpoint-to-service DTOs. <code>popup.ts</code> mixes DOM wiring, feed rendering, delete and undo, the copy menu, toasts and an icon atlas, with module-level <code>getElementById</code> calls that make it impossible to import under test. <code>packets_provider.dart</code> hosts two notifiers. The API says <code>Create</code>, the extension says send, the mobile app says push, and the title-ish field is <code>name</code>, <code>title</code> or <code>fileName</code> on the wire. The mobile app sends <code>?api-version=1</code> on every call and the extension sends none. Fix: &quot;send&quot; for user-facing verbs and <code>Create</code> for API names; split <code>popup.ts</code> into feed view, composer and toast modules behind a controller that receives its document and messaging so it can run under jsdom; move the store service to an application folder; pick one API-version convention.</p>
+</li>
+<li><p><strong>Client test gaps (Low).</strong> Extension: <code>auth.ts</code> (URL building, prompt modes, state, nonce, audience and expiry checks), <code>api.ts</code> (the 401-refresh-retry-sign-out path, <code>readError</code>, the idle timeout), <code>live.ts</code> (port lifecycle, backoff), <code>background.ts</code> (delete scheduling and cancel, context-menu mapping), <code>cache.ts</code> and <code>popup.ts</code> have no tests. Mobile: 12 of 170 tests are widget tests; <code>PacketFeedPage</code>, <code>PacketList</code> (load-more trigger, error row, signed-out prompts), the send sheet, the tiles and <code>packet_helpers.dart</code> have none. No coverage is collected anywhere. Fix: vitest with <code>jsdom</code> and a stubbed <code>chrome</code> global for the popup modules, <code>fetch</code> stubs for the 401 matrix and problem parsing, fake timers for backoff and delete scheduling; Flutter widget tests with <code>ProviderScope</code> overrides reusing <code>test/fakes.dart</code>; coverage flags on all three Atom test targets.</p>
+</li>
+<li><p><strong>Deployment story is undefined (High for shipping, noted here for completeness).</strong> <code>BuildWebApi</code> publishes to a folder; there is no container image, no infrastructure definition, no documented production configuration source, Marten runs DDL at startup, the extension version is a hard-coded &quot;1.0.0&quot; while .NET versions come from GitVersion, and there are no Web Store or Play publishing steps. Details and the fix are in <a href="developer-experience.html">Developer Experience</a>, finding 1.</p>
+</li>
+<li><p><strong>Nits.</strong> <code>[PublicAPI]</code> on 54 declarations where <code>[UsedImplicitly]</code> or nothing says what is meant; npm <code>clean</code> and <code>package</code> scripts shell out to PowerShell; <code>pubspec.yaml</code> keeps about seventy lines of <code>flutter create</code> comments and <code>cupertino_icons</code>; <code>src/mobile_app/.flutter-plugins</code> is tracked although it says not to be, is stale and contains machine-specific paths; <code>ios/</code> carries sixty tracked scaffold files the docs call unconfigured; <code>avoid_print: false</code> disables a lint no code triggers; <code>Directory.Build.props</code> carries packaging properties no project packs; <code>IFlutterHelper</code> locates Flutter by string-matching <code>PATH</code> entries; 46 files start with a BOM and the worktree is 42 percent CRLF against an LF index (see <a href="developer-experience.html">Developer Experience</a>, finding 4).</p>
+</li>
+</ol>
+<h2 id="decision-storage-model-for-packets">Decision: storage model for packets</h2>
+<p>Three reports converge on the same question. Packets are event-sourced (two or three events per stream, an inline snapshot), and nothing reads the history. The consequences: deletes never erase content (<a href="security.html">Security</a>, finding 1), the event table grows forever and bodies are stored twice (<a href="performance.html">Performance</a>, finding 6), creates and deletes cost extra round trips (finding 7 there), and every future feature (previews, pins, parcels) adds events and projection code.</p>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Pros</th>
+<th>Cons</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Keep event sourcing, archive and purge:</strong> <code>ArchiveStream</code> on delete, partitioned archive, a purge job after N days, hard delete for account deletion</td>
+<td>Smallest change; keeps the door open for per-user event replay</td>
+<td>Content lingers until the purge; bodies still stored twice; rebuild and codegen complexity stays; every feature is an event plus projection work</td>
+</tr>
+<tr>
+<td><strong>Plain Marten documents:</strong> one <code>Packet</code> document with <code>Id</code>, <code>UserId</code>, <code>CreatedAt</code>, <code>DeletedAt</code> and the content union; <code>Store</code>, <code>Delete</code>, LINQ with the composite index</td>
+<td>True deletes, half the writes, fewer round trips, simpler service and tests, features become fields; trash and restore is a <code>DeletedAt</code> field plus a purge</td>
+<td>Rewrites <code>PacketStoreService</code>, the projection and their tests (about a day); loses an audit trail nothing uses</td>
+</tr>
+<tr>
+<td><strong>Documents plus a per-user change log:</strong> the above, plus a small <code>changes</code> table (user, sequence, packet id, change) written in the same transaction</td>
+<td>Enables resumable SSE (<code>Last-Event-ID</code>) and <code>?since=</code> delta sync, which shrinks both client state machines (finding 3)</td>
+<td>Slightly more code than plain documents</td>
+</tr>
+</tbody>
+</table>
+<p>Recommendation: plain documents, with the change log added when resumable sync is wanted (it is the natural companion of the device registry and push work). Record the decision as an ADR before parcels and previews add more events. If the team prefers to keep event sourcing, do the archive-and-purge option in Phase 0 regardless.</p>
+<h2 id="steps-forward">Steps forward</h2>
+<ol>
+<li><strong>Integration tests for the API</strong> (M). Finding 1; everything else in the API is safer with this net.</li>
+<li><strong>Storage-model ADR and implementation</strong> (M). The decision above; before parcels and previews.</li>
+<li><strong>One wire DTO, committed OpenAPI, contract fixtures</strong> (M). Finding 2.</li>
+<li><strong>Feed scenario file</strong> (S to M). Finding 3.</li>
+<li><strong>Mobile error mapping</strong> (S). Finding 4.</li>
+<li><strong>Delete dead code, the <code>File</code> branch and the placeholder config</strong> (S). Findings 5 and 6.</li>
+<li><strong>Central package management, pins, workflows and Dependabot through Atom, vitest 5</strong> (M). Finding 7; lands with the CI work.</li>
+<li><strong>Vocabulary and structure cleanups</strong> (S to M). Finding 8, after the product decision in <a href="ux.html">UX</a>.</li>
+<li><strong>Client tests and coverage</strong> (M). Finding 9.</li>
+<li><strong>Nits in one sweep</strong> (S). Finding 11.</li>
+</ol>
+
+</article>
+
+        <div class="contribution d-print-none">
+          <a href="https://github.com/Invex-Games/passel/blob/main/docs/evaluation/codebase-health.md/#L1" class="edit-link">Edit this page</a>
+        </div>
+
+        <div class="next-article d-print-none border-top" id="nextArticle"></div>
+
+      </div>
+
+      <div class="affix">
+        <nav id="affix"></nav>
+      </div>
+    </main>
+
+    <div class="container-xxl search-results" id="search-results"></div>
+
+    <footer class="border-top text-secondary">
+      <div class="container-xxl">
+        <div class="flex-fill">
+          Passel · Invex Games
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>

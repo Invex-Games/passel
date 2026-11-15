@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+      <title>Mobile App | Passel </title>
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <meta name="title" content="Mobile App | Passel ">
+      
+      
+      <link rel="icon" href="../../resources/icon-48.png">
+      <link rel="stylesheet" href="../../public/docfx.min.css">
+      <link rel="stylesheet" href="../../public/main.css">
+      <meta name="docfx:navrel" content="../../toc.html">
+      <meta name="docfx:tocrel" content="../toc.html">
+      
+      <meta name="docfx:rel" content="../../">
+      
+      
+      <meta name="docfx:docurl" content="https://github.com/Invex-Games/passel/blob/main/docs/components/mobile-app.md/#L1">
+      <meta name="loc:inThisArticle" content="In this article">
+      <meta name="loc:searchResultsCount" content="{count} results for &quot;{query}&quot;">
+      <meta name="loc:searchNoResults" content="No results for &quot;{query}&quot;">
+      <meta name="loc:tocFilter" content="Filter by title">
+      <meta name="loc:nextArticle" content="Next">
+      <meta name="loc:prevArticle" content="Previous">
+      <meta name="loc:themeLight" content="Light">
+      <meta name="loc:themeDark" content="Dark">
+      <meta name="loc:themeAuto" content="Auto">
+      <meta name="loc:changeTheme" content="Change theme">
+      <meta name="loc:copy" content="Copy">
+      <meta name="loc:downloadPdf" content="Download PDF">
+
+      <script type="module" src="./../../public/docfx.min.js"></script>
+
+      <script>
+        const theme = localStorage.getItem('theme') || 'auto'
+        document.documentElement.setAttribute('data-bs-theme', theme === 'auto' ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : theme)
+      </script>
+
+  </head>
+
+  <body class="tex2jax_ignore" data-layout="" data-yaml-mime="">
+    <header class="bg-body border-bottom">
+      <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
+        <div class="container-xxl flex-nowrap">
+          <a class="navbar-brand" href="../../index.html">
+            <img id="logo" class="svg" src="../../resources/icon-128.png" alt="Passel">
+            Passel
+          </a>
+          <button class="btn btn-lg d-md-none border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navpanel" aria-controls="navpanel" aria-expanded="false" aria-label="Toggle navigation">
+            <i class="bi bi-three-dots"></i>
+          </button>
+          <div class="collapse navbar-collapse" id="navpanel">
+            <div id="navbar">
+              <form class="search" role="search" id="search">
+                <i class="bi bi-search"></i>
+                <input class="form-control" id="search-query" type="search" disabled placeholder="Search" autocomplete="off" aria-label="Search">
+              </form>
+            </div>
+          </div>
+        </div>
+      </nav>
+    </header>
+
+    <main class="container-xxl">
+      <div class="toc-offcanvas">
+        <div class="offcanvas-md offcanvas-start" tabindex="-1" id="tocOffcanvas" aria-labelledby="tocOffcanvasLabel">
+          <div class="offcanvas-header">
+            <h5 class="offcanvas-title" id="tocOffcanvasLabel">Table of Contents</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="offcanvas" data-bs-target="#tocOffcanvas" aria-label="Close"></button>
+          </div>
+          <div class="offcanvas-body">
+            <nav class="toc" id="toc"></nav>
+          </div>
+        </div>
+      </div>
+
+      <div class="content">
+        <div class="actionbar">
+          <button class="btn btn-lg border-0 d-md-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#tocOffcanvas" aria-controls="tocOffcanvas" aria-expanded="false" aria-label="Show table of contents">
+            <i class="bi bi-list"></i>
+          </button>
+
+          <nav id="breadcrumb"></nav>
+        </div>
+
+        <article data-uid="">
+<h1 id="mobile-app">Mobile App</h1>
+
+<p><code>src/mobile_app</code> is a Flutter app (package <code>passel_mobileapp</code>). Android is the supported platform. The iOS project is scaffolding only and isn't configured.</p>
+<h2 id="structure">Structure</h2>
+<table>
+<thead>
+<tr>
+<th>Folder</th>
+<th>Contents</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>lib/config/</code></td>
+<td><code>AppConfig</code>, the compile-time configuration, and the page shown when a required value is missing</td>
+</tr>
+<tr>
+<td><code>lib/api/</code></td>
+<td>The error types (<code>ApiException</code>, <code>NetworkException</code>, <code>SessionExpiredException</code>, <code>SignInException</code>) and <code>describeError</code>, which turns any of them into user-facing text</td>
+</tr>
+<tr>
+<td><code>lib/auth/</code></td>
+<td>Google Sign-In (<code>google_sign_in</code> 7), ID token refresh, the <code>DEV_USER</code> sign-in through the API's <code>Dev</code> scheme (<code>authorization.dart</code> maps a token to its <code>Authorization</code> header), the API HTTP client (<code>ApiClient</code>: never follows redirects, sends the tunnel token when there is one) and helpers that retry once on a 401</td>
+</tr>
+<tr>
+<td><code>lib/packets/</code></td>
+<td>The packet model, repository (HTTP and SSE), offline cache, Riverpod providers and widgets</td>
+</tr>
+<tr>
+<td><code>lib/settings/</code></td>
+<td>The settings page, the theme choice and the app version</td>
+</tr>
+<tr>
+<td><code>lib/theme/</code></td>
+<td>The Material 3 theme, used when the device doesn't provide dynamic colour</td>
+</tr>
+</tbody>
+</table>
+<p>State lives in Riverpod providers. <code>packetsProvider</code> serves the cached feed first, then refreshes it. It keeps the whole loaded list in memory across sign-in and an expired session, and drops it when the user's local data is cleared (<code>userDataGenerationProvider</code>, bumped on sign-out and when a different account signs in). <code>packetLiveUpdatesProvider</code> keeps the server-sent events stream open while the feed is visible, the user is signed in, and the app is in the foreground. Every <code>resync</code> event triggers a fresh fetch of the latest packets: immediately for the first one after the stream (re)starts, after a random delay of up to 3 seconds for later ones, and reconnects back off exponentially with full jitter (a random share of the backoff, up to a minute), so clients that lose the server together don't all come back in the same instant.</p>
+<p>The feed is cached in <code>shared_preferences</code>, so it can still be browsed offline. On a cold start <code>StartupRouter</code> shows the cached feed as soon as the cache has been read, before Google Sign-In has initialised; the full-screen login page is only shown when there is no cache and the user turns out to be signed out. The cache holds the first page only: at most 50 packets (<code>PacketCache.maxPackets</code>) and the cursor that followed the first page, so older pages are fetched again when the user scrolls to them. Writes are debounced by 300 ms (<code>packetCacheWriteDelayProvider</code>), so a burst of live events is written once, and the cache is parsed once at start-up by <code>cachedPacketsProvider</code>, which the start-up router and the feed share.</p>
+<p>Sign-in asks Google for a token for the <strong>web</strong> client (<code>SERVER_CLIENT_ID</code>), which the API accepts as its main audience. The token is kept in memory only.</p>
+<h2 id="errors">Errors</h2>
+<p><code>validateResponse</code> (in <code>lib/auth/auth_helpers.dart</code>) turns a failure response into an <code>ApiException</code> with the status and, when the server sent <code>application/problem+json</code>, its <code>title</code>, <code>detail</code> and the validation messages keyed by field. Transport failures thrown by <code>package:http</code> and <code>dart:io</code> (no connection, timeouts) become a <code>NetworkException</code>, a 401 that survives the token retry a <code>SessionExpiredException</code>, and Google Sign-In failures a <code>SignInException</code> whose message is already written for the user. Every snackbar and error row (push, refresh, delete, the feed's error state, the login page and sheet, the start-up auth error) shows <code>describeError(error)</code>: client errors (4xx) use the server's <code>detail</code> or field messages, everything else a short generic sentence, so no exception text reaches the screen.</p>
+<h2 id="sharing-into-the-app">Sharing into the app</h2>
+<p>The app is an Android share target. <code>AndroidManifest.xml</code> declares an activity alias, <code>SendToPassel</code>, on <code>MainActivity</code> with intent filters for <code>ACTION_SEND</code> with <code>text/plain</code> (the share sheet) and <code>ACTION_PROCESS_TEXT</code> (the text selection menu); its label, &quot;Send to Passel&quot; (or &quot;Send to Passel Dev&quot;), comes from the flavor's <code>resValue</code>, so the launcher label is untouched. <code>MainActivity.kt</code> takes the shared text from the intent and hands it to Dart over the <code>passel/share</code> method channel: text that arrives before Dart is ready waits until <code>ShareIntent.takePendingText</code> asks for it, text that arrives while the app runs comes through <code>ShareIntent.sharedText</code>. <code>PacketFeedPage</code> opens the send sheet filled in with the text; the user sends or edits it. No share-receiving plugin is involved. Images wait for parcels.</p>
+<h2 id="settings">Settings</h2>
+<p>The feed page's app bar has a settings action beside the sign-in or sign-out action; it opens <code>SettingsPage</code> (<code>lib/settings/</code>), which works signed in and signed out.</p>
+<ul>
+<li><strong>Account</strong> shows who is signed in: the Google account's name and email (<code>AuthService.currentAccount</code>, an <code>AccountInfo</code> the repository takes from the Google sign-in and drops on sign-out) or the development user (<code>currentDevUser</code>), with a Sign out tile. Signed out it offers Sign in, through the same sheet as the feed.</li>
+<li><strong>Appearance</strong> chooses the theme: system default, light or dark. <code>themeModeProvider</code> (<code>theme_mode_setting.dart</code>) holds the choice, <code>MyApp</code> passes it to <code>MaterialApp</code> as the <code>themeMode</code> on top of the device's dynamic colours, and it is saved in <code>shared_preferences</code> (<code>settings_theme_mode</code>) so it survives a restart; until the saved choice has been read the app follows the device.</li>
+<li><strong>About</strong> shows the version and build number (<code>package_info_plus</code>, read once by <code>appVersionProvider</code>), in a development build the flavor and the API URL, and the privacy policy and terms of service at <code>passel.link/privacy</code> and <code>passel.link/terms</code>. Those two tiles stay disabled (<code>legalPagesPublished</code> in <code>settings_page.dart</code>) until the pages, which the web app has (roadmap 1.E3), are hosted at passel.link, a follow-up of roadmap 0.A2; see <a href="web-app.html#hosting">Hosting</a>.</li>
+</ul>
+<h2 id="configuration">Configuration</h2>
+<p>Values are compiled in with <code>--dart-define</code> or <code>--dart-define-from-file</code>. Nothing is bundled as an asset.</p>
+<table>
+<thead>
+<tr>
+<th>Key</th>
+<th>Required</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>API_BASE_URL</code></td>
+<td>Yes</td>
+<td>The API root, as the device can reach it: <code>http://localhost:5218</code> for a phone on USB (with <code>adb reverse</code>), <code>http://10.0.2.2:5218</code> for an emulator, or the dev tunnel URL. See <a href="../getting-started/running-locally.html#mobile-app">Running Locally</a>.</td>
+</tr>
+<tr>
+<td><code>SERVER_CLIENT_ID</code></td>
+<td>Unless <code>DEV_USER</code> is set</td>
+<td>The Google web client id</td>
+</tr>
+<tr>
+<td><code>APP_CLIENT_ID</code></td>
+<td>No</td>
+<td>The Android client id</td>
+</tr>
+<tr>
+<td><code>TUNNEL_ACCESS_TOKEN</code></td>
+<td>No</td>
+<td>A Dev Tunnels access token, for a tunnel that doesn't allow anonymous access. Development flavor only.</td>
+</tr>
+<tr>
+<td><code>DEV_USER</code></td>
+<td>No</td>
+<td>Signs in as this user through the API's Development-only <code>Dev</code> scheme instead of Google, so no Google client is needed. The login page can sign in as any other user, and each user is a separate account. Development flavor only. See <a href="../getting-started/running-locally.html#run-without-google">Run without Google</a>.</td>
+</tr>
+</tbody>
+</table>
+<p>Copy <code>.env.example</code> to <code>.env</code> for local runs. If a value is passed both in the file and with <code>--dart-define</code>, the <code>--dart-define</code> value wins.</p>
+<p><code>AppConfig</code> checks the values at start-up and shows <code>ConfigErrorPage</code> instead of the app when one is missing or can't be used in the flavor: the production flavor needs an <code>https://</code> API URL and refuses a tunnel token and a development user, and the development flavor allows an <code>http://</code> URL only to <code>localhost</code>, <code>127.0.0.1</code> and <code>10.0.2.2</code>, the hosts its network security configuration permits cleartext to.</p>
+<h2 id="flavors">Flavors</h2>
+<table>
+<thead>
+<tr>
+<th>Flavor</th>
+<th>Application id</th>
+<th>App name</th>
+<th>Signing</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>development</code></td>
+<td><code>com.invex.passel.mobileapp.dev</code></td>
+<td>Passel Dev</td>
+<td>The release key if one is configured, otherwise debug keys</td>
+</tr>
+<tr>
+<td><code>production</code></td>
+<td><code>com.invex.passel.mobileapp</code></td>
+<td>Passel</td>
+<td>The release keystore, from the <code>SIGNING_RELEASE_*</code> environment variables</td>
+</tr>
+</tbody>
+</table>
+<p>The development flavor also carries a network security configuration (<code>android/app/src/development/res/xml/network_security_config.xml</code>, applied by that flavor's manifest) that permits plain HTTP to <code>localhost</code>, <code>127.0.0.1</code> and <code>10.0.2.2</code>, so a phone on USB and an emulator reach the local API without a tunnel or a trusted certificate. The production flavor has no such configuration and keeps the platform default, which blocks cleartext everywhere.</p>
+<p><code>dotnet atom BuildMobileAppAndroid --mobile-app-flavor production</code> builds an obfuscated app bundle and packages its symbols. The development flavor builds a debug APK. See <a href="../reference/build-targets.html">Build Targets</a>.</p>
+
+</article>
+
+        <div class="contribution d-print-none">
+          <a href="https://github.com/Invex-Games/passel/blob/main/docs/components/mobile-app.md/#L1" class="edit-link">Edit this page</a>
+        </div>
+
+        <div class="next-article d-print-none border-top" id="nextArticle"></div>
+
+      </div>
+
+      <div class="affix">
+        <nav id="affix"></nav>
+      </div>
+    </main>
+
+    <div class="container-xxl search-results" id="search-results"></div>
+
+    <footer class="border-top text-secondary">
+      <div class="container-xxl">
+        <div class="flex-fill">
+          Passel · Invex Games
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>

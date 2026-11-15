@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+      <title>Security | Passel </title>
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <meta name="title" content="Security | Passel ">
+      
+      
+      <link rel="icon" href="../../resources/icon-48.png">
+      <link rel="stylesheet" href="../../public/docfx.min.css">
+      <link rel="stylesheet" href="../../public/main.css">
+      <meta name="docfx:navrel" content="../../toc.html">
+      <meta name="docfx:tocrel" content="../toc.html">
+      
+      <meta name="docfx:rel" content="../../">
+      
+      
+      <meta name="docfx:docurl" content="https://github.com/Invex-Games/passel/blob/main/docs/evaluation/security.md/#L1">
+      <meta name="loc:inThisArticle" content="In this article">
+      <meta name="loc:searchResultsCount" content="{count} results for &quot;{query}&quot;">
+      <meta name="loc:searchNoResults" content="No results for &quot;{query}&quot;">
+      <meta name="loc:tocFilter" content="Filter by title">
+      <meta name="loc:nextArticle" content="Next">
+      <meta name="loc:prevArticle" content="Previous">
+      <meta name="loc:themeLight" content="Light">
+      <meta name="loc:themeDark" content="Dark">
+      <meta name="loc:themeAuto" content="Auto">
+      <meta name="loc:changeTheme" content="Change theme">
+      <meta name="loc:copy" content="Copy">
+      <meta name="loc:downloadPdf" content="Download PDF">
+
+      <script type="module" src="./../../public/docfx.min.js"></script>
+
+      <script>
+        const theme = localStorage.getItem('theme') || 'auto'
+        document.documentElement.setAttribute('data-bs-theme', theme === 'auto' ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : theme)
+      </script>
+
+  </head>
+
+  <body class="tex2jax_ignore" data-layout="" data-yaml-mime="">
+    <header class="bg-body border-bottom">
+      <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
+        <div class="container-xxl flex-nowrap">
+          <a class="navbar-brand" href="../../index.html">
+            <img id="logo" class="svg" src="../../resources/icon-128.png" alt="Passel">
+            Passel
+          </a>
+          <button class="btn btn-lg d-md-none border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navpanel" aria-controls="navpanel" aria-expanded="false" aria-label="Toggle navigation">
+            <i class="bi bi-three-dots"></i>
+          </button>
+          <div class="collapse navbar-collapse" id="navpanel">
+            <div id="navbar">
+              <form class="search" role="search" id="search">
+                <i class="bi bi-search"></i>
+                <input class="form-control" id="search-query" type="search" disabled placeholder="Search" autocomplete="off" aria-label="Search">
+              </form>
+            </div>
+          </div>
+        </div>
+      </nav>
+    </header>
+
+    <main class="container-xxl">
+      <div class="toc-offcanvas">
+        <div class="offcanvas-md offcanvas-start" tabindex="-1" id="tocOffcanvas" aria-labelledby="tocOffcanvasLabel">
+          <div class="offcanvas-header">
+            <h5 class="offcanvas-title" id="tocOffcanvasLabel">Table of Contents</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="offcanvas" data-bs-target="#tocOffcanvas" aria-label="Close"></button>
+          </div>
+          <div class="offcanvas-body">
+            <nav class="toc" id="toc"></nav>
+          </div>
+        </div>
+      </div>
+
+      <div class="content">
+        <div class="actionbar">
+          <button class="btn btn-lg border-0 d-md-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#tocOffcanvas" aria-controls="tocOffcanvas" aria-expanded="false" aria-label="Show table of contents">
+            <i class="bi bi-list"></i>
+          </button>
+
+          <nav id="breadcrumb"></nav>
+        </div>
+
+        <article data-uid="">
+<h1 id="security">Security</h1>
+
+<p>Scope: the API (authentication, authorization, input handling, live updates, database trust), the AppHost and local development setup, the Chrome extension, the mobile app, the Atom build and git hygiene. Method: an adversarial read of every component with evidence per finding, <code>npm audit</code> on the extension, a search of tracked files and git history for secrets, and a check of what the <code>.gitignore</code> rules actually cover. No server was run, so dev-tunnel behaviour and one Atom internal are marked unverified.</p>
+<h2 id="verdict">Verdict</h2>
+<p>No critical or high findings. The authentication core is correct and fails closed: Google ID tokens are validated against Google's keys with explicit issuers and audiences, every handler re-checks the user id, every query is owner-scoped, foreign ids look like missing ids, the clients keep tokens out of persistent storage, and nothing secret is in the repository or its history. The material issues are about abuse and privacy rather than break-ins: anyone with a Google account can fill the database without limit, &quot;delete&quot; never erases content, there is no account deletion (a Play Store policy blocker), the dev tunnel publishes a Development-mode API to the internet, and event streams have no caps.</p>
+<p>Score: 4 / 5 for exposure to attackers, 2 / 5 for abuse resistance and privacy obligations.</p>
+<h2 id="verified-controls">Verified controls</h2>
+<p>These are right and worth protecting from regression.</p>
+<ul>
+<li><strong>Token validation</strong> (<code>HostWebExtensions.cs</code>): <code>Authority</code> is <code>https://accounts.google.com</code> with HTTPS metadata required, signing keys come from Google's JWKS, signed tokens are required (so <code>alg: none</code> and key-confusion don't apply), <code>ValidIssuers</code> lists both Google issuer forms and <code>ValidAudiences</code> is the web client id plus the configured extras, so a token minted for any other Google app is rejected. Lifetime is checked with the default five-minute skew. If the client id is missing in production the audience list is empty and every token fails.</li>
+<li><strong>Identity and scoping:</strong> <code>sub</code> becomes <code>ClaimTypes.NameIdentifier</code> and every handler returns 401 when it is absent. Reads filter by <code>UserId</code>, deletes check ownership and return 404 for missing and foreign ids alike, the SSE hub is keyed by user, and the notification listener re-verifies ownership before fanning out created packets. Email and <code>email_verified</code> are never used for authorization.</li>
+<li><strong>Development-only auth paths:</strong> the cookie and Google OIDC login, the policy scheme and Scalar exist only under <code>IsDevelopment()</code>; production's default scheme is the bearer handler and unauthenticated requests get a plain 401.</li>
+<li><strong>Input limits:</strong> URLs must be absolute <code>http</code> or <code>https</code> and at most 2,048 characters, names and titles 256, bodies non-blank and at most 64 K characters, <code>File</code> packets rejected, request bodies capped at 256 KB through endpoint metadata, JSON depth at the framework default of 64. Ids are checked for canonical encoding so aliases are impossible and malformed ids become 404s, never exceptions.</li>
+<li><strong>Live updates:</strong> NOTIFY payloads carry ids only, never content, and are sent after commit; subscriber channels are bounded and close rather than drop; the heartbeat and client timeouts line up.</li>
+<li><strong>Errors and telemetry:</strong> ProblemDetails and the exception handler give generic 500s outside Development; <code>LoggerMessage</code> calls log packet ids only; no request logging middleware; OpenTelemetry instrumentation captures no bodies.</li>
+<li><strong>Extension:</strong> fresh <code>nonce</code> and <code>state</code> per sign-in, both checked along with <code>aud</code> and <code>exp</code>; the token lives in <code>chrome.storage.session</code>; message and port handlers reject other senders; no content scripts, no <code>externally_connectable</code>, minimal permissions, <code>host_permissions</code> derived from the API origin, the <code>key</code> pins the extension id so the OAuth redirect cannot drift. All rendering uses <code>textContent</code> and <code>createElement</code>; the only <code>innerHTML</code> is static SVG; only <code>http(s)</code> URLs become anchors, with <code>rel=&quot;noopener noreferrer&quot;</code>. The cache is cleared on sign-out and account change.</li>
+<li><strong>Mobile:</strong> token in memory only; a rejected token is never re-sent; redirects are not followed and HTML bodies are rejected; only <code>http(s)</code> links are tappable and they open externally; <code>allowBackup=false</code> with data-extraction rules excluding everything; only <code>INTERNET</code> requested; only the launcher activity exported; cleartext blocked by default; R8 plus Dart obfuscation on release; production builds refuse to build without release signing.</li>
+<li><strong>Secrets and git:</strong> no client id, secret or key in any tracked file or in history (only placeholders); every local secret-bearing file is ignored (<code>*.Development.json</code>, both <code>.env</code> files, <code>*.keystore</code>, <code>local.properties</code>, <code>key.properties</code>); AppHost parameters go to user secrets and build secrets come from Azure Key Vault.</li>
+</ul>
+<h2 id="findings">Findings</h2>
+<p>Ordered by severity.</p>
+<ol>
+<li><p><strong>&quot;Delete&quot; never erases content (Medium, privacy and compliance).</strong> <code>PacketStoreService.Handle(DeletePacket)</code> appends <code>PacketDeleted</code>, and <code>PacketAggregate.ShouldDelete</code> removes only the inline snapshot. The <code>TextPacketCreated</code> body and <code>LinkPacketCreated</code> URL stay in <code>mt_events</code> forever; nothing calls <code>ArchiveStream</code> or deletes the stream, and archiving would retain the data anyway. There is no endpoint that deletes a user's data as a whole, no export and no retention job. Scenario: a user sends a password or a 2FA code to their phone and deletes it; it remains in every backup, in pgweb, and in any operator or attacker query. Someone who wants to leave can't. Google Play requires an account-deletion path for apps that sign users in, and GDPR erasure can't be satisfied without manual SQL. Options:</p>
+<ul>
+<li>Keep event sourcing and hard-delete the stream in the same transaction (<code>QueueSqlCommand</code> against <code>mt_events</code> and <code>mt_streams</code>): minimal change, bends the event-store invariants.</li>
+<li>Store packets as plain Marten documents and <code>Delete</code> them: true deletes, simpler, drops an audit trail nothing reads. Discussed as the storage-model decision in <a href="codebase-health.html">Codebase Health</a>.</li>
+<li>A retention policy that expires packets after N days, regardless of the above: bounds storage and blast radius; a product decision.</li>
+<li>Recommendation: plain documents plus retention, and in any case <code>DELETE /api/me</code> (everything where <code>UserId == sub</code>, then the user's open streams), a web page that performs the same deletion for the Play policy, and <code>GET /api/me/export</code> once the per-user query exists.</li>
+</ul>
+</li>
+<li><p><strong>No quotas or rate limiting (Medium, abuse and cost).</strong> <code>Program.cs</code> and <code>HostWebExtensions.cs</code> register no rate limiter and no per-user caps beyond the 256 KB request limit; each create is an event, a snapshot and a NOTIFY. Token minting is open to the world by design: the extension's client id is public, the implicit-flow URL in <code>auth.ts</code> works from any browser, so anyone with a Google account can script the API. Scenario: a loop of 64 KB text packets from a throwaway account writes tens of gigabytes that finding 1 then can't reclaim; cheaper variants hammer the list endpoint or open thousands of streams. Fix: <code>AddRateLimiter</code> partitioned by <code>sub</code> (for example 30 creates a minute, 120 reads a minute, 429 on rejection) plus an application quota (maximum packets and bytes per user, checked with an indexed count before create). Proxy-level limits by IP are a weak third layer.</p>
+</li>
+<li><p><strong>The dev tunnel publishes the Development-mode API anonymously on a stable URL (Medium, developer exposure).</strong> <code>AppHost.cs</code> adds the tunnel with <code>WithAnonymousAccess()</code>, the API runs as <code>Development</code> (Scalar, OpenAPI, the cookie and OIDC endpoints, <code>AutoCreate.All</code>, the developer exception page with stack traces), and the tunnel URL is compiled into every development APK and documented as stable. Scenario: anyone who sees a dev build, a screenshot or the dashboard has a persistent URL to the developer's workstation and, with a self-issued token, can read the OpenAPI document, fill the dev database and provoke stack traces. Whether the cookie login can complete through the tunnel depends on how the tunnel rewrites <code>Host</code> and is unverified; Google should reject the redirect URI, but nonce validation is off (finding 7) so don't lean on it. Fix: document <code>adb reverse tcp:7030 tcp:7030</code> as the default for USB-attached phones (and <code>10.0.2.2</code> for emulators); when a remote device is really needed, drop anonymous access and send the tunnel token from a dart-define; at minimum add <code>WithExplicitStart()</code> so the tunnel only runs when started from the dashboard, and consider <code>RequireHost(&quot;localhost&quot;)</code> on the dev endpoints.</p>
+</li>
+<li><p><strong>Event streams have no caps and outlive the token (Medium to Low, denial of service).</strong> <code>PacketEventHub.Subscribe</code> appends channels per user without limit and <code>Publish</code> copies the list per event; <code>GetPacketEvents</code> ties a stream to <code>RequestAborted</code> and <code>ApplicationStopping</code> only, never to the token's <code>exp</code>; and after every LISTEN reconnect <code>PublishToAll(Resync)</code> makes every client refetch at once. Scenario: one account opens 20,000 streams, each holding a connection, a channel and an iterator; separately, a stolen token keeps delivering the victim's new packets for as long as the connection lives, hours past expiry. Fix: cap streams per user (five, completing the oldest so its client reconnects cleanly) and per instance (429 or 503 beyond it); <code>CancelAfter(exp - now + skew)</code> on the stream's token source so it ends when the identity would no longer authenticate, which the clients already handle by reconnecting with a fresh token; jitter the resync as described in <a href="performance.html">Performance</a>; and set <code>KestrelServerLimits.MaxConcurrentConnections</code> as a last line.</p>
+</li>
+<li><p><strong>Schema changes run under the API's role, and the NOTIFY channel trusts any writer (Low, trust boundary).</strong> <code>AutoCreate.CreateOrUpdate</code> outside Development means the API's database role needs DDL rights and migrates at startup, racing across replicas. <code>PacketNotificationListener</code> parses any payload on the channel; created events are verified by loading the packet, but deleted events are forwarded unverified, so anything with database access can make clients hide a packet until restart, or trigger a load per notification. Database access is already game over, so the impact is low; the point is least privilege. Fix: <code>AutoCreate.None</code> in production, schema applied by the pipeline, a DML-only role for the API. Optionally store the user id as stream metadata so deleted notifications can be verified too.</p>
+</li>
+<li><p><strong>Open HTTP hygiene (Low).</strong> CORS is <code>AllowAnyOrigin</code>, there is no HSTS, no HTTPS redirection, <code>AllowedHosts</code> is <code>*</code>, and there is no forwarded-headers handling. CORS creates no CSRF here because bearer tokens aren't ambient and <code>AllowAnyOrigin</code> forbids credentialed requests, and neither current client needs CORS at all (the extension's <code>host_permissions</code> bypass it, the app is not a browser). Fix: remove CORS until the web app needs it, then allow only its origin; add <code>UseHsts</code> outside Development or terminate TLS at the edge; set <code>AllowedHosts</code> to the API host; add <code>UseForwardedHeaders</code> if a proxy fronts the API.</p>
+</li>
+<li><p><strong>Development auth shortcuts (Low, dev only).</strong> <code>ProtocolValidator.RequireNonce = false</code> disables replay protection on the OIDC response; the cookie scheme uses default secure-policy and same-site settings; and the AppHost launch profiles set <code>DOTNET_DASHBOARD_UNSECURED_ALLOW_ANONYMOUS</code>, so the Aspire dashboard on localhost shows the client secret and database password without its login token to any local process or DNS-rebinding page. Fix: delete the nonce line and fix the cause (usually the correlation cookie being dropped on the <code>/scalar</code> redirect; <code>SameSite=Lax</code> and <code>SecurePolicy=Always</code> on the correlation and nonce cookies), set the cookie to <code>Secure</code> and <code>Strict</code>, and remove the dashboard variable so Aspire prints a token.</p>
+</li>
+<li><p><strong>Release signing material handling (Low).</strong> A real PKCS#12 keystore (<code>invex.keystore</code>) sits in the repository working tree; it is ignored and was never committed, but an ignore rule is not a secrets control: the folder gets zipped, synced, indexed and opened by IDEs. The build writes the Key Vault keystore to a fixed temp name and passes both passwords through environment variables to the Gradle daemon, deleting the file in a <code>finally</code> that a killed process skips. Fix: delete the working-tree copy (Key Vault holds it), write the temporary keystore under the OS temp directory with a random name and restrictive permissions, run release Gradle with <code>--no-daemon</code> so the signing environment doesn't linger, and confirm the process runner never logs environment variables (unverified in Atom's internals).</p>
+</li>
+<li><p><strong>Extension dev dependencies have known vulnerabilities (Low, supply chain).</strong> <code>npm audit</code> reports four: <code>vitest</code> 3.2.7 with <code>tinypool</code> and <code>@vitest/mocker</code> (two critical, one moderate: prototype-pollution gadgets and mock-registration file read and code injection, all in the test runner) and <code>esbuild</code> 0.28.0 (low, dev-server file read on Windows; the project never uses <code>serve</code>). Nothing ships to users: the bundle has zero runtime dependencies. Fix: <code>vitest@^5</code> and <code>esbuild@^0.28.1</code>, rerun the tests.</p>
+</li>
+<li><p><strong>Informational.</strong></p>
+</li>
+</ol>
+<ul>
+<li>Public ids are reversible Sqids over UUIDv7, so a holder of an id can read its creation timestamp; with 74 random bits and owner scoping everywhere, enumeration is infeasible and the leak is only to the owner. Revisit if ids become shareable links.</li>
+<li>A stolen ID token is usable for up to about 65 minutes with no revocation; inherent to ID-tokens-as-bearer and mitigated by TLS and the clients' storage choices. First-party sessions (<a href="features.html">Features</a>, item 7) add revocation.</li>
+<li>Response compression over HTTPS is not a BREACH risk today because responses contain only the caller's own data and no reflected secret; re-evaluate if a share token ever appears in a response.</li>
+<li><code>/health</code> is unauthenticated and includes the database check but returns only the aggregate status; restrict it to the internal network if the platform allows.</li>
+<li>&quot;Send Current Page&quot; sends <code>tab.title</code> and <code>tab.url</code> untruncated, so pages with titles over 256 characters or URLs over 2,048 fail; truncate the name client-side.</li>
+<li>The extension's SSE parser buffer is unbounded; only the pinned API can abuse it, but cap it at a megabyte and reconnect.</li>
+<li>The undo window lives in the service worker's memory, so a worker termination inside the four seconds loses the delete. Functional only.</li>
+<li>The Flutter SDK is cloned by tag rather than commit, and the build runs <code>git clean</code> and <code>checkout --force</code> on a developer's own SDK; pin a commit for reproducible builds.</li>
+<li><code>Aspire.AppHost.Sdk</code> 13.3.1 and <code>Aspire.Hosting.*</code> 13.6.2 are out of step; align them.</li>
+<li>The uncommitted <code>.vscode/launch.json</code> change adds a personal device serial; keep it out of the commit.</li>
+</ul>
+<h2 id="steps-forward">Steps forward</h2>
+<ol>
+<li><strong>Rate limiter and per-user quotas</strong> (S, API). Finding 2.</li>
+<li><strong>Stream caps, expiry-bound streams, resync jitter, Kestrel limits</strong> (S, API). Finding 4.</li>
+<li><strong>Storage-model decision, then account deletion, export and retention</strong> (M, API and clients). Finding 1; the deletion page is needed before the Play listing.</li>
+<li><strong>Dev tunnel: explicit start now, <code>adb reverse</code> as the documented default, tunnel token when remote</strong> (S, AppHost and docs). Finding 3.</li>
+<li><strong>Production schema via the pipeline and a DML-only role</strong> (S, API and deploy). Finding 5; belongs with the deploy work.</li>
+<li><strong>HTTP hygiene</strong> (S, API). Finding 6.</li>
+<li><strong>Dev auth cleanup and the dashboard token</strong> (S). Finding 7.</li>
+<li><strong>Delete the stray keystore, harden the build's keystore handling</strong> (S). Finding 8.</li>
+<li><strong>Bump vitest and esbuild</strong> (S). Finding 9.</li>
+<li><strong>Add a vulnerability scan to CI</strong> (<code>dotnet list package --vulnerable</code>, <code>npm audit</code>, <code>flutter pub outdated</code>) so findings 9 and the dependency notes recur as alerts rather than reviews.</li>
+</ol>
+
+</article>
+
+        <div class="contribution d-print-none">
+          <a href="https://github.com/Invex-Games/passel/blob/main/docs/evaluation/security.md/#L1" class="edit-link">Edit this page</a>
+        </div>
+
+        <div class="next-article d-print-none border-top" id="nextArticle"></div>
+
+      </div>
+
+      <div class="affix">
+        <nav id="affix"></nav>
+      </div>
+    </main>
+
+    <div class="container-xxl search-results" id="search-results"></div>
+
+    <footer class="border-top text-secondary">
+      <div class="container-xxl">
+        <div class="flex-fill">
+          Passel · Invex Games
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>

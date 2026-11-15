@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+      <title>Testing | Passel </title>
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <meta name="title" content="Testing | Passel ">
+      
+      
+      <link rel="icon" href="../../resources/icon-48.png">
+      <link rel="stylesheet" href="../../public/docfx.min.css">
+      <link rel="stylesheet" href="../../public/main.css">
+      <meta name="docfx:navrel" content="../../toc.html">
+      <meta name="docfx:tocrel" content="../toc.html">
+      
+      <meta name="docfx:rel" content="../../">
+      
+      
+      <meta name="docfx:docurl" content="https://github.com/Invex-Games/passel/blob/main/docs/guides/testing.md/#L1">
+      <meta name="loc:inThisArticle" content="In this article">
+      <meta name="loc:searchResultsCount" content="{count} results for &quot;{query}&quot;">
+      <meta name="loc:searchNoResults" content="No results for &quot;{query}&quot;">
+      <meta name="loc:tocFilter" content="Filter by title">
+      <meta name="loc:nextArticle" content="Next">
+      <meta name="loc:prevArticle" content="Previous">
+      <meta name="loc:themeLight" content="Light">
+      <meta name="loc:themeDark" content="Dark">
+      <meta name="loc:themeAuto" content="Auto">
+      <meta name="loc:changeTheme" content="Change theme">
+      <meta name="loc:copy" content="Copy">
+      <meta name="loc:downloadPdf" content="Download PDF">
+
+      <script type="module" src="./../../public/docfx.min.js"></script>
+
+      <script>
+        const theme = localStorage.getItem('theme') || 'auto'
+        document.documentElement.setAttribute('data-bs-theme', theme === 'auto' ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : theme)
+      </script>
+
+  </head>
+
+  <body class="tex2jax_ignore" data-layout="" data-yaml-mime="">
+    <header class="bg-body border-bottom">
+      <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
+        <div class="container-xxl flex-nowrap">
+          <a class="navbar-brand" href="../../index.html">
+            <img id="logo" class="svg" src="../../resources/icon-128.png" alt="Passel">
+            Passel
+          </a>
+          <button class="btn btn-lg d-md-none border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navpanel" aria-controls="navpanel" aria-expanded="false" aria-label="Toggle navigation">
+            <i class="bi bi-three-dots"></i>
+          </button>
+          <div class="collapse navbar-collapse" id="navpanel">
+            <div id="navbar">
+              <form class="search" role="search" id="search">
+                <i class="bi bi-search"></i>
+                <input class="form-control" id="search-query" type="search" disabled placeholder="Search" autocomplete="off" aria-label="Search">
+              </form>
+            </div>
+          </div>
+        </div>
+      </nav>
+    </header>
+
+    <main class="container-xxl">
+      <div class="toc-offcanvas">
+        <div class="offcanvas-md offcanvas-start" tabindex="-1" id="tocOffcanvas" aria-labelledby="tocOffcanvasLabel">
+          <div class="offcanvas-header">
+            <h5 class="offcanvas-title" id="tocOffcanvasLabel">Table of Contents</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="offcanvas" data-bs-target="#tocOffcanvas" aria-label="Close"></button>
+          </div>
+          <div class="offcanvas-body">
+            <nav class="toc" id="toc"></nav>
+          </div>
+        </div>
+      </div>
+
+      <div class="content">
+        <div class="actionbar">
+          <button class="btn btn-lg border-0 d-md-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#tocOffcanvas" aria-controls="tocOffcanvas" aria-expanded="false" aria-label="Show table of contents">
+            <i class="bi bi-list"></i>
+          </button>
+
+          <nav id="breadcrumb"></nav>
+        </div>
+
+        <article data-uid="">
+<h1 id="testing">Testing</h1>
+
+<p>Each component has its own test suite. Only the Web API integration tests need Docker; nothing needs a running API.</p>
+<table>
+<thead>
+<tr>
+<th>Suite</th>
+<th>Tooling</th>
+<th>Run directly</th>
+<th>Run with Atom</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Web API</td>
+<td>xUnit v3 on Microsoft.Testing.Platform</td>
+<td><code>dotnet test --project src/webapi/Invex.Passel.WebApi.Tests/Invex.Passel.WebApi.Tests.csproj</code></td>
+<td><code>dotnet atom TestWebApi</code></td>
+</tr>
+<tr>
+<td>Web API integration</td>
+<td>xUnit v3, with PostgreSQL and Azurite in Docker containers (Testcontainers)</td>
+<td><code>dotnet test --project src/webapi/Invex.Passel.WebApi.IntegrationTests/Invex.Passel.WebApi.IntegrationTests.csproj</code></td>
+<td><code>dotnet atom TestWebApi</code>, after the unit tests</td>
+</tr>
+<tr>
+<td>Shared TypeScript packages, the Chrome extension and the web app</td>
+<td>TypeScript type-check of every workspace member, then Vitest: <code>src/packages/core/test</code> for the platform-free logic, <code>src/chrome-extension/test</code> for the extension's own modules, against a stubbed <code>chrome</code>, and <code>src/web/test</code> for the web app</td>
+<td><code>npm run typecheck</code> and <code>npm test</code> in <code>src</code></td>
+<td><code>dotnet atom TestChromeExtension</code>, with coverage</td>
+</tr>
+<tr>
+<td>Mobile app</td>
+<td><code>flutter analyze</code>, then <code>flutter test</code></td>
+<td>Both, in <code>src/mobile_app</code></td>
+<td><code>dotnet atom TestMobileApp</code>, with coverage</td>
+</tr>
+</tbody>
+</table>
+<p><code>dotnet atom Test</code> runs all three.</p>
+<h2 id="notes">Notes</h2>
+<ul>
+<li><code>global.json</code> selects Microsoft.Testing.Platform. Pass the test project with <code>--project</code>; a bare <code>dotnet test &lt;path&gt;</code> is parsed differently in this mode.</li>
+<li><code>dotnet atom TestMobileApp</code> uses whichever Flutter is on your <code>PATH</code>. Unlike <code>BuildMobileAppAndroid</code>, it never switches your SDK to the <code>flutter-version</code> the build pins.</li>
+<li>The extension's tests (<code>src/chrome-extension/test</code>) run its modules unbundled against <code>test/chrome.ts</code>, a stand-in for <code>chrome.*</code> with storage that keeps what is written, events a test can fire and <code>vi.fn()</code>s for the rest; <code>test/setup.ts</code> supplies the <code>__CONFIG__</code> the build would. The service worker's modules run in Node, which like a service worker has <code>fetch</code> and streams but no DOM: sign-in (the authorization URL for each prompt mode, the state, nonce, audience and expiry checks, account changes, development users), the API client (the 401 refresh, retry and sign-out matrix, ProblemDetails messages, the endpoints, the event stream and its idle timeout, with <code>fetch</code> stubbed), the live connection's port lifecycle and backoff, and the worker's message routing, delete scheduling and undo, context menus, keyboard commands and the <code>passel</code> keyword, with fake timers. The popup's composer and controller run in jsdom on the real <code>static/popup.html</code>, as the popup and as the side panel. <code>npm run test:coverage</code> in <code>src</code> writes each package's line and branch coverage to its <code>coverage/lcov.info</code> (with an HTML report beside it), and <code>dotnet atom TestChromeExtension</code> keeps both as the <code>ChromeExtensionCoverage</code> artifact (<code>atom-publish/ChromeExtensionCoverage/chrome-extension.lcov.info</code>, <code>core.lcov.info</code> and <code>web.lcov.info</code>).</li>
+<li>The mobile app's widget tests (<code>test/packets/*_test.dart</code>, <code>test/auth/login_page_test.dart</code>) drive the screens with the fakes in <code>test/fakes.dart</code>: the feed page signed in and out with its sync label, the list's loading, failure and empty states and its loading of older items, the send sheet, the tiles (copy, share and links, with the plugin channels mocked) and delete with undo. <code>dotnet atom TestMobileApp</code> runs <code>flutter test --coverage</code> and keeps the line coverage of <code>lib/</code>, <code>src/mobile_app/coverage/lcov.info</code>, as the <code>MobileAppCoverage</code> artifact (<code>atom-publish/MobileAppCoverage/lcov.info</code> locally, attached to the workflow run in CI).</li>
+<li>The Web API unit tests cover endpoint helpers, the event hub, notification payloads, id encoding, the link preview guards and extractor (the table of refused and allowed addresses, the URL checks, redirects, and the size and time limits, against a fake handler and a stand-in for DNS), and the device registry's checks: what a registration, a name and a push token may be, the push key, the device cap, and that no device response or <code>ToString</code> shows a token, and the file pipeline's parts: type sniffing, file names, the counting stream, the image inspector on images generated in the tests (orientation, metadata stripping, an animated GIF, a decompression bomb), the file quota and options, the download headers and the sweep's selection and worker. The Marten mappings, the SQL, the live-update path, the preview fetch end to end, the device registry's unique keys and races, uploads, downloads and the sweep against real storage, and the contract files are covered by the integration tests, against a real PostgreSQL and Azurite; see <a href="../components/web-api.html#integration-tests">Integration tests</a>.</li>
+</ul>
+<h2 id="contracts">Contracts</h2>
+<p><code>contracts/</code> at the repository root is read by all three suites, so a change to the packet wire shape or to the feed rules fails a test on every side that has not followed it:</p>
+<ul>
+<li><p>The Web API integration tests generate <code>contracts/openapi.json</code> and <code>contracts/fixtures/</code> from the running API and fail when the committed files differ. To regenerate them, run the integration tests with <code>PASSEL_UPDATE_CONTRACTS=1</code> in the environment (Docker running):</p>
+<pre><code>$env:PASSEL_UPDATE_CONTRACTS = &quot;1&quot;; dotnet test --project src/webapi/Invex.Passel.WebApi.IntegrationTests/Invex.Passel.WebApi.IntegrationTests.csproj
+</code></pre>
+<p>In a POSIX shell: <code>PASSEL_UPDATE_CONTRACTS=1 dotnet test --project …</code>. Review the diff and commit it with the change that caused it.</p>
+</li>
+<li><p>The extension (<code>test/contracts.test.ts</code>) and the mobile app (<code>test/contracts_test.dart</code>) parse every fixture with their real parsers and run every scenario in <code>contracts/feed-scenarios.json</code> through their feed stores. A fixture file or a scenario action they do not know fails both suites until they handle it.</p>
+</li>
+<li><p><code>contracts/feed-scenarios.json</code> is written by hand and explains its own format. Add a scenario when a feed rule changes.</p>
+</li>
+</ul>
+<p>See <a href="../components/web-api.html#contracts">Contracts</a> for what the files are and where the wire shape is declared.</p>
+
+</article>
+
+        <div class="contribution d-print-none">
+          <a href="https://github.com/Invex-Games/passel/blob/main/docs/guides/testing.md/#L1" class="edit-link">Edit this page</a>
+        </div>
+
+        <div class="next-article d-print-none border-top" id="nextArticle"></div>
+
+      </div>
+
+      <div class="affix">
+        <nav id="affix"></nav>
+      </div>
+    </main>
+
+    <div class="container-xxl search-results" id="search-results"></div>
+
+    <footer class="border-top text-secondary">
+      <div class="container-xxl">
+        <div class="flex-fill">
+          Passel · Invex Games
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>

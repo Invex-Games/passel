@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+      <title>ADR 0004: Hosting on Docker Compose on the owner&#39;s server | Passel </title>
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <meta name="title" content="ADR 0004: Hosting on Docker Compose on the owner&#39;s server | Passel ">
+      
+      
+      <link rel="icon" href="../../resources/icon-48.png">
+      <link rel="stylesheet" href="../../public/docfx.min.css">
+      <link rel="stylesheet" href="../../public/main.css">
+      <meta name="docfx:navrel" content="../../toc.html">
+      <meta name="docfx:tocrel" content="../toc.html">
+      
+      <meta name="docfx:rel" content="../../">
+      
+      
+      <meta name="docfx:docurl" content="https://github.com/Invex-Games/passel/blob/main/docs/decisions/0004-hosting-on-docker-compose.md/#L1">
+      <meta name="loc:inThisArticle" content="In this article">
+      <meta name="loc:searchResultsCount" content="{count} results for &quot;{query}&quot;">
+      <meta name="loc:searchNoResults" content="No results for &quot;{query}&quot;">
+      <meta name="loc:tocFilter" content="Filter by title">
+      <meta name="loc:nextArticle" content="Next">
+      <meta name="loc:prevArticle" content="Previous">
+      <meta name="loc:themeLight" content="Light">
+      <meta name="loc:themeDark" content="Dark">
+      <meta name="loc:themeAuto" content="Auto">
+      <meta name="loc:changeTheme" content="Change theme">
+      <meta name="loc:copy" content="Copy">
+      <meta name="loc:downloadPdf" content="Download PDF">
+
+      <script type="module" src="./../../public/docfx.min.js"></script>
+
+      <script>
+        const theme = localStorage.getItem('theme') || 'auto'
+        document.documentElement.setAttribute('data-bs-theme', theme === 'auto' ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : theme)
+      </script>
+
+  </head>
+
+  <body class="tex2jax_ignore" data-layout="" data-yaml-mime="">
+    <header class="bg-body border-bottom">
+      <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
+        <div class="container-xxl flex-nowrap">
+          <a class="navbar-brand" href="../../index.html">
+            <img id="logo" class="svg" src="../../resources/icon-128.png" alt="Passel">
+            Passel
+          </a>
+          <button class="btn btn-lg d-md-none border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navpanel" aria-controls="navpanel" aria-expanded="false" aria-label="Toggle navigation">
+            <i class="bi bi-three-dots"></i>
+          </button>
+          <div class="collapse navbar-collapse" id="navpanel">
+            <div id="navbar">
+              <form class="search" role="search" id="search">
+                <i class="bi bi-search"></i>
+                <input class="form-control" id="search-query" type="search" disabled placeholder="Search" autocomplete="off" aria-label="Search">
+              </form>
+            </div>
+          </div>
+        </div>
+      </nav>
+    </header>
+
+    <main class="container-xxl">
+      <div class="toc-offcanvas">
+        <div class="offcanvas-md offcanvas-start" tabindex="-1" id="tocOffcanvas" aria-labelledby="tocOffcanvasLabel">
+          <div class="offcanvas-header">
+            <h5 class="offcanvas-title" id="tocOffcanvasLabel">Table of Contents</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="offcanvas" data-bs-target="#tocOffcanvas" aria-label="Close"></button>
+          </div>
+          <div class="offcanvas-body">
+            <nav class="toc" id="toc"></nav>
+          </div>
+        </div>
+      </div>
+
+      <div class="content">
+        <div class="actionbar">
+          <button class="btn btn-lg border-0 d-md-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#tocOffcanvas" aria-controls="tocOffcanvas" aria-expanded="false" aria-label="Show table of contents">
+            <i class="bi bi-list"></i>
+          </button>
+
+          <nav id="breadcrumb"></nav>
+        </div>
+
+        <article data-uid="">
+<h1 id="adr-0004-hosting-on-docker-compose-on-the-owners-server">ADR 0004: Hosting on Docker Compose on the owner's server</h1>
+
+<p><strong>Status:</strong> accepted, November 2026. Supersedes <a href="0003-hosting-on-azure.html">ADR 0003</a>. The filesystem parcel store, the images, the compose stack and the <code>DeployCompose</code> workflow are all built; the <a href="../guides/deploying.html">deploying guide</a> describes the server setup the owner does once before the first deploy. <strong>Decides:</strong> where the API and the web app run, how they are built, deployed and rolled back, and where uploaded files are kept outside Azure.</p>
+<h2 id="context">Context</h2>
+<p>ADR 0003 put the API on Azure Container Apps with a managed PostgreSQL server, Key Vault and Application Insights. The owner has an Ubuntu x64 server of their own, and for one small API with one replica the Azure services cost more each month than the server does in a year. ADR 0003 weighed a VM with Docker Compose and set it aside because patching, TLS, backups and deployment would all be by hand; this decision answers each of those below. <a href="0002-product-decisions.html">ADR 0002</a> anticipated the move: should hosting leave Azure, the parcel store swaps behind its interface, and nothing in the clients depends on either.</p>
+<h2 id="options">Options</h2>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>For</th>
+<th>Against</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Azure Container Apps (ADR 0003)</td>
+<td>Managed revisions, jobs, identities and TLS; nothing to patch</td>
+<td>The running cost for one replica and a database server; Azure-only pieces in the AppHost</td>
+</tr>
+<tr>
+<td><strong>Docker Compose on the owner's server</strong></td>
+<td>One server already paid for; the same containers as anywhere else; a stack small enough to read in one file</td>
+<td>One machine: no failover, and the owner patches and backs it up</td>
+</tr>
+<tr>
+<td>k3s on the same server</td>
+<td>Rolling deploys and probes as in Kubernetes</td>
+<td>A cluster to run for two containers and a database, with nothing it does that Compose and a deploy script can't for one replica</td>
+</tr>
+<tr>
+<td>A platform as a service (Fly.io, Render, Railway)</td>
+<td>TLS, deploys and logs managed</td>
+<td>Another bill and another vendor, managed PostgreSQL priced like Azure's, and nowhere obvious for the files</td>
+</tr>
+</tbody>
+</table>
+<h2 id="decision">Decision</h2>
+<p>The API, the web app and PostgreSQL run as one Docker Compose project on the owner's server, deployed from GitHub Actions over SSH. Azure stays in the code but is no longer where Passel runs.</p>
+<p><strong>Versions and images.</strong> The build takes its version and build id from GitVersion, which <code>IBuild</code> uses as its provider. The version is GitVersion's SemVer (the same as its FullSemVer under <code>ContinuousDelivery</code>), which on <code>main</code> ends in the number of commits since the last version, as in <code>0.2.0-rc.12</code>, so every commit on <code>main</code> has a version of its own. Every image gets two tags: the version, with <code>+</code> and <code>/</code> replaced by <code>-</code>, which is immutable and is what gets deployed and rolled back to, and <code>sha-</code> with the first seven characters of the commit, for tracing an image to its source and as a backstop should two builds ever produce the same version, as two branches with the same name at different times could. There is no <code>latest</code>. The images live in GitHub Container Registry under <code>ghcr.io/invex-games/</code>: <code>passel-webapi</code>, the API, which also runs the <code>db-migrate</code> command; <code>passel-web</code>, Caddy serving the static web app; and <code>passel-deploy</code>, an image built from scratch that holds the compose files and scripts of the release under the same tag. Images are pushed only by builds of <code>main</code>; other builds build them without pushing. A version tag that exists already is never overwritten: before a push the build looks the tag up, skips the push when it is there with the same <code>org.opencontainers.image.revision</code>, and fails when it is there with another. The job that publishes depends on the API's tests, because the merge commit is what ships, whatever its pull request showed.</p>
+<p><strong>Environment values.</strong> Neither image holds an environment's values, so the image that ran in one environment is promoted unchanged to the next. The web app reads the API's address and the Google web client id from <code>/app/config.json</code> when it starts, and the web image writes that file when its container starts, from the server's <code>.env</code> (<code>https://&lt;API_HOST&gt;</code> and <code>GOOGLE_WEB_CLIENT_ID</code>), refusing to start when either is missing or not valid. Its content security policies are response headers, the app's built from the same origin. An earlier version of this decision compiled both values into the site from repository variables, which meant one web image per environment and a rebuild to move the API; the build no longer reads those variables. The API image is built by the .NET SDK's container support; its registry, repository and tags are passed by the publishing target only, so the Azure path's image naming does not change.</p>
+<p><strong>The web image.</strong> Caddy serves the output of the one web app build, with the security headers in a snippet that both the site and its 404 page import, the app's policy over them under <code>/app/</code>, its admin endpoint and automatic HTTPS off, and running as an unprivileged user. An entrypoint checks the two values and writes the app's configuration to a directory the image gives that user before Caddy starts; a value that could break out of the JSON or the Caddyfile is refused, not escaped. The base image's capability to bind low ports is removed from the Caddy binary, since it listens on 8080 and a binary with a file capability will not start in a container that drops every capability. TLS ends in front of it.</p>
+<p><strong>Files.</strong> A new <code>FileSystemParcelStore</code> keeps the bytes of uploaded files in a directory on a local disk, chosen with <code>Parcels:Store=FileSystem</code> and <code>Parcels:FileSystemRoot</code>. The default, <code>Auto</code>, keeps the old behaviour: Azure when the <code>passel-blobs</code> connection string is set, no store otherwise. Naming <code>AzureBlob</code> without that connection string stops the API at startup rather than quietly leaving it with no store. The store writes each upload to a temp file, flushes it, renames it into place without overwriting and then flushes the directory, so a parcel recorded as uploaded has its bytes on disk even after a power cut; its own disk failures are answered with 503 like a storage outage, and are kept apart from other I/O errors such as a client that stops sending. It works on a local disk only: a network share weakens the rename and the flushes it relies on. See <a href="../components/web-api.html#parcels">Parcels</a>.</p>
+<p><strong>The database and its roles.</strong> PostgreSQL 18 runs in the stack with a data volume. A script run on every deploy, as the superuser the container creates, makes sure two logins exist with the passwords in the server's <code>.env</code>: <code>passel_owner</code>, which owns the database and may create roles but is not a superuser, and <code>passel_api</code>. The <code>db-migrate</code> command always runs as <code>passel_owner</code>; the default privileges it grants apply only to tables later created by the same login, so it must be the same login every time. Should <code>passel_owner</code> turn out to lack a privilege the migration needs, the migration runs as the superuser instead, under the same rule. The API connects as <code>passel_api</code>, which the migration makes a member of <code>passel_app</code> and which therefore has only DML.</p>
+<p><strong>The proxy.</strong> Neither the API nor the web app publishes a port. By default a bundled Caddy (the <code>edge</code> profile) takes ports 80 and 443, gets certificates with ACME, and is the only address the API trusts forwarded headers from: it has a fixed address on the stack's <code>edge</code> network, outside the range the other containers get theirs from, and the API sets <code>ForwardedHeaders:Enabled</code> with that address as its one known network, never <code>ASPNETCORE_FORWARDEDHEADERS_ENABLED</code>. A server that already runs a proxy uses an override file instead: one joins the proxy's own Docker network, another binds the API and the web app to the loopback for a proxy on the host. The server's <code>.env</code> names the files and profiles, so every compose command sees the same stack. Compose 2.24 or later is required.</p>
+<p><strong>Deploying.</strong> A manual workflow, <code>DeployCompose</code>, deploys to one of two stacks, pre-prod or production, chosen by its required <code>target</code> input; it runs in the GitHub environment of that name, which holds that stack's server, user, host keys and deploy key, with a concurrency group per stack, <code>deploy-compose-&lt;target&gt;</code>, beside the Azure workflow's <code>deploy-webapi</code>. The two stacks can share a server: each has its own directory, project name, subnets, proxy aliases and gate, and each key is forced to its own stack's gate, which deploys only the directory it is installed in. It checks that all three images exist at the tag, then connects over SSH with a key whose <code>authorized_keys</code> entry forces one command, a gate script that accepts only <code>deploy &lt;tag&gt;</code> and optionally <code>--no-migrate</code>, checks the tag against <code>^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$</code>, reads a registry token from standard input into a temporary Docker configuration that it removes afterwards, pulls the deploy image, copies its files to <code>releases/&lt;tag&gt;/</code> and runs that release's deploy script. The tag is checked in the build, in the gate and in the script. The script runs the one-off services in order (the roles, the parcels directory, the migration unless told not to), then starts the API and the web app and waits for them to be healthy, then checks <code>/health</code> through the proxy. Passel's own images are pulled only when the server lacks them, since their tags never move, the other images are pulled on every deploy, which brings their patches in, except on a rollback (<code>--no-migrate</code>), which uses the images the server has and so needs no registry at all; a deploy whose other registries are unreachable goes on with the images the server has. The gate and the script hold one lock, so one deploy runs at a time. Only after the check does it record the release; a failed deploy prints the API's and the web app's logs (the migration's output is already in the run's log) and leaves the record as it was. The server keeps the current and previous release and an append-only log of releases.</p>
+<p><strong>Rolling back.</strong> A rollback is the same workflow with an older tag and the migration off, which brings back that release's images together with that release's compose files. That only works if the previous release runs against the newer schema, so a release may add columns only when they are nullable or have a default; the migration never drops one.</p>
+<p><strong>Settings.</strong> The API and the migration get an explicit environment in the compose file, never an <code>env_file</code>, with <code>ASPNETCORE_ENVIRONMENT</code> and <code>DOTNET_ENVIRONMENT</code> both <code>Production</code>. The Azure settings stay unset: <code>APPLICATIONINSIGHTS_CONNECTION_STRING</code>, every <code>AZURE_*</code> variable, <code>Database:ApiRoleObjectId</code>, <code>Authentication:Google:ClientSecret</code> and <code>ASPNETCORE_FORWARDEDHEADERS_ENABLED</code>. Passwords are generated as hex, which needs no quoting in a connection string or in compose; the Sqids alphabet is quoted in <code>.env</code>, and must equal the one any earlier deployment used.</p>
+<p><strong>Health and hardening.</strong> The API's container is checked with a plain HTTP request to <code>/health</code> from inside it, with <code>localhost</code> as the host, which <code>AllowedHosts</code> lists, made with the image's bash, since it has no curl or wget. The web app's is a <code>wget</code> of its root. The API and the web app run without new privileges and with every capability dropped. Every service's logs rotate at 10 MB, five files.</p>
+<p><strong>Backups.</strong> A script run by cron on the server dumps the database first, in PostgreSQL's custom format, with its roles alongside, and then archives the parcels volume. Shipping the backups off the server is the owner's choice of tool.</p>
+<p><strong>Azure.</strong> The Azure code stays where it is: the AppHost's Azure hosting, the Azure blob store, the <code>Deploy</code> workflow and its concurrency group. Nothing removes it in this change.</p>
+<h2 id="answers-to-all-by-hand">Answers to &quot;all by hand&quot;</h2>
+<ul>
+<li><strong>TLS:</strong> the bundled Caddy gets and renews certificates by itself, or the server's existing proxy keeps doing it.</li>
+<li><strong>Patching:</strong> <code>unattended-upgrades</code> patches the server. Dependabot updates the dependencies, and every build of <code>main</code> rebuilds the images from fresh base images, so a deploy picks up patched images too. PostgreSQL minor versions arrive with the image; a major version is a dump and a restore.</li>
+<li><strong>Backups:</strong> the backup script and the restore drill in the deploying guide; the database and the parcels volume are consistent only as a pair.</li>
+<li><strong>Deployment:</strong> the manual workflow, with GitHub's run history as the audit trail and the <code>production</code> environment's protection rules in front of it.</li>
+</ul>
+<h2 id="consequences">Consequences</h2>
+<ul>
+<li>One machine is a single point of failure. That is accepted: the API already ran one replica, because its rate limits, stream caps and upload gates count per instance.</li>
+<li>The owner runs the server: its updates, its disk, its backups and its restore drills.</li>
+<li>The web app is built once for every environment and its image promoted unchanged; the server's <code>.env</code> holds the API's address and the web client id, and the web container refuses to start without them.</li>
+<li>The parcels volume and the database must be backed up and restored together.</li>
+<li>New columns must be nullable or have a default, so a rollback keeps working.</li>
+<li>The deploy key can run Docker, which is as good as root on the server. The forced command is what limits it to deploying a validated tag.</li>
+</ul>
+<h2 id="follow-ups">Follow-ups</h2>
+<ul>
+<li>Removing the Azure path once the server has run for a while.</li>
+<li>An S3-compatible parcel store, should the files outgrow one disk.</li>
+<li>How a staging environment would be named and built, given one web image per environment.</li>
+</ul>
+
+</article>
+
+        <div class="contribution d-print-none">
+          <a href="https://github.com/Invex-Games/passel/blob/main/docs/decisions/0004-hosting-on-docker-compose.md/#L1" class="edit-link">Edit this page</a>
+        </div>
+
+        <div class="next-article d-print-none border-top" id="nextArticle"></div>
+
+      </div>
+
+      <div class="affix">
+        <nav id="affix"></nav>
+      </div>
+    </main>
+
+    <div class="container-xxl search-results" id="search-results"></div>
+
+    <footer class="border-top text-secondary">
+      <div class="container-xxl">
+        <div class="flex-fill">
+          Passel · Invex Games
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>

@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+      <title>UI Design | Passel </title>
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <meta name="title" content="UI Design | Passel ">
+      
+      
+      <link rel="icon" href="../../resources/icon-48.png">
+      <link rel="stylesheet" href="../../public/docfx.min.css">
+      <link rel="stylesheet" href="../../public/main.css">
+      <meta name="docfx:navrel" content="../../toc.html">
+      <meta name="docfx:tocrel" content="../toc.html">
+      
+      <meta name="docfx:rel" content="../../">
+      
+      
+      <meta name="docfx:docurl" content="https://github.com/Invex-Games/passel/blob/main/docs/evaluation/ui-design.md/#L1">
+      <meta name="loc:inThisArticle" content="In this article">
+      <meta name="loc:searchResultsCount" content="{count} results for &quot;{query}&quot;">
+      <meta name="loc:searchNoResults" content="No results for &quot;{query}&quot;">
+      <meta name="loc:tocFilter" content="Filter by title">
+      <meta name="loc:nextArticle" content="Next">
+      <meta name="loc:prevArticle" content="Previous">
+      <meta name="loc:themeLight" content="Light">
+      <meta name="loc:themeDark" content="Dark">
+      <meta name="loc:themeAuto" content="Auto">
+      <meta name="loc:changeTheme" content="Change theme">
+      <meta name="loc:copy" content="Copy">
+      <meta name="loc:downloadPdf" content="Download PDF">
+
+      <script type="module" src="./../../public/docfx.min.js"></script>
+
+      <script>
+        const theme = localStorage.getItem('theme') || 'auto'
+        document.documentElement.setAttribute('data-bs-theme', theme === 'auto' ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : theme)
+      </script>
+
+  </head>
+
+  <body class="tex2jax_ignore" data-layout="" data-yaml-mime="">
+    <header class="bg-body border-bottom">
+      <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
+        <div class="container-xxl flex-nowrap">
+          <a class="navbar-brand" href="../../index.html">
+            <img id="logo" class="svg" src="../../resources/icon-128.png" alt="Passel">
+            Passel
+          </a>
+          <button class="btn btn-lg d-md-none border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navpanel" aria-controls="navpanel" aria-expanded="false" aria-label="Toggle navigation">
+            <i class="bi bi-three-dots"></i>
+          </button>
+          <div class="collapse navbar-collapse" id="navpanel">
+            <div id="navbar">
+              <form class="search" role="search" id="search">
+                <i class="bi bi-search"></i>
+                <input class="form-control" id="search-query" type="search" disabled placeholder="Search" autocomplete="off" aria-label="Search">
+              </form>
+            </div>
+          </div>
+        </div>
+      </nav>
+    </header>
+
+    <main class="container-xxl">
+      <div class="toc-offcanvas">
+        <div class="offcanvas-md offcanvas-start" tabindex="-1" id="tocOffcanvas" aria-labelledby="tocOffcanvasLabel">
+          <div class="offcanvas-header">
+            <h5 class="offcanvas-title" id="tocOffcanvasLabel">Table of Contents</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="offcanvas" data-bs-target="#tocOffcanvas" aria-label="Close"></button>
+          </div>
+          <div class="offcanvas-body">
+            <nav class="toc" id="toc"></nav>
+          </div>
+        </div>
+      </div>
+
+      <div class="content">
+        <div class="actionbar">
+          <button class="btn btn-lg border-0 d-md-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#tocOffcanvas" aria-controls="tocOffcanvas" aria-expanded="false" aria-label="Show table of contents">
+            <i class="bi bi-list"></i>
+          </button>
+
+          <nav id="breadcrumb"></nav>
+        </div>
+
+        <article data-uid="">
+<h1 id="ui-design">UI Design</h1>
+
+<p>Scope: how the clients look, as opposed to how they work (<a href="ux.html">User Experience</a>). The extension popup was rendered from the real bundle with sample data; the screenshots below are in <code>images/</code>. The mobile app was reviewed from its widgets and theme, not from a device, so its findings are about structure and colour rather than pixel polish.</p>
+<table>
+<thead>
+<tr>
+<th>Feed (light)</th>
+<th>Feed (dark)</th>
+<th>Signed out</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><img src="images/extension-feed-light.jpg" alt="Feed, light"></td>
+<td><img src="images/extension-feed-dark.jpg" alt="Feed, dark"></td>
+<td><img src="images/extension-signed-out.jpg" alt="Signed out"></td>
+</tr>
+</tbody>
+</table>
+<table>
+<thead>
+<tr>
+<th>Scrolled feed</th>
+<th>Copy menu</th>
+<th>After sending</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><img src="images/extension-feed-light-scrolled.jpg" alt="Scrolled"></td>
+<td><img src="images/extension-copy-menu.jpg" alt="Copy menu"></td>
+<td><img src="images/extension-send-status.jpg" alt="Status bar"></td>
+</tr>
+</tbody>
+</table>
+<h2 id="verdict">Verdict</h2>
+<p>Clean, consistent and clearly Material 3: both clients use the same seed colour and token set, dark mode is correct, and the mobile app picks up Material You dynamic colour. What holds it back is the tile. Every item is drawn as a small window with a saturated title bar and three always-visible buttons, so the feed is heavy, repetitive and low on information: a link looks like a note looks like a file, there is no time or source, and link bodies are raw URLs. The composer also takes a quarter of the popup permanently. The fix is a lighter list item with better metadata, not a new design language.</p>
+<p>Score: 3 / 5.</p>
+<h2 id="strengths">Strengths</h2>
+<ul>
+<li>One palette, two platforms: <code>popup.css</code> carries the full MD3 token set (light and dark) generated from the same seed as <code>theme.dart</code>, so the extension and the app feel related.</li>
+<li>Dark mode is a first-class citizen (<code>prefers-color-scheme</code> in the popup, <code>darkTheme</code> plus dynamic colour on Android) and reads well.</li>
+<li>MD3 components are reproduced faithfully by hand in the popup: filled and tonal buttons, outlined text field with a floating label, menu, snackbar, icon buttons with state layers.</li>
+<li>Motion is restrained and purposeful: tiles slide in, the app bar collapses on scroll, the refresh indicator has a proper armed state, and the mobile list staggers entrance animations.</li>
+<li>Loading and feedback states exist for every action (button spinners, &quot;Sending…&quot;, undo snackbars, &quot;Live&quot; indicator).</li>
+</ul>
+<h2 id="findings">Findings</h2>
+<ol>
+<li><p><strong>Tile anatomy is heavy (Medium).</strong> Each tile has a 48 px <code>primary-container</code> header strip holding an icon, the title and two or three icon buttons, over a pale body (<code>popup.css</code> <code>.packet-header</code>, <code>tile_header.dart</code>). Three and a half tiles fit in the popup. The strips are the most saturated thing on screen, so the eye lands on chrome rather than content, and a list of twenty items is twenty identical blue bars.</p>
+</li>
+<li><p><strong>Types are not differentiated (Low).</strong> The only difference between a link, a note and a file is an 18 px glyph. Colour, shape and layout are identical.</p>
+</li>
+<li><p><strong>Link bodies are raw URLs (Medium).</strong> A long URL wraps over four lines and dominates the tile (<code>images/extension-feed-light.jpg</code>). There is no favicon, host or preview image.</p>
+</li>
+<li><p><strong>No metadata line (Medium).</strong> Nothing shows when an item was sent or from where. This is an API gap first (<a href="ux.html">UX</a> finding 3) but it also leaves the tile with nothing to put in a secondary line.</p>
+</li>
+<li><p><strong>&quot;Packet&quot; placeholder titles (Low).</strong> Every untitled item gets a bold title that says &quot;Packet&quot;.</p>
+</li>
+<li><p><strong>The composer is always expanded (Low).</strong> &quot;Send Current Page&quot;, a two-row text area and a send button occupy about 150 px of the 600 px popup before the first item.</p>
+</li>
+<li><p><strong>Two feedback styles and a layout shift (Low).</strong> The status bar is in normal flow and pushes everything down when it appears (<code>images/extension-send-status.jpg</code>); the toast overlays. One snackbar should do both jobs.</p>
+</li>
+<li><p><strong>Bare signed-out and empty states (Low).</strong> A single button over a greyed-out composer, and a single sentence of text.</p>
+</li>
+<li><p><strong>Thin branding (Low).</strong> The paper-plane icon appears in the popup header and store icons, but the mobile login page uses <code>Icons.send_rounded</code> (<code>login_page.dart</code>) rather than the logo, there is no wordmark, and the docs site uses the icon with default theming. A small brand kit (logo, wordmark, colour, icon style, tone of voice) would tie the clients and the coming web app together.</p>
+</li>
+<li><p><strong>Icon sets differ (Low).</strong> The popup draws its own line icons as inline SVG paths (<code>popup.ts</code> <code>ICONS</code>), the app uses Material Icons. The link and delete glyphs differ between clients.</p>
+</li>
+<li><p><strong>MD2-style app bar on mobile (Low).</strong> <code>packet_feed_page.dart</code> colours the app bar with <code>inversePrimary</code>, a light blue band. MD3 top bars sit on surface colours and tint on scroll; the band dates the screen and competes with the tiles.</p>
+</li>
+<li><p><strong>Popup type is small (Info).</strong> Body text is 13 px and titles 14 px; MD3 body-medium is 14 px and title-medium 16 px. Fine for a dense popup, but the web app should not inherit it.</p>
+</li>
+</ol>
+<h2 id="direction">Direction</h2>
+<p>Keep the tokens, drop the window chrome. The proposed list item for all three clients:</p>
+<pre><code>[favicon or type glyph]  Title or host                          2h
+                         learn.microsoft.com/en-us/aspnet/...  (links)
+                         First line of the note…               (notes)
+                         IMG_20261021.jpg · 1.2 MB · thumbnail (files)
+</code></pre>
+<ul>
+<li><strong>Leading:</strong> the site favicon for links (fetched server-side once with the link preview, or from a favicon service as a stopgap), a tonal circle with a glyph for notes and files, a square thumbnail for images.</li>
+<li><strong>Title line:</strong> the real title, else the host for links or nothing for notes. Never a placeholder word.</li>
+<li><strong>Secondary line:</strong> host or snippet, truncated to one line; relative time right-aligned; day headers (&quot;Today&quot;, &quot;Yesterday&quot;, &quot;14 October&quot;) between groups.</li>
+<li><strong>Actions:</strong> on desktop, revealed on hover and in an overflow menu; on mobile, swipe and long-press, with the open action on tap. Delete stays reachable by keyboard.</li>
+<li><strong>Surfaces:</strong> items on <code>surface-container-low</code> over a <code>surface</code> background, no header strip. Reserve <code>primary</code> for the send button and FAB. Use <code>tertiary-container</code> for file items and <code>secondary-container</code> for notes if type colour is wanted; keep it subtle.</li>
+<li><strong>Tap:</strong> opens the link, or expands the note in place (desktop) or opens a detail page (mobile) with full text, selectable, with copy and share.</li>
+<li><strong>Density:</strong> aim for six to eight items per popup screen.</li>
+</ul>
+<p>Composer: make &quot;Send current page&quot; the one prominent button and collapse the note field to a single row that grows when focused. Put the account in an avatar menu instead of spelling out the email in the header.</p>
+<p>States: the signed-out popup gets the logo, one sentence, the sign-in button and a link to the phone app; the empty feed gets three tips. Both get a simple illustration from the brand kit.</p>
+<h2 id="options-for-building-it">Options for building it</h2>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Pros</th>
+<th>Cons</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Keep the hand-rolled MD3 CSS</strong> in the extension and share it with the web app as a small CSS and component package</td>
+<td>Already works, tiny, matches <code>theme.dart</code> exactly, no framework lock-in</td>
+<td>Every component is bespoke; menus, dialogs and sheets need writing and testing by hand</td>
+</tr>
+<tr>
+<td><strong>Google's <code>@material/web</code> components</strong></td>
+<td>Official MD3 look, accessible, framework-agnostic web components</td>
+<td>Google put the project in maintenance mode in 2025; limited components (no list item, no navigation rail), uncertain future</td>
+</tr>
+<tr>
+<td><strong>A framework kit (MUI for React, Vuetify for Vue, Beer CSS for plain HTML)</strong></td>
+<td>Complete component sets, themable from the same tokens, active maintenance</td>
+<td>Pulls a framework into the extension or diverges the extension from the web app</td>
+</tr>
+</tbody>
+</table>
+<p>Recommendation: keep the hand-rolled tokens and grow them into a shared <code>@passel/ui</code> package consumed by both the extension and the web app, adding only the components the design above needs (list item, day header, snackbar, sheet, menu, avatar menu). The mobile app keeps Flutter's Material components with the same tokens. Revisit a framework kit only if the web app grows well past the feed.</p>
+<h2 id="steps-forward">Steps forward</h2>
+<ol>
+<li>Decide the vocabulary and ordering (<a href="ux.html">UX</a> findings 4 and 5) so the redesign uses them.</li>
+<li>Add <code>CreatedAt</code> to the API (needed for the metadata line).</li>
+<li>Redesign the list item in the extension first (smallest surface, fastest to iterate), using the harness approach from this review to preview it without loading the extension.</li>
+<li>Port the item, day headers and states to the mobile app; replace the <code>inversePrimary</code> app bar with a surface-coloured one.</li>
+<li>Produce a small brand kit (logo, wordmark, icon style, illustrations for empty states) and apply it to the login page, the signed-out popup and the docs site.</li>
+<li>Use the same tokens and components in the web app from day one.</li>
+</ol>
+
+</article>
+
+        <div class="contribution d-print-none">
+          <a href="https://github.com/Invex-Games/passel/blob/main/docs/evaluation/ui-design.md/#L1" class="edit-link">Edit this page</a>
+        </div>
+
+        <div class="next-article d-print-none border-top" id="nextArticle"></div>
+
+      </div>
+
+      <div class="affix">
+        <nav id="affix"></nav>
+      </div>
+    </main>
+
+    <div class="container-xxl search-results" id="search-results"></div>
+
+    <footer class="border-top text-secondary">
+      <div class="container-xxl">
+        <div class="flex-fill">
+          Passel · Invex Games
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>
