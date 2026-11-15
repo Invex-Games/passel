@@ -46,7 +46,7 @@ The version tag is the one deployed and rolled back to. It never moves: a build 
 
 Once, as an administrator on the server, then on GitHub. These steps set up production in `/opt/passel`; a pre-prod stack beside it follows the same steps with its own directory, key and settings, as described in [Pre-prod and production on one server](#pre-prod-and-production-on-one-server).
 
-1. **Updates.** `sudo apt install unattended-upgrades` and keep it on, so security updates install themselves.
+1. **Updates.** `sudo apt install unattended-upgrades` and keep it on, so security updates install themselves. The containers are another matter: they change only when a release is deployed. Every Passel service carries `com.centurylinklabs.watchtower.enable=false`, so a Watchtower already updating the server's other containers leaves them alone. Without it, Watchtower would move `postgres:18` to a new minor release outside a deploy, and fail every night on the private images.
 2. **The deploy user.** It runs Docker, and a member of the `docker` group can do anything root can, so it gets no password and no other use:
    ```
    sudo adduser --disabled-password --gecos "" deploy
